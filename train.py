@@ -163,7 +163,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     metric_dict = defaultdict(list)
 
     results = defaultdict(list)
-    # result_indexes = []
 
     # used to turn on/off gradients
     grad_context = torch.autograd.enable_grad if is_train else torch.no_grad
@@ -185,12 +184,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
 
-                keypoints_2d_pred = None
-                cuboids_pred = None
+                keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
                     keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(images_batch, proj_matricies_batch, batch)
                 elif model_type == "vol":
-                    keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred = model(images_batch, proj_matricies_batch, batch)
+                    keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(images_batch, proj_matricies_batch, batch)
 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
                 n_joints = keypoints_3d_pred[0].shape[1]
@@ -216,25 +214,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # calculate loss
                 total_loss = 0.0
-                # for stage_i in range(n_stages):
                 loss = criterion(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
-                # weight = config.opt.stage_loss_weights[stage_i] if hasattr(config.opt, "stage_loss_weights") else 1.0
-                # total_loss += weight * loss
                 total_loss += loss
                 metric_dict[f'{config.opt.criterion}'].append(loss.item())
-
-                # metric_dict[f'{config.opt.criterion}_total'].append(total_loss.item())
-
-                # # volumetric bce loss
-                # use_volumetric_bce_loss = config.opt.use_volumetric_bce_loss if hasattr(config.opt, "use_volumetric_bce_loss") else False
-                # if use_volumetric_bce_loss:
-                #     volumetric_bce_criterion = VolumetricBCELoss()
-                #
-                #     loss = volumetric_bce_criterion(coord_volumes, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
-                #     metric_dict['volumetric_bce_loss'].append(loss.item())
-                #
-                #     weight = config.opt.volumetric_bce_loss_weight if hasattr(config.opt, "volumetric_bce_loss_weight") else 1.0
-                #     total_loss += weight * loss
 
                 # volumetric ce loss
                 use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
@@ -264,10 +246,28 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 l2 = KeypointsL2Loss()(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
                 metric_dict['l2'].append(l2.item())
 
+                # base point l2
+                if base_points_pred is not None:
+                    base_point_l2_list = []
+                    for batch_i in range(batch_size):
+                        base_point_pred = base_points_pred[batch_i]
+
+                        if config.model.kind == "coco":
+                            base_point_gt = (keypoints_3d_gt[batch_i, 11, :3] + keypoints_3d[batch_i, 12, :3]) / 2
+                        elif config.model.kind == "mpii":
+                            base_point_gt = keypoints_3d_gt[batch_i, 6, :3]
+                        # print(base_points_pred.shape)
+                        # print(base_point_pred)
+                        # print(base_point_gt)
+                        base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred - base_point_gt) ** 2)).item())
+
+                    base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
+                    metric_dict['base_point_l2'].append(base_point_l2)
+
                 # save answers for evalulation
                 if not is_train:
                     results['keypoints_3d'].append(keypoints_3d_pred.detach().cpu().numpy())
-                    results['indexes'].extend(batch['indexes'])
+                    results['indexes'].append(batch['indexes'])
 
                 # plot visualization
                 if master:
@@ -339,9 +339,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     # calculate evaluation metrics
     if master:
         if not is_train:
-            results = np.concatenate(results['keypoints_3d'], axis=0)
+            results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
+            results['indexes'] = np.concatenate(results['indexes'])
+
             try:
-                scalar_metric, full_metric = dataloader.dataset.evaluate(results)
+                scalar_metric, full_metric = dataloader.dataset.evaluate(results['keypoints_3d'])
             except Exception as e:
                 print("Failed to evaluate. Reason: ", e)
                 scalar_metric, full_metric = 0.0, {}

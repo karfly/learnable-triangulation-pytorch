@@ -279,6 +279,7 @@ class VolumetricTriangulationNet(nn.Module):
 
         # build coord volumes
         cuboids = []
+        base_points = torch.zeros(batch_size, 3, device=device)
         coord_volumes = torch.zeros(batch_size, self.volume_size, self.volume_size, self.volume_size, 3, device=device)
         for batch_i in range(batch_size):
             # if self.use_precalculated_pelvis:
@@ -291,6 +292,8 @@ class VolumetricTriangulationNet(nn.Module):
                 base_point = (keypoints_3d[11, :3] + keypoints_3d[12, :3]) / 2
             elif self.kind == "mpii":
                 base_point = keypoints_3d[6, :3]
+
+            base_points[batch_i] = torch.from_numpy(base_point).to(device)
 
             # build cuboid
             sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
@@ -349,4 +352,4 @@ class VolumetricTriangulationNet(nn.Module):
         volumes = self.volume_net(volumes)
         vol_keypoints_3d, volumes = op.integrate_tensor_3d_with_coordinates(volumes * self.volume_multiplier, coord_volumes, softmax=self.volume_softmax)
 
-        return vol_keypoints_3d, features, volumes, vol_confidences, cuboids, coord_volumes
+        return vol_keypoints_3d, features, volumes, vol_confidences, cuboids, coord_volumes, base_points

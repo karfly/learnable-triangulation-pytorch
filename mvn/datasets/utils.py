@@ -26,7 +26,7 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
         batch['cameras'] = [[item['cameras'][i] for item in items] for i in indexes]
 
         batch['keypoints_3d'] = [item['keypoints_3d'] for item in items]
-        batch['cuboids'] = [item['cuboids'] for item in items]
+        # batch['cuboids'] = [item['cuboids'] for item in items]
         batch['indexes'] = [item['indexes'] for item in items]
 
         try:

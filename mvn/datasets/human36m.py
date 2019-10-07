@@ -104,6 +104,12 @@ class Human36MMultiViewDataset(Dataset):
         self.pred_results = None
         if pred_results_path is not None:
             pred_results = np.load(pred_results_path, allow_pickle=True)
+
+            # keypoints_3d_pred = pred_results['keypoints_3d']
+            # indexes_pred = pred_results['indexes']
+            #
+            # keypoints_3d_pred = keypoints_3d_pred[np.argsort(indexes_pred)]
+            # self.pred_results = keypoints_3d_pred[::retain_every_n_frames_test]
             self.pred_results = pred_results[::retain_every_n_frames_in_test]
 
             assert len(self.pred_results) == len(self)
@@ -172,10 +178,10 @@ class Human36MMultiViewDataset(Dataset):
             ((0,0), (0,1)), 'constant', constant_values=1.0)
 
         # build cuboid
-        base_point = sample['keypoints_3d'][6, :3]
-        sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
-        position = base_point - sides / 2
-        sample['cuboids'] = volumetric.Cuboid3D(position, sides)
+        # base_point = sample['keypoints_3d'][6, :3]
+        # sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
+        # position = base_point - sides / 2
+        # sample['cuboids'] = volumetric.Cuboid3D(position, sides)
 
         # save sample's index
         sample['indexes'] = idx

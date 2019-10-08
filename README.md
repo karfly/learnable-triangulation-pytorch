@@ -25,13 +25,13 @@ pip install -r requirements.txt
 3. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place here: `data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
 4. If you want to train Volumetric model, you need rough estimations of the 3D skeleton both for train and val splits. You have two options:
  - Rough 3D skeletons can be estimated by Algebraic model and placed to `data/precalculated_results/human36m/results_train.pkl` and `data/precalculated_results/human36m/results_val.pkl` respectively.
- - Other option is to use GT estimate of the 3D skeleton by setting `use_gt_pelvis: true` in a config. Here you don't need any precalculated results, but evaluation becomes unfair, because GT "leaks" to evaluation process.
+ - Other option is to use GT estimate of the 3D skeleton by setting `use_gt_pelvis: true` in a config. Here you don't need any precalculated results, but such training mode overestimates the resulting accuracy, because pelvis is always perfectly defined.
 
 #### CMU Panoptic
 *Will be added soon*
 
 ## Train
-Every experiment is defined by config. Configs with experiments from the paper can be found in `experiments` directory:
+Every experiment is defined by `.config` files. Configs with experiments from the paper can be found in `experiments` directory (results can be found below):
 
 **Human3.6M:**
  1. Algebraic w/o confidences - [experiments/human36m/train/human36m_alg_no_conf.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg_no_conf.yaml)
@@ -46,7 +46,7 @@ Every experiment is defined by config. Configs with experiments from the paper c
 
 #### Single-GPU
 
-E.g., to train Volumetric model with softmax aggregation and GT-estimated pelvises using 1 GPU - run:
+To train a Volumetric model with softmax aggregation and GT-estimated pelvises using **1 GPU** - run:
 ```bash
 python3 train.py \
   --config experiments/human36m/train/human36m_vol_softmax_gtpelvis.yaml \
@@ -58,7 +58,7 @@ The training will start with given `--config` and logs (including tensorboard fi
 #### Multi-GPU (*in testing*)
 Multi-GPU training is implemented with PyTorch [DistributedDataParallel](https://pytorch.org/docs/stable/nn.html#distributeddataparallel). It can be used both for single-machine and multi-machine (cluster) training. To run the processes use PyTorch [launch utility](https://github.com/pytorch/pytorch/blob/master/torch/distributed/launch.py).
 
-E.g., to train Volumetric model with softmax aggregation and GT-estimated pelvises using 2 GPU on single machine - run:
+To train a Volumetric model with softmax aggregation and GT-estimated pelvises using **2 GPUs on single machine** - run:
 ```bash
 python3 -m torch.distributed.launch --nproc_per_node=2 --master_port={ANY_FREE_PORT} \
   train.py  \
@@ -93,12 +93,12 @@ Argument `--eval_dataset` can be `val` or `train`. Results can be seen in `logs`
 
 # Results
 * We conduct experiments on two available large multi-view datasets: Human3.6M [\[2\]](#references) and CMU Panoptic [\[3\]](#references)
-* Main metric is **MPJPE** (Mean Per Joint Position Error) which is L2 distance averaged over all joints
+*  The main metric is **MPJPE** (Mean Per Joint Position Error) which is the L2 distance averaged over all joints
 
 ## Human3.6M
-* We significantly surpassed previous state of the art (error relative to pelvis)
-* Our best model reaches **17.7 mm** error in absolute coordinates, which is more than enough for real-life applications
-* Our Volumetric model is able to estimate 3D human pose using **any number of cameras**, even using **only 1 camera**. In single-view setup we get results comparable with current state of the art [\[6\]](#references) (49.9 mm vs. 49.6 mm)
+* We significantly improved upon previous state of the art (error relative to pelvis, without alingment)
+* Our best model reaches **17.7 mm** error in absolute coordinates, which was unattainable before
+* Our Volumetric model is able to estimate 3D human pose using **any number of cameras**, even using **only 1 camera**. In single-view setup we get results comparable with recent state of the art [\[6\]](#references) (49.9 mm vs. 49.6 mm)
 
 <br>
 MPJPE relative to pelvis:
@@ -109,7 +109,7 @@ MPJPE relative to pelvis:
 | Pavlakos et al. [\[8\]](#references)   	          |   56.9   	|
 | Tome et al. [\[4\]](#references)                 	|   52.8   	|
 | Kadkhodamohammadi & Padoy [\[5\]](#references)   	|   49.1   	|
-| Qiu et al. [\[9\]](#references)   	|   26.2   	|
+| [Qiu et al.](https://github.com/microsoft/multiview-human-pose-estimation-pytorch) [\[9\]](#references)   	|   26.2   	|
 | RANSAC (our implementation) 	|   27.4   	|
 | **Ours, algebraic**          	|   22.6   	|
 | **Ours, volumetric**         	| **20.8** 	|
@@ -136,7 +136,6 @@ MPJPE relative to pelvis (single-view methods):
 ## CMU Panoptic
 * Our best model reaches **13.7 mm** error in absolute coordinates for 4 cameras
 * We managed to get much smoother and more accurate 3D pose annotations compared to dataset annotations (see [video demonstration](http://www.youtube.com/watch?v=z3f3aPSuhqg))
-* CMU Panoptic dataset contains ~30 cameras, so we measured quality of our methods in relation to the number of cameras
 
 <br>
 MPJPE relative to pelvis [4 cameras]:
@@ -185,6 +184,7 @@ Volumetric triangulation additionally improves accuracy, drastically reducing th
 # Contributors
  - [Karim Iskakov](https://github.com/karfly)
  - [Egor Burkov](https://github.com/shrubb)
+ - [Victor Lempitsky](https://scholar.google.com/citations?user=gYYVokYAAAAJ&hl=ru)
  - [Yury Malkov](https://github.com/yurymalkov)
  - [Rasul Kerimov](https://github.com/rrkarim)
  - [Ivan Bulygin](https://github.com/blufzzz)
@@ -201,4 +201,4 @@ Volumetric triangulation additionally improves accuracy, drastically reducing th
 * [\[6\]](#references) X. Sun, B. Xiao, S. Liang, and Y. Wei. **Integral human pose regression**.
 * [\[7\]](#references) J. Martinez, R. Hossain, J. Romero, and J. J. Little. **A simple yet effective baseline for 3d human pose estimation**.
 * [\[8\]](#references) G. Pavlakos, X. Zhou, K. G. Derpanis, and  K. Daniilidis. **Harvesting multiple views for marker-less 3D human pose annotations**.
-* [\[9\]](#references) H. Qiu, C. Wang, J. Wang, N. Wang and W. Zeng. (2019). **Cross View Fusion for 3D Human Pose Estimation**.
+* [\[9\]](#references) H. Qiu, C. Wang, J. Wang, N. Wang and W. Zeng. (2019). **Cross View Fusion for 3D Human Pose Estimation**, [GitHub](https://github.com/microsoft/multiview-human-pose-estimation-pytorch)

@@ -11,7 +11,7 @@ opt:
   use_volumetric_ce_loss: true
   volumetric_ce_loss_weight: 0.01
 
-  n_objects_per_epoch: 5000
+  n_objects_per_epoch: 15000
   n_epochs: 9999
 
   batch_size: 5

@@ -96,7 +96,7 @@ Argument `--eval_dataset` can be `val` or `train`. Results can be seen in `logs`
 * Main metric is **MPJPE** (Mean Per Joint Position Error) which is L2 distance averaged over all joints
 
 ## Human3.6M
-* We surpassed previous state of the art [\[5\]](#references) in **~2.4** times (error relative to pelvis)
+* We significantly surpassed previous state of the art (error relative to pelvis)
 * Our best model reaches **17.7 mm** error in absolute coordinates, which is more than enough for real-life applications
 * Our Volumetric model is able to estimate 3D human pose using **any number of cameras**, even using **only 1 camera**. In single-view setup we get results comparable with current state of the art [\[6\]](#references) (49.9 mm vs. 49.6 mm)
 
@@ -109,6 +109,7 @@ MPJPE relative to pelvis:
 | Pavlakos et al. [\[8\]](#references)   	          |   56.9   	|
 | Tome et al. [\[4\]](#references)                 	|   52.8   	|
 | Kadkhodamohammadi & Padoy [\[5\]](#references)   	|   49.1   	|
+| Qiu et al. [\[9\]](#references)   	|   26.2   	|
 | RANSAC (our implementation) 	|   27.4   	|
 | **Ours, algebraic**          	|   22.6   	|
 | **Ours, volumetric**         	| **20.8** 	|
@@ -200,3 +201,4 @@ Volumetric triangulation additionally improves accuracy, drastically reducing th
 * [\[6\]](#references) X. Sun, B. Xiao, S. Liang, and Y. Wei. **Integral human pose regression**.
 * [\[7\]](#references) J. Martinez, R. Hossain, J. Romero, and J. J. Little. **A simple yet effective baseline for 3d human pose estimation**.
 * [\[8\]](#references) G. Pavlakos, X. Zhou, K. G. Derpanis, and  K. Daniilidis. **Harvesting multiple views for marker-less 3D human pose annotations**.
+* [\[9\]](#references) H. Qiu, C. Wang, J. Wang, N. Wang and W. Zeng. (2019). **Cross View Fusion for 3D Human Pose Estimation**.

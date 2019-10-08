@@ -404,7 +404,7 @@ def main(args):
         "ransac": RANSACTriangulationNet,
         "alg": AlgebraicTriangulationNet,
         "vol": VolumetricTriangulationNet
-    }[config.model.name](config).to(device)
+    }[config.model.name](config, device=device).to(device)
 
     if config.model.init_weights:
         state_dict = torch.load(config.model.checkpoint)
@@ -448,7 +448,7 @@ def main(args):
 
     # multi-gpu
     if is_distributed:
-        model = DistributedDataParallel(model)
+        model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:
         # train loop

@@ -104,15 +104,9 @@ class Human36MMultiViewDataset(Dataset):
         self.pred_results = None
         if pred_results_path is not None:
             pred_results = np.load(pred_results_path, allow_pickle=True)
-
-            # keypoints_3d_pred = pred_results['keypoints_3d']
-            # indexes_pred = pred_results['indexes']
-            #
-            # keypoints_3d_pred = keypoints_3d_pred[np.argsort(indexes_pred)]
-            # self.pred_results = keypoints_3d_pred[::retain_every_n_frames_test]
-            self.pred_results = pred_results[::retain_every_n_frames_in_test]
-
-            assert len(self.pred_results) == len(self)
+            keypoints_3d_pred = pred_results['keypoints_3d'][np.argsort(pred_results['indexes'])]
+            self.keypoints_3d_pred = keypoints_3d_pred[::retain_every_n_frames_in_test]
+            assert len(self.keypoints_3d_pred) == len(self)
 
     def __len__(self):
         return len(self.labels['table'])
@@ -186,8 +180,8 @@ class Human36MMultiViewDataset(Dataset):
         # save sample's index
         sample['indexes'] = idx
 
-        if self.pred_results is not None:
-            sample['pred_keypoints_3d'] = self.pred_results[idx]
+        if self.keypoints_3d_pred is not None:
+            sample['pred_keypoints_3d'] = self.keypoints_3d_pred[idx]
 
         sample.default_factory = None
         return sample

@@ -318,7 +318,7 @@ class PoseResNet(nn.Module):
         return heatmaps, features, alg_confidences, vol_confidences
 
 
-def get_pose_net(config):
+def get_pose_net(config, device='cuda:0'):
     block_class, layers = resnet_spec[config.num_layers]
     if config.style == 'caffe':
         block_class = Bottleneck_CAFFE
@@ -338,8 +338,7 @@ def get_pose_net(config):
     if config.init_weights:
         print("Loading pretrained weights from: {}".format(config.checkpoint))
         model_state_dict = model.state_dict()
-        pretrained_state_dict = torch.load(config.checkpoint)
-        print('torch.cuda.is_available()', torch.cuda.is_available())
+        pretrained_state_dict = torch.load(config.checkpoint, map_location=device)
 
         if 'state_dict' in pretrained_state_dict:
             pretrained_state_dict = pretrained_state_dict['state_dict']

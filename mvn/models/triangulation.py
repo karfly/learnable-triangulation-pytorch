@@ -201,7 +201,7 @@ class AlgebraicTriangulationNet(nn.Module):
 
 
 class VolumetricTriangulationNet(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, device='cuda:0'):
         super().__init__()
 
         self.num_joints = config.model.backbone.num_joints
@@ -230,7 +230,7 @@ class VolumetricTriangulationNet(nn.Module):
         if self.volume_aggregation_method.startswith('conf'):
             config.model.backbone.vol_confidences = True
 
-        self.backbone = pose_resnet.get_pose_net(config.model.backbone)
+        self.backbone = pose_resnet.get_pose_net(config.model.backbone, device=device)
 
         for p in self.backbone.final_layer.parameters():
             p.requires_grad = False

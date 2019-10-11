@@ -20,14 +20,14 @@ number_of_processes = int(sys.argv[3])
 dataset = Human36MMultiViewDataset(
     h36m_root,
     labels_multiview_npy_path,
-    train=True,
+    train=True,                       # include all possible data
     test=True,
-    image_shape=None,
-    retain_every_n_frames_in_test=1,
-    with_damaged_actions=True,
-    scale_bbox=1.0,
+    image_shape=None,                 # don't resize
+    retain_every_n_frames_in_test=1,  # yes actually ALL possible data
+    with_damaged_actions=True,        # I said ALL DATA
     kind="mpii",
-    norm_image=False)
+    norm_image=False,                 # don't do unnecessary image processing
+    crop=False)                       # don't crop
 print("Dataset length:", len(dataset))
 
 n_subjects = len(dataset.labels['subject_names'])

@@ -15,13 +15,13 @@ from mvn.models.v2v import V2VModel
 
 
 class RANSACTriangulationNet(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, device='cuda:0'):
         super().__init__()
 
         config.model.backbone.alg_confidences = False
         config.model.backbone.vol_confidences = False
-        self.backbone = pose_resnet.get_pose_net(config.model.backbone)
-        # self.return_confidences = config.backbone.return_confidences
+        self.backbone = pose_resnet.get_pose_net(config.model.backbone, device=device)
+        
         self.direct_optimization = config.model.direct_optimization
 
     def forward(self, images, proj_matricies, batch):
@@ -129,7 +129,7 @@ class RANSACTriangulationNet(nn.Module):
 
 
 class AlgebraicTriangulationNet(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, device='cuda:0'):
         super().__init__()
 
         self.use_confidences = config.model.use_confidences
@@ -140,7 +140,7 @@ class AlgebraicTriangulationNet(nn.Module):
         if self.use_confidences:
             config.model.backbone.alg_confidences = True
 
-        self.backbone = pose_resnet.get_pose_net(config.model.backbone)
+        self.backbone = pose_resnet.get_pose_net(config.model.backbone, device=device)
 
         self.heatmap_softmax = config.model.heatmap_softmax
         self.heatmap_multiplier = config.model.heatmap_multiplier

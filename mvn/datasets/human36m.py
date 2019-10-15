@@ -101,7 +101,7 @@ class Human36MMultiViewDataset(Dataset):
         self.num_keypoints = 16 if kind == "mpii" else 17
         assert self.labels['table']['keypoints'].shape[1] == 17, "Use a newer 'labels' file"
 
-        self.pred_results = None
+        self.keypoints_3d_pred = None
         if pred_results_path is not None:
             pred_results = np.load(pred_results_path, allow_pickle=True)
             keypoints_3d_pred = pred_results['keypoints_3d'][np.argsort(pred_results['indexes'])]

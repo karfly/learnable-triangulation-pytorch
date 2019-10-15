@@ -256,10 +256,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             base_point_gt = (keypoints_3d_gt[batch_i, 11, :3] + keypoints_3d[batch_i, 12, :3]) / 2
                         elif config.model.kind == "mpii":
                             base_point_gt = keypoints_3d_gt[batch_i, 6, :3]
-                        # print(base_points_pred.shape)
-                        # print(base_point_pred)
-                        # print(base_point_gt)
-                        base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred - base_point_gt) ** 2)).item())
+
+                        base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred * scale_keypoints_3d - base_point_gt * scale_keypoints_3d) ** 2)).item())
 
                     base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
                     metric_dict['base_point_l2'].append(base_point_l2)

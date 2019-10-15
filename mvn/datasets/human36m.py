@@ -180,8 +180,10 @@ class Human36MMultiViewDataset(Dataset):
         # save sample's index
         sample['indexes'] = idx
 
-        if self.keypoints_3d_pred is not None:
+        try:
             sample['pred_keypoints_3d'] = self.keypoints_3d_pred[idx]
+        except AttributeError:
+            pass
 
         sample.default_factory = None
         return sample

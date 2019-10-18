@@ -1,4 +1,4 @@
-title: "human36m_vol_softmax_gtpelvis"
+title: "human36m_ransac"
 kind: "human36m"
 vis_freq: 1000
 vis_n_elements: 10
@@ -6,41 +6,28 @@ vis_n_elements: 10
 image_shape: [384, 384]
 
 opt:
-  criterion: "MAE"
-
-  use_volumetric_ce_loss: true
-  volumetric_ce_loss_weight: 0.01
+  criterion: "MSESmooth"
+  mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
   n_epochs: 9999
 
-  batch_size: 5
-  val_batch_size: 10
+  batch_size: 8
+  val_batch_size: 100
 
-  lr: 0.0001
-  process_features_lr: 0.001
-  volume_net_lr: 0.001
+  lr: 0.00001
 
   scale_keypoints_3d: 0.1
 
 model:
-  name: "vol"
-  kind: "mpii"
-  volume_aggregation_method: "softmax"
+  name: "ransac"
 
   init_weights: false
   checkpoint: ""
 
-  use_gt_pelvis: true
-
-  cuboid_side: 2500.0
-
-  volume_size: 64
-  volume_multiplier: 1.0
-  volume_softmax: true
-
-  heatmap_softmax: true
+  direct_optimization: true
   heatmap_multiplier: 100.0
+  heatmap_softmax: true
 
   backbone:
     name: "resnet152"
@@ -58,7 +45,6 @@ dataset:
   train:
     h36m_root: "./data/human36m/processed"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-
     with_damaged_actions: true
     undistort_images: true
 
@@ -73,7 +59,6 @@ dataset:
   val:
     h36m_root: "./data/human36m/processed"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-
     with_damaged_actions: true
     undistort_images: true
 
@@ -85,4 +70,4 @@ dataset:
     max_n_views: null
     num_workers: 8
 
-    retain_every_n_frames_in_test: 30
+    retain_every_n_frames_in_test: 1

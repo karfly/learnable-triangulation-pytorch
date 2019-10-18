@@ -180,10 +180,8 @@ class Human36MMultiViewDataset(Dataset):
         # save sample's index
         sample['indexes'] = idx
 
-        try:
+        if self.keypoints_3d_pred is not None:
             sample['pred_keypoints_3d'] = self.keypoints_3d_pred[idx]
-        except AttributeError:
-            pass
 
         sample.default_factory = None
         return sample
@@ -270,4 +268,4 @@ class Human36MMultiViewDataset(Dataset):
             'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, split_by_subject)
         }
 
-        return result['per_pose_error']['Average']['Average'], result
+        return result['per_pose_error_relative']['Average']['Average'], result

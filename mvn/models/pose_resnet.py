@@ -372,6 +372,6 @@ def get_pose_net(config, device='cuda:0'):
             print("Parameters [{}] were not inited".format(not_inited_params))
 
         model.load_state_dict(new_pretrained_state_dict, strict=False)
-        print("Successfully loaded pretrained weights")
+        print("Successfully loaded pretrained weights for backbone")
 
     return model

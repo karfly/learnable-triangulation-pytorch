@@ -7,6 +7,7 @@ from datetime import datetime
 from collections import defaultdict
 from itertools import islice
 import pickle
+import copy
 
 import numpy as np
 import cv2
@@ -406,7 +407,12 @@ def main(args):
 
     if config.model.init_weights:
         state_dict = torch.load(config.model.checkpoint)
-        model.load_state_dict(state_dict, strict=False)
+        for key in list(state_dict.keys()):
+            new_key = key.replace("module.", "")
+            state_dict[new_key] = state_dict.pop(key)
+
+        model.load_state_dict(state_dict, strict=True)
+        print("Successfully loaded pretrained weights for whole model")
 
     # criterion
     criterion_class = {

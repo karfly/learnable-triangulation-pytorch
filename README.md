@@ -22,34 +22,27 @@ pip install -r requirements.txt
 
 #### Human3.6M
 1. Download and preprocess the dataset by following the instructions in [mvn/datasets/human36m_preprocessing/README.md](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/mvn/datasets/human36m_preprocessing/README.md).
-2. Place the preprocessed dataset to `data/human36m`. If you don't want to store the dataset in the directory with code, just create a soft symbolic link: `ln -s {PATH_TO_HUMAN36M_DATASET}  ./data/human36m`.
-3. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place them here: `data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
-4. If you want to train Volumetric model, you need rough estimations of the 3D skeleton both for train and val splits. You have two options:
- - Rough 3D skeletons can be estimated by Algebraic model and placed to `data/precalculated_results/human36m/results_train.pkl` and `data/precalculated_results/human36m/results_val.pkl` respectively.
- - Other option is to use the ground truth (GT) estimate of the 3D skeleton by setting `use_gt_pelvis: true` in a config file. Here you don't need any precalculated results, but such training mode overestimates the resulting accuracy, because pelvis is always perfectly defined.
+2. Place the preprocessed dataset to `./data/human36m`. If you don't want to store the dataset in the directory with code, just create a soft symbolic link: `ln -s {PATH_TO_HUMAN36M_DATASET}  ./data/human36m`.
+3. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place them here: `./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
+4. If you want to train Volumetric model, you need rough estimations of the 3D skeleton both for train and val splits. In the paper we estimate 3D skeletons via Algebraic model. You can use [pretrained](#model-zoo) Algebraic model to produce predictions or just take [precalculated 3D skeletons](#model-zoo).
 
-#### CMU Panoptic
-*Will be added soon*
-
-## Train
-Every experiment is defined by `.config` files. Configs with experiments from the paper can be found in `experiments` directory (results can be found below):
+## Model zoo
+In this section we collect pretrained models and configs. All **pretrained weights** and **precalculated 3D skeletons** can be downloaded from [Google Drive](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and placed to `./data` dir, so that eval configs can work out-of-the-box (without additional setting of paths).
 
 **Human3.6M:**
- 1. Algebraic w/o confidences — [experiments/human36m/train/human36m_alg_no_conf.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg_no_conf.yaml)
- 2. Algebraic w/ confidences — [experiments/human36m/train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg.yaml)
- 3. Volumetric (softmax aggregation) — [experiments/human36m/train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax.yaml)
- 4. Volumetric (softmax aggregation, GT pelvis) — [experiments/human36m/train/human36m_vol_softmax_gtpelvis.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax_gtpelvis.yaml)
 
- **CMU Panoptic**
-
- *Will be added soon*
-
+| Model                | Train config                                                                                                                                                                            | Eval config                                                                                                                                                                           | Weights                                                                                    | Precalculated results                                                  | MPJPE (relative to pelvis), mm |
+|----------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------------------:|-------------------------------:|
+| Algebraic            |         [train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/train/human36m_alg.yaml)         |         [eval/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/eval/human36m_alg.yaml)         | [link](https://drive.google.com/file/d/1HAqMwH94kCfTs9jUHiuCB7vt94rMvxWe/view?usp=sharing) | [link](https://drive.google.com/drive/folders/1LCzMQswdn4UM9fbRYOZb3FmMZ7pZFyIP?usp=sharing) | 22.4                           |
+| Volumetric (softmax) | [train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/train/human36m_vol_softmax.yaml) | [eval/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/eval/human36m_vol_softmax.yaml) | [link](https://drive.google.com/file/d/1r6Ut3oMKPxhyxRh3PZ05taaXwekhJWqj/view?usp=sharing) |                                               —                                              | **20.5**                       |
+## Train
+Every experiment is defined by `.config` files. Configs with experiments from the paper can be found in the `./experiments` directory (see [model zoo](#model-zoo)).
 
 #### Single-GPU
-To train a Volumetric model with softmax aggregation and GT-estimated pelvises using **1 GPU**, run:
+To train a Volumetric model with softmax aggregation using **1 GPU**, run:
 ```bash
 python3 train.py \
-  --config experiments/human36m/train/human36m_vol_softmax_gtpelvis.yaml \
+  --config train/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 
@@ -58,11 +51,11 @@ The training will start with the config file specified by `--config`, and logs (
 #### Multi-GPU (*in testing*)
 Multi-GPU training is implemented with PyTorch's [DistributedDataParallel](https://pytorch.org/docs/stable/nn.html#distributeddataparallel). It can be used both for single-machine and multi-machine (cluster) training. To run the processes use the PyTorch [launch utility](https://github.com/pytorch/pytorch/blob/master/torch/distributed/launch.py).
 
-To train a Volumetric model with softmax aggregation and GT-estimated pelvises using **2 GPUs on single machine**, run:
+To train a Volumetric model with softmax aggregation using **2 GPUs on single machine**, run:
 ```bash
 python3 -m torch.distributed.launch --nproc_per_node=2 --master_port=2345 \
   train.py  \
-  --config experiments/human36m/train/human36m_vol_softmax_gtpelvis.yaml \
+  --config train/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 
@@ -86,7 +79,7 @@ Run:
 ```bash
 python3 train.py \
   --eval --eval_dataset val \
-  --config experiments/human36m/eval/human36m_vol_softmax.yaml \
+  --config eval/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 Argument `--eval_dataset` can be `val` or `train`. Results can be seen in `logs` directory or in the tensorboard.
@@ -111,8 +104,8 @@ MPJPE relative to pelvis:
 | Kadkhodamohammadi & Padoy [\[5\]](#references)   	|   49.1   	|
 | [Qiu et al.](https://github.com/microsoft/multiview-human-pose-estimation-pytorch) [\[9\]](#references)   	|   26.2   	|
 | RANSAC (our implementation) 	|   27.4   	|
-| **Ours, algebraic**          	|   22.6   	|
-| **Ours, volumetric**         	| **20.8** 	|
+| **Ours, algebraic**          	|   22.4   	|
+| **Ours, volumetric**         	| **20.5** 	|
 
 <br>
 MPJPE absolute (scenes with invalid ground-truth annotations are excluded):
@@ -190,6 +183,7 @@ Volumetric triangulation additionally improves accuracy, drastically reducing th
  - [Ivan Bulygin](https://github.com/blufzzz)
 
 # News
+**18 Oct 2019:** Pretrained models (algebraic and volumetric) for Human3.6M are released.
 **8 Oct 2019:** Code is released!
 
 # References

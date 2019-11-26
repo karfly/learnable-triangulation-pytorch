@@ -56,9 +56,9 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "./data/human36m/processed"
+    h36m_root: "./data/human36m/processed/_undistorted"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "./data/precalculated_results/human36m/results_train.pkl"
+    pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: true
     undistort_images: true
@@ -72,9 +72,9 @@ dataset:
     num_workers: 8
 
   val:
-    h36m_root: "./data/human36m/processed"
+    h36m_root: "./data/human36m/processed/_undistorted"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "./data/precalculated_results/human36m/results_val.pkl"
+    pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
     with_damaged_actions: true
     undistort_images: true

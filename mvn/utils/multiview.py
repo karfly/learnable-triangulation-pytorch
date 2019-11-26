@@ -4,10 +4,19 @@ import torch
 
 class Camera:
     def __init__(self, R, t, K, dist=None, name=""):
-        self.R = R.copy()
-        self.t = t.copy()
-        self.K = K.copy()
+        self.R = np.array(R).copy()
+        assert self.R.shape == (3, 3)
+
+        self.t = np.array(t).copy()
+        assert self.t.size == 3
+        self.t = self.t.reshape(3, 1)
+
+        self.K = np.array(K).copy()
+        assert self.K.shape == (3, 3)
+
         self.dist = dist
+        if self.dist is not None:
+            self.dist = np.array(self.dist).copy().flatten()
 
         self.name = name
 

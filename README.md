@@ -33,8 +33,8 @@ In this section we collect pretrained models and configs. All **pretrained weigh
 
 | Model                | Train config                                                                                                                                                                            | Eval config                                                                                                                                                                           | Weights                                                                                    | Precalculated results                                                  | MPJPE (relative to pelvis), mm |
 |----------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------------------:|-------------------------------:|
-| Algebraic            |         [train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg.yaml)         |         [eval/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_alg.yaml)         | [link](https://drive.google.com/file/d/1HAqMwH94kCfTs9jUHiuCB7vt94rMvxWe/view?usp=sharing) | [link](https://drive.google.com/drive/folders/1LCzMQswdn4UM9fbRYOZb3FmMZ7pZFyIP?usp=sharing) | 22.4                           |
-| Volumetric (softmax) | [train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax.yaml) | [eval/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_vol_softmax.yaml) | [link](https://drive.google.com/file/d/1r6Ut3oMKPxhyxRh3PZ05taaXwekhJWqj/view?usp=sharing) |                                               —                                              | **20.5**                       |
+| Algebraic            |         [train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg.yaml)         |         [eval/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_alg.yaml)         | [link](https://drive.google.com/file/d/1HAqMwH94kCfTs9jUHiuCB7vt94rMvxWe/view?usp=sharing) | [link](https://drive.google.com/file/d/1RO7tQdUI2gmlA58Jvw9M21NWIYPQgjPE/view?usp=sharing) | 22.5                           |
+| Volumetric (softmax) | [train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax.yaml) | [eval/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_vol_softmax.yaml) | [link](https://drive.google.com/file/d/1r6Ut3oMKPxhyxRh3PZ05taaXwekhJWqj/view?usp=sharing) |                                               —                                              | **20.4**                       |
 ## Train
 Every experiment is defined by `.config` files. Configs with experiments from the paper can be found in the `./experiments` directory (see [model zoo](#model-zoo)).
 
@@ -183,8 +183,9 @@ Volumetric triangulation additionally improves accuracy, drastically reducing th
  - [Ivan Bulygin](https://github.com/blufzzz)
 
 # News
-**18 Oct 2019:** Pretrained models (algebraic and volumetric) for Human3.6M are released.
-**8 Oct 2019:** Code is released!
+- **26 Nov 2019:** Updataed [precalculated results](#model-zoo) (see [this issue](https://github.com/karfly/learnable-triangulation-pytorch/issues/37)).
+- **18 Oct 2019:** Pretrained models (algebraic and volumetric) for Human3.6M are released.
+- **8 Oct 2019:** Code is released!
 
 # References
 * [\[1\]](#references) R. Hartley and A. Zisserman. **Multiple view geometry in computer vision**.

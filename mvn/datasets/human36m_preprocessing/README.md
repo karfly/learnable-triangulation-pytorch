@@ -1,7 +1,7 @@
 Human3.6M preprocessing scripts
 =======
 
-These scripts help preprocess Human3.6M dataset so that it can be used in `Human36MMultiViewDataset` from [this system](https://github.sec.samsung.net/RRU8-VIOLET/multi-view-net/).
+These scripts help preprocess Human3.6M dataset so that it can be used with `class Human36MMultiViewDataset`.
 
 Here is how we do it (brace yourselves):
 

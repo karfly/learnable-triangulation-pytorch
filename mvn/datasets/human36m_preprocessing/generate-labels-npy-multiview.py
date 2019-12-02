@@ -8,6 +8,9 @@ import os, sys
 import numpy as np
 import h5py
 
+# Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's "ground truth".
+BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
+
 retval = {
     'subject_names': ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'],
     'camera_names': ['54138969', '55011271', '58860488', '60457274'],
@@ -48,7 +51,8 @@ table_dtype = np.dtype([
 retval['table'] = []
 
 h36m_root = sys.argv[1]
-assert all(subject.startswith('S') for subject in os.listdir(h36m_root))
+
+destination_file_path = os.path.join(h36m_root, "extra", f"human36m-multiview-labels-{BBOXES_SOURCE}bboxes.npy")
 
 una_dinosauria_root = sys.argv[2]
 cameras_params = h5py.File(os.path.join(una_dinosauria_root, 'cameras.h5'), 'r')
@@ -102,9 +106,6 @@ for subject in bboxes.keys():
             for frame_idx, bbox in enumerate(bbox_array):
                 bbox[:] = square_the_bbox(bbox)
 
-# Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's "ground truth".
-BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
-
 if BBOXES_SOURCE is not 'GT':
     def replace_gt_bboxes_with_cnn(bboxes_gt, bboxes_detected_path, detections_file_list):
         """
@@ -142,18 +143,18 @@ if BBOXES_SOURCE is not 'GT':
     replace_gt_bboxes_with_cnn(
         bboxes,
         detections_paths[BBOXES_SOURCE]['train'],
-        '/Vol1/dbstore/datasets/Human3.6M/train-images-list.txt')
+        "/Vol1/dbstore/datasets/Human3.6M/train-images-list.txt")
 
     replace_gt_bboxes_with_cnn(
         bboxes,
         detections_paths[BBOXES_SOURCE]['test'],
-        '/Vol1/dbstore/datasets/Human3.6M/test-images-list.txt')
+        "/Vol1/dbstore/datasets/Human3.6M/test-images-list.txt")
 
 # fill retval['table']
 from action_to_una_dinosauria import action_to_una_dinosauria
 
 for subject_idx, subject in enumerate(retval['subject_names']):
-    subject_path = os.path.join(h36m_root, subject)
+    subject_path = os.path.join(h36m_root, "processed", subject)
     actions = os.listdir(subject_path)
     try:
         actions.remove('MySegmentsMat') # folder with bbox *.mat files
@@ -201,5 +202,5 @@ for subject_idx, subject in enumerate(retval['subject_names']):
 retval['table'] = np.concatenate(retval['table'])
 assert retval['table'].ndim == 1
 
-print('Total frames in Human3.6Million:', len(retval['table']))
-np.save(f'human36m-multiview-labels-{BBOXES_SOURCE}bboxes.npy', retval)
+print("Total frames in Human3.6Million:", len(retval['table']))
+np.save(destination_file_path, retval)

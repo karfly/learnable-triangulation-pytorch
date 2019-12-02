@@ -13,7 +13,7 @@ import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../.."))
 from mvn.datasets.human36m import Human36MMultiViewDataset
 
-h36m_root = sys.argv[1]
+h36m_root = os.path.join(sys.argv[1], "processed")
 labels_multiview_npy_path = sys.argv[2]
 number_of_processes = int(sys.argv[3])
 
@@ -96,7 +96,7 @@ def undistort_and_save(idx):
         camera_name = dataset.labels['camera_names'][camera_idx]
 
         output_image_folder = os.path.join(
-            dataset.h36m_root + "_undistorted", subject, action, 'imageSequence-undistorted', camera_name)
+            h36m_root, subject, action, 'imageSequence-undistorted', camera_name)
         output_image_path = os.path.join(output_image_folder, 'img_%06d.jpg' % (frame_idx+1))
         os.makedirs(output_image_folder, exist_ok=True)
 
@@ -113,3 +113,6 @@ pool = multiprocessing.Pool(number_of_processes)
 for _ in tqdm(pool.imap_unordered(
     undistort_and_save, range(len(dataset)), chunksize=10), total=len(dataset)):
     pass
+
+pool.close()
+pool.join()

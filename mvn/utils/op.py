@@ -131,7 +131,10 @@ def unproject_heatmaps(heatmaps, proj_matricies, coord_volumes, volume_aggregati
 
             # prepare to F.grid_sample
             grid_coord_proj = grid_coord_proj.unsqueeze(1).unsqueeze(0)
-            current_volume = F.grid_sample(heatmap, grid_coord_proj)
+            try:
+                current_volume = F.grid_sample(heatmap, grid_coord_proj, align_corners=True)
+            except TypeError: # old PyTorch
+                current_volume = F.grid_sample(heatmap, grid_coord_proj)
 
             # zero out non-valid points
             current_volume = current_volume.view(n_joints, -1)

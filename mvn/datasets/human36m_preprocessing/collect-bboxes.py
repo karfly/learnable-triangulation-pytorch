@@ -10,9 +10,14 @@ import os, sys
 import numpy as np
 import h5py
 
-dataset_path = sys.argv[1]
-subjects = os.listdir(dataset_path)
-assert all(subject.startswith('S') for subject in subjects)
+dataset_root = sys.argv[1]
+data_path = os.path.join(dataset_root, "processed")
+subjects = [x for x in os.listdir(data_path) if x.startswith('S')]
+assert len(subjects) == 7
+
+destination_dir = os.path.join(dataset_root, "extra")
+os.makedirs(destination_dir, exist_ok=True)
+destination_file_path = os.path.join(destination_dir, "bboxes-Human36M-GT.npy")
 
 # Some bbox files do not exist, can be misaligned, damaged etc.
 from action_to_bbox_filename import action_to_bbox_filename
@@ -22,7 +27,7 @@ nesteddict = lambda: defaultdict(nesteddict)
 
 bboxes_retval = nesteddict()
 
-def load_bboxes(dataset_path, subject, action, camera):
+def load_bboxes(data_path, subject, action, camera):
     print(subject, action, camera)
 
     def mask_to_bbox(mask):
@@ -45,7 +50,7 @@ def load_bboxes(dataset_path, subject, action, camera):
 
         # TODO use pathlib
         bboxes_path = os.path.join(
-            dataset_path,
+            data_path,
             subject,
             'MySegmentsMat',
             'ground_truth_bb',
@@ -78,7 +83,7 @@ pool = multiprocessing.Pool(num_processes)
 async_errors = []
 
 for subject in subjects:
-    subject_path = os.path.join(dataset_path, subject)
+    subject_path = os.path.join(data_path, subject)
     actions = os.listdir(subject_path)
     try:
         actions.remove('MySegmentsMat') # folder with bbox *.mat files
@@ -91,7 +96,7 @@ for subject in subjects:
         for camera in cameras:
             async_result = pool.apply_async(
                 load_bboxes,
-                args=(dataset_path, subject, action, camera),
+                args=(data_path, subject, action, camera),
                 callback=add_result_to_retval)
             async_errors.append(async_result)
 
@@ -110,4 +115,4 @@ def freeze_defaultdict(x):
 
 # convert to normal dict
 freeze_defaultdict(bboxes_retval)
-np.save('bboxes-Human36M-GT.npy', bboxes_retval)
+np.save(destination_file_path, bboxes_retval)

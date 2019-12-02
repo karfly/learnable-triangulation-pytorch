@@ -25,7 +25,6 @@ model:
   init_weights: true
   checkpoint: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/weights.pth"
 
-
   use_confidences: true
   heatmap_multiplier: 100.0
   heatmap_softmax: true
@@ -44,7 +43,7 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "./data/human36m/processed/_undistorted"
+    h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
     undistort_images: true
@@ -58,7 +57,7 @@ dataset:
     num_workers: 8
 
   val:
-    h36m_root: "./data/human36m/processed/_undistorted"
+    h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
     undistort_images: true

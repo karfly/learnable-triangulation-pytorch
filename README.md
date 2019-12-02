@@ -22,19 +22,19 @@ pip install -r requirements.txt
 
 #### Human3.6M
 1. Download and preprocess the dataset by following the instructions in [mvn/datasets/human36m_preprocessing/README.md](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/mvn/datasets/human36m_preprocessing/README.md).
-2. Place the preprocessed dataset to `./data/human36m`. If you don't want to store the dataset in the directory with code, just create a soft symbolic link: `ln -s {PATH_TO_HUMAN36M_DATASET}  ./data/human36m`.
-3. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place them here: `./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
-4. If you want to train Volumetric model, you need rough estimations of the 3D skeleton both for train and val splits. In the paper we estimate 3D skeletons via Algebraic model. You can use [pretrained](#model-zoo) Algebraic model to produce predictions or just take [precalculated 3D skeletons](#model-zoo).
+2. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place them here: `./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
+3. If you want to train Volumetric model, you need rough estimations of the pelvis' 3D positions both for train and val splits. In the paper we estimate them using the Algebraic model. You can use the [pretrained](#model-zoo) Algebraic model to produce predictions or just take [precalculated 3D skeletons](#model-zoo).
 
 ## Model zoo
-In this section we collect pretrained models and configs. All **pretrained weights** and **precalculated 3D skeletons** can be downloaded from [Google Drive](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and placed to `./data` dir, so that eval configs can work out-of-the-box (without additional setting of paths).
+In this section we collect pretrained models and configs. All **pretrained weights** and **precalculated 3D skeletons** can be downloaded at once [from here](https://drive.google.com/drive/folders/1yjnD47hdcFNvbQj87pXDgqGt52K7rz_z) and placed to `./data/pretrained`, so that eval configs can work out-of-the-box (without additional setting of paths). Alternatively, the table below provides separate links to those files.
 
 **Human3.6M:**
 
-| Model                | Train config                                                                                                                                                                            | Eval config                                                                                                                                                                           | Weights                                                                                    | Precalculated results                                                  | MPJPE (relative to pelvis), mm |
-|----------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------------------:|-------------------------------:|
-| Algebraic            |         [train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg.yaml)         |         [eval/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_alg.yaml)         | [link](https://drive.google.com/file/d/1HAqMwH94kCfTs9jUHiuCB7vt94rMvxWe/view?usp=sharing) | [link](https://drive.google.com/file/d/1RO7tQdUI2gmlA58Jvw9M21NWIYPQgjPE/view?usp=sharing) | 22.5                           |
-| Volumetric (softmax) | [train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax.yaml) | [eval/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_vol_softmax.yaml) | [link](https://drive.google.com/file/d/1r6Ut3oMKPxhyxRh3PZ05taaXwekhJWqj/view?usp=sharing) |                                               —                                              | **20.4**                       |
+| Model                | Train config                                                                                                                                                  | Eval config                                                                                                                                                 | Weights                                                                                    | Precalculated results                                                                                                                                  | MPJPE (relative to pelvis), mm |
+|----------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------:|-------------------------------:|
+| Algebraic            |         [train/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_alg.yaml)         |         [eval/human36m_alg.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_alg.yaml)         | [link](https://drive.google.com/file/d/1HAqMwH94kCfTs9jUHiuCB7vt94rMvxWe/view?usp=sharing) | [train](https://drive.google.com/open?id=1MPvDW19H-j9t3ekartbOnoXsiHQiZjej), [val](https://drive.google.com/file/d/1RO7tQdUI2gmlA58Jvw9M21NWIYPQgjPE)  | 22.5                           |
+| Volumetric (softmax) | [train/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/train/human36m_vol_softmax.yaml) | [eval/human36m_vol_softmax.yaml](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/experiments/human36m/eval/human36m_vol_softmax.yaml) | [link](https://drive.google.com/file/d/1r6Ut3oMKPxhyxRh3PZ05taaXwekhJWqj/view?usp=sharing) |                                               —                                                                                                        | **20.4**                       |
+
 ## Train
 Every experiment is defined by `.config` files. Configs with experiments from the paper can be found in the `./experiments` directory (see [model zoo](#model-zoo)).
 
@@ -42,7 +42,7 @@ Every experiment is defined by `.config` files. Configs with experiments from th
 To train a Volumetric model with softmax aggregation using **1 GPU**, run:
 ```bash
 python3 train.py \
-  --config train/human36m_vol_softmax.yaml \
+  --config experiments/human36m/train/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 
@@ -55,7 +55,7 @@ To train a Volumetric model with softmax aggregation using **2 GPUs on single ma
 ```bash
 python3 -m torch.distributed.launch --nproc_per_node=2 --master_port=2345 \
   train.py  \
-  --config train/human36m_vol_softmax.yaml \
+  --config experiments/human36m/train/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 
@@ -79,7 +79,7 @@ Run:
 ```bash
 python3 train.py \
   --eval --eval_dataset val \
-  --config eval/human36m_vol_softmax.yaml \
+  --config experiments/human36m/eval/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
 Argument `--eval_dataset` can be `val` or `train`. Results can be seen in `logs` directory or in the tensorboard.

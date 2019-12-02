@@ -76,7 +76,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
                                                      min_n_views=config.dataset.train.min_n_views,
                                                      max_n_views=config.dataset.train.max_n_views),
             num_workers=config.dataset.train.num_workers,
-            worker_init_fn=dataset_utils.worker_init_fn
+            worker_init_fn=dataset_utils.worker_init_fn,
+            pin_memory=True
         )
 
     # val
@@ -104,7 +105,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
                                                  min_n_views=config.dataset.val.min_n_views,
                                                  max_n_views=config.dataset.val.max_n_views),
         num_workers=config.dataset.val.num_workers,
-        worker_init_fn=dataset_utils.worker_init_fn
+        worker_init_fn=dataset_utils.worker_init_fn,
+        pin_memory=True
     )
 
     return train_dataloader, val_dataloader, train_sampler
@@ -158,9 +160,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     else:
         model.eval()
 
-    batch_time = misc.AverageMeter()
-    data_time = misc.AverageMeter()
-
     metric_dict = defaultdict(list)
 
     results = defaultdict(list)
@@ -177,7 +176,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         for iter_i, batch in iterator:
             with autograd.detect_anomaly():
                 # measure data loading time
-                data_time.update(time.time() - end)
+                data_time = time.time() - end
 
                 if batch is None:
                     print("Found None batch")
@@ -315,25 +314,24 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 print(p_name, p)
                                 exit()
 
-                    # measure elapsed time
-                    batch_time.update(time.time() - end)
-                    end = time.time()
-
                     # dump to tensorboard per-iter loss/metric stats
                     if is_train:
                         for title, value in metric_dict.items():
                             writer.add_scalar(f"{name}/{title}", value[-1], n_iters_total)
 
+                    # measure elapsed time
+                    batch_time = time.time() - end
+                    end = time.time()
+
                     # dump to tensorboard per-iter time stats
-                    writer.add_scalar(f"{name}/batch_time", batch_time.avg, n_iters_total)
-                    writer.add_scalar(f"{name}/data_time", data_time.avg, n_iters_total)
+                    writer.add_scalar(f"{name}/batch_time", batch_time, n_iters_total)
+                    writer.add_scalar(f"{name}/data_time", data_time, n_iters_total)
 
                     # dump to tensorboard per-iter stats about sizes
                     writer.add_scalar(f"{name}/batch_size", batch_size, n_iters_total)
                     writer.add_scalar(f"{name}/n_views", n_views, n_iters_total)
 
                     n_iters_total += 1
-                    batch_start_time = time.time()
 
     # calculate evaluation metrics
     if master:

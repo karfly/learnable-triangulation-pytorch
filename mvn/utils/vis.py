@@ -1,14 +1,14 @@
 import numpy as np
 import scipy.ndimage
-import skimage
+import skimage.transform
 import cv2
 
 import torch
 
 import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pylab as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
-matplotlib.use('Agg')
 
 
 from mvn.utils.img import image_batch_to_numpy, to_numpy, denormalize_image, resize_image

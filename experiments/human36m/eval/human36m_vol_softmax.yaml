@@ -15,7 +15,7 @@ opt:
   n_epochs: 9999
 
   batch_size: 5
-  val_batch_size: 20
+  val_batch_size: 75
 
   lr: 0.0001
   process_features_lr: 0.001
@@ -56,7 +56,7 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "./data/human36m/processed/_undistorted"
+    h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
@@ -69,10 +69,10 @@ dataset:
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
-    num_workers: 8
+    num_workers: 5
 
   val:
-    h36m_root: "./data/human36m/processed/_undistorted"
+    h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 

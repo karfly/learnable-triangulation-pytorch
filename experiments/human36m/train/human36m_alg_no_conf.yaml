@@ -1,0 +1,73 @@
+title: "human36m_alg"
+kind: "human36m"
+vis_freq: 1000
+vis_n_elements: 10
+
+image_shape: [384, 384]
+
+opt:
+  criterion: "MSESmooth"
+  mse_smooth_threshold: 400
+
+  n_objects_per_epoch: 10000
+  n_epochs: 9999
+
+  batch_size: 8
+  val_batch_size: 16
+
+  lr: 0.00001
+
+  scale_keypoints_3d: 0.1
+
+model:
+  name: "alg"
+
+  init_weights: false
+  checkpoint: ""
+
+  use_confidences: false
+  heatmap_multiplier: 100.0
+  heatmap_softmax: true
+
+  backbone:
+    name: "resnet152"
+    style: "simple"
+
+    init_weights: true
+    checkpoint: "./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+
+    num_joints: 17
+    num_layers: 152
+
+dataset:
+  kind: "human36m"
+
+  train:
+    h36m_root: "./data/human36m/processed/"
+    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    with_damaged_actions: true
+    undistort_images: true
+
+    scale_bbox: 1.0
+
+    shuffle: true
+    randomize_n_views: false
+    min_n_views: null
+    max_n_views: null
+    num_workers: 8
+
+  val:
+    h36m_root: "./data/human36m/processed/"
+    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    with_damaged_actions: true
+    undistort_images: true
+
+    scale_bbox: 1.0
+
+    shuffle: false
+    randomize_n_views: false
+    min_n_views: null
+    max_n_views: null
+    num_workers: 8
+
+    retain_every_n_frames_in_test: 1

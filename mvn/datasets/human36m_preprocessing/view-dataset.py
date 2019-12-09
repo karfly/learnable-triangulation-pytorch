@@ -11,7 +11,7 @@ import cv2
 
 import os, sys
 
-h36m_root = sys.argv[1]
+h36m_root = os.path.join(sys.argv[1], 'processed')
 labels_path = sys.argv[2]
 
 try:    sample_idx = int(sys.argv[3])
@@ -85,3 +85,4 @@ while True:
     else: # in progess, just increment sample_idx
         patience -= 1
         sample_idx += step
+    #cv2.destroyAllWindows()

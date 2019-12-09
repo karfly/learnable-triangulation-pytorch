@@ -87,7 +87,7 @@ def undistort_and_save(idx):
     subject = dataset.labels['subject_names'][subject_idx]
     action = dataset.labels['action_names'][action_idx]
 
-    available_cameras = list(range(len(dataset.labels['action_names'])))
+    available_cameras = list(range(len(dataset.labels['camera_names'])))
     for camera_idx, bbox in enumerate(shot['bbox_by_camera_tlbr']):
         if bbox[2] == bbox[0]: # bbox is empty, which means that this camera is missing
             available_cameras.remove(camera_idx)

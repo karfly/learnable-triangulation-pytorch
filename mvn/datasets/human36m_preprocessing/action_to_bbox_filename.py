@@ -24,10 +24,7 @@ action_to_bbox_filename = {
         'WalkingTogether-2': 'WalkTogether'
     },
     'S9': {
-        'Sitting-1': 'Sitting',
-        'Sitting-2': 'Sitting 1',
-        'SittingDown-1': 'SittingDown',
-        'SittingDown-2': 'SittingDown 1',
+        'Sitting-1': 'Sitting-1',
     },
     'S8': {
         'Directions-2': 'Directions',

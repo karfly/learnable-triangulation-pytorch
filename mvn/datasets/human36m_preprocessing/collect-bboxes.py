@@ -8,11 +8,13 @@
 """
 import os, sys
 import numpy as np
-import h5py
+# import h5py
+import scipy.io as sio
 
 dataset_root = sys.argv[1]
 data_path = os.path.join(dataset_root, "processed")
 subjects = [x for x in os.listdir(data_path) if x.startswith('S')]
+print(subjects)
 assert len(subjects) == 1
 
 destination_dir = os.path.join(dataset_root, "extra")
@@ -70,10 +72,16 @@ def load_bboxes(data_path, subject, action, camera):
         keypoints3d_path= os.path.join(
             data_path, subject, action, 'keypoints3D.mat'
         )
-        with h5py.File(keypoints3d_path, 'r') as h5file:
-            retval = np.empty((len(h5file['joints3d']), 4), dtype=np.int32)
-            for idx in range(len(h5file['joints3d'])):
-                retval[idx] = [0, 0, 1000, 1000]
+        # print(keypoints3d_path)
+        # with h5py.File(keypoints3d_path, 'r') as h5file:
+        #     retval = np.empty((len(h5file['joints3d']), 4), dtype=np.int32)
+        #     for idx in range(len(h5file['joints3d'])):
+        #         retval[idx] = [0, 0, 1000, 1000]
+        keypoints3dmat = sio.loadmat(keypoints3d_path)
+        length = len(keypoints3dmat['joints3d'])
+        retval = np.empty((length, 4))
+        for idx in range(length):
+            retval[idx] = [0, 0, 1000, 1000]
 
     except Exception as ex:
         # reraise with path information

@@ -15,8 +15,7 @@ retval = {
     'subject_names': ['S9'],
     'camera_names': ['54138969', '55011271', '58860488', '60457274'],
     'action_names': [
-        'Sitting-1', 'Sitting-2',
-        'SittingDown-1', 'SittingDown-2',]
+        'Sitting-1',]
 }
 retval['cameras'] = np.empty(
     (len(retval['subject_names']), len(retval['camera_names'])),

@@ -1,3 +1,2 @@
-*.jpeg
-*.jpg
-*.mp4
+tmp/
+data/

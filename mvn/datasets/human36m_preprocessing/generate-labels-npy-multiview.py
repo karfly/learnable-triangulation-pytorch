@@ -9,7 +9,7 @@ import numpy as np
 import h5py
 
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's "ground truth".
-BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
+BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
 
 retval = {
     'subject_names': ['S9'],

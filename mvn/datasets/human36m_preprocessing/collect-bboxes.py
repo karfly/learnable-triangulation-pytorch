@@ -30,17 +30,18 @@ bboxes_retval = nesteddict()
 def load_bboxes(data_path, subject, action, camera):
     print(subject, action, camera)
 
-    def mask_to_bbox(mask):
-        h_mask = mask.max(0)
-        w_mask = mask.max(1)
+    # def mask_to_bbox(mask):
+    #     # h_mask = mask.max(0)
+    #     # w_mask = mask.max(1)
 
-        top = h_mask.argmax()
-        bottom = len(h_mask) - h_mask[::-1].argmax()
+    #     # top = h_mask.argmax()
+    #     # bottom = len(h_mask) - h_mask[::-1].argmax()
 
-        left = w_mask.argmax()
-        right = len(w_mask) - w_mask[::-1].argmax()
+    #     # left = w_mask.argmax()
+    #     # right = len(w_mask) - w_mask[::-1].argmax()
 
-        return top, left, bottom, right
+    #     # return top, left, bottom, right
+    #     return 0, 0, 1000, 1000
 
     try:
         try:
@@ -48,24 +49,32 @@ def load_bboxes(data_path, subject, action, camera):
         except KeyError:
             corrected_action = action.replace('-', ' ')
 
-        # TODO use pathlib
-        bboxes_path = os.path.join(
-            data_path,
-            subject,
-            'MySegmentsMat',
-            'ground_truth_bb',
-            '%s.%s.mat' % (corrected_action, camera))
+        # # TODO use pathlib
+        # bboxes_path = os.path.join(
+        #     data_path,
+        #     subject,
+        #     'MySegmentsMat',
+        #     'ground_truth_bb',
+        #     '%s.%s.mat' % (corrected_action, camera))
+        
+    #     with h5py.File(bboxes_path, 'r') as h5file:
+    #         retval = np.empty((len(h5file['Masks']), 4), dtype=np.int32)
 
-        with h5py.File(bboxes_path, 'r') as h5file:
-            retval = np.empty((len(h5file['Masks']), 4), dtype=np.int32)
-
-            for frame_idx, mask_reference in enumerate(h5file['Masks'][:,0]):
-                bbox_mask = np.array(h5file[mask_reference])
-                retval[frame_idx] = mask_to_bbox(bbox_mask)
+    #         for frame_idx, mask_reference in enumerate(h5file['Masks'][:,0]):
+    #             bbox_mask = np.array(h5file[mask_reference])
+    #             retval[frame_idx] = mask_to_bbox(bbox_mask)
                 
-                top, left, bottom, right = retval[frame_idx]
-                if right-left < 2 or bottom-top < 2:
-                    raise Exception(str(bboxes_path) + ' $ ' + str(frame_idx))
+    #             top, left, bottom, right = retval[frame_idx]
+    #             if right-left < 2 or bottom-top < 2:
+    #                 raise Exception(str(bboxes_path) + ' $ ' + str(frame_idx))
+        keypoints3d_path= os.path.join(
+            data_path, subject, action, 'keypoints3D.mat'
+        )
+        with h5py.File(keypoints3d_path, 'r') as h5file:
+            retval = np.empty((len(h5file['joints3d']), 4), dtype=np.int32)
+            for idx in range(len(h5file['joints3d'])):
+                retval[idx] = [0, 0, 1000, 1000]
+
     except Exception as ex:
         # reraise with path information
         raise Exception(str(ex) + '; %s %s %s' % (subject, action, camera))

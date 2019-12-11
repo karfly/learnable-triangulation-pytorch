@@ -67,7 +67,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             labels_path=config.dataset.train.labels_path,
             with_damaged_actions=config.dataset.train.with_damaged_actions,
             scale_bbox=config.dataset.train.scale_bbox,
-            kind=config.kind,
+            kind=config.dataset.kind,
             undistort_images=config.dataset.train.undistort_images,
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(
                 config.dataset.train, "ignore_cameras") else [],
@@ -105,7 +105,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         with_damaged_actions=config.dataset.val.with_damaged_actions,
         retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
         scale_bbox=config.dataset.val.scale_bbox,
-        kind=config.kind,
+        kind=config.dataset.kind,
         undistort_images=config.dataset.val.undistort_images,
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(
             config.dataset.val, "ignore_cameras") else [],
@@ -143,10 +143,11 @@ def setup_dataloaders(config, is_train=True, distributed_train=False):
 def setup_experiment(config, model_name, is_train=True):
     prefix = "" if is_train else "eval_"
 
-    if config.title:
-        experiment_title = config.title + "_" + model_name
-    else:
-        experiment_title = model_name
+    #if config.dataset.title:
+    #    experiment_title = config.dataset.title + "_" + model_name
+    #else:
+    #    experiment_title = model_name
+    experiment_title = model_name
 
     experiment_title = prefix + experiment_title
 
@@ -309,7 +310,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # plot visualization
                 if master:
                     if n_iters_total % config.vis_freq == 0:  # or total_l2.item() > 500.0:
-                        vis_kind = config.kind
+                        vis_kind = config.dataset.kind
                         if (config.transfer_cmu_to_human36m if hasattr(config, "transfer_cmu_to_human36m") else False):
                             vis_kind = "coco"
 

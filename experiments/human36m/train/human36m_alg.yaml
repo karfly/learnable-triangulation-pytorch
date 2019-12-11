@@ -12,8 +12,8 @@ opt:
   n_objects_per_epoch: 15000
   n_epochs: 9999
 
-  batch_size: 8
-  val_batch_size: 16
+  batch_size: 2
+  val_batch_size: 2
 
   lr: 0.00001
 

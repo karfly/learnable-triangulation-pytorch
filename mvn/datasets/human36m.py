@@ -25,7 +25,7 @@ class Human36MMultiViewDataset(Dataset):
                  train=False,
                  test=False,
                  retain_every_n_frames_in_test=1,
-                 with_damaged_actions=False,
+                 with_damaged_actions=True,
                  cuboid_side=2000.0,
                  scale_bbox=1.5,
                  norm_image=True,
@@ -88,7 +88,7 @@ class Human36MMultiViewDataset(Dataset):
             if not with_damaged_actions:
                 mask_S9 = self.labels['table']['subject_idx'] == self.labels['subject_names'].index('S9')
 
-                damaged_actions = 'Greeting-2', 'SittingDown-2', 'Waiting-1'
+                damaged_actions = 'Sitting-1'
                 damaged_actions = [self.labels['action_names'].index(x) for x in damaged_actions]
                 mask_damaged_actions = np.isin(self.labels['table']['action_idx'], damaged_actions)
 
@@ -106,9 +106,9 @@ class Human36MMultiViewDataset(Dataset):
             pred_results = np.load(pred_results_path, allow_pickle=True)
             keypoints_3d_pred = pred_results['keypoints_3d'][np.argsort(pred_results['indexes'])]
             self.keypoints_3d_pred = keypoints_3d_pred[::retain_every_n_frames_in_test]
-            assert len(self.keypoints_3d_pred) == len(self), \
-                f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
-                f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
+            #assert len(self.keypoints_3d_pred) == len(self), \
+            #    f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
+            #    f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
     def __len__(self):
         return len(self.labels['table'])

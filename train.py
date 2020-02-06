@@ -115,6 +115,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
 def setup_dataloaders(config, is_train=True, distributed_train=False):
     if config.dataset.kind == 'human36m':
         train_dataloader, val_dataloader, train_sampler = setup_human36m_dataloaders(config, is_train, distributed_train)
+    # TODO: ADD OUR OWN DATALOADING
     else:
         raise NotImplementedError("Unknown dataset: {}".format(config.dataset.kind))
 
@@ -147,6 +148,8 @@ def setup_experiment(config, model_name, is_train=True):
 
     # dump config to tensorboard
     writer.add_text(misc.config_to_str(config), "config", 0)
+
+    # TODO: File with images that were processed?
 
     return experiment_dir, writer
 
@@ -196,6 +199,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)
 
                 scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
+
+                # TODO: Might be good to use the `vis.py` to visualise the results from here
+                # TODO: Might also be good to store the outputs differently and parse from there.
 
                 # 1-view case
                 if n_views == 1:
@@ -263,6 +269,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     metric_dict['base_point_l2'].append(base_point_l2)
 
                 # save answers for evalulation
+                # TODO: maybe save the images used (or at least links to them) as well? 
                 if not is_train:
                     results['keypoints_3d'].append(keypoints_3d_pred.detach().cpu().numpy())
                     results['indexes'].append(batch['indexes'])

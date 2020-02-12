@@ -143,6 +143,8 @@ class Human36MMultiViewDataset(Dataset):
             image = cv2.imread(image_path)
 
             # load camera
+            # TODO: what are the intrinsics loaded from labels file
+            # TODO: load or fix cameras
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
             retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
 

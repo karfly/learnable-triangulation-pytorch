@@ -4,6 +4,7 @@ import torch
 
 class Camera:
     def __init__(self, R, t, K, dist=None, name=""):
+        # Rotate first then translate
         self.R = np.array(R).copy()
         assert self.R.shape == (3, 3)
 
@@ -96,6 +97,7 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
     Returns:
         numpy array or torch tensor of shape (N, 2): 3D points projected to image plane
     """
+    # NOTE: @ is matrix multiply
     if isinstance(proj_matrix, np.ndarray) and isinstance(points_3d, np.ndarray):
         result = euclidean_to_homogeneous(points_3d) @ proj_matrix.T
         if convert_back_to_euclidean:

@@ -26,7 +26,7 @@ from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulat
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
-from mvn.datasets import human36m
+from mvn.datasets import human36m, cmupanoptic
 from mvn.datasets import utils as dataset_utils
 
 
@@ -112,10 +112,87 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
     return train_dataloader, val_dataloader, train_sampler
 
 
+def setup_human36m_dataloaders(config, is_train, distributed_train):
+    train_dataloader = None
+    if is_train:
+        # train
+        train_dataset = cmupanoptic.CMUPanopticDataset(
+            h36m_root=config.dataset.train.h36m_root,
+            pred_results_path=config.dataset.train.pred_results_path if hasattr(
+                config.dataset.train, "pred_results_path") else None,
+            train=True,
+            test=False,
+            image_shape=config.image_shape if hasattr(
+                config, "image_shape") else (256, 256),
+            labels_path=config.dataset.train.labels_path,
+            scale_bbox=config.dataset.train.scale_bbox,
+            kind=config.kind,
+            undistort_images=config.dataset.train.undistort_images,
+            ignore_cameras=config.dataset.train.ignore_cameras if hasattr(
+                config.dataset.train, "ignore_cameras") else [],
+            crop=config.dataset.train.crop if hasattr(
+                config.dataset.train, "crop") else True,
+        )
+
+        train_sampler = torch.utils.data.distributed.DistributedSampler(
+            train_dataset) if distributed_train else None
+
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=config.opt.batch_size,
+            shuffle=config.dataset.train.shuffle and (
+                train_sampler is None),  # debatable
+            sampler=train_sampler,
+            collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.train.randomize_n_views,
+                                                     min_n_views=config.dataset.train.min_n_views,
+                                                     max_n_views=config.dataset.train.max_n_views),
+            num_workers=config.dataset.train.num_workers,
+            worker_init_fn=dataset_utils.worker_init_fn,
+            pin_memory=True
+        )
+
+    # val
+    val_dataset = human36m.Human36MMultiViewDataset(
+        h36m_root=config.dataset.val.h36m_root,
+        pred_results_path=config.dataset.val.pred_results_path if hasattr(
+            config.dataset.val, "pred_results_path") else None,
+        train=False,
+        test=True,
+        image_shape=config.image_shape if hasattr(
+            config, "image_shape") else (256, 256),
+        labels_path=config.dataset.val.labels_path,
+        retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
+        scale_bbox=config.dataset.val.scale_bbox,
+        kind=config.kind,
+        undistort_images=config.dataset.val.undistort_images,
+        ignore_cameras=config.dataset.val.ignore_cameras if hasattr(
+            config.dataset.val, "ignore_cameras") else [],
+        crop=config.dataset.val.crop if hasattr(
+            config.dataset.val, "crop") else True,
+    )
+
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=config.opt.val_batch_size if hasattr(
+            config.opt, "val_batch_size") else config.opt.batch_size,
+        shuffle=config.dataset.val.shuffle,
+        collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.val.randomize_n_views,
+                                                 min_n_views=config.dataset.val.min_n_views,
+                                                 max_n_views=config.dataset.val.max_n_views),
+        num_workers=config.dataset.val.num_workers,
+        worker_init_fn=dataset_utils.worker_init_fn,
+        pin_memory=True
+    )
+
+    return train_dataloader, val_dataloader, train_sampler
+
+
 def setup_dataloaders(config, is_train=True, distributed_train=False):
     if config.dataset.kind == 'human36m':
         train_dataloader, val_dataloader, train_sampler = setup_human36m_dataloaders(config, is_train, distributed_train)
     # TODO: ADD OUR OWN DATALOADING
+    elif config.dataset.kind == 'cmu':
+        train_dataloader, val_dataloader, train_sampler = setup_cmu_dataloaders(config, is_train, distributed_train)
     else:
         raise NotImplementedError("Unknown dataset: {}".format(config.dataset.kind))
 
@@ -282,6 +359,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             vis_kind = "coco"
 
                         for batch_i in range(min(batch_size, config.vis_n_elements)):
+                            # TODO: Plot images without tensorboard?
+                            
                             keypoints_vis = vis.visualize_batch(
                                 images_batch, heatmaps_pred, keypoints_2d_pred, proj_matricies_batch,
                                 keypoints_3d_gt, keypoints_3d_pred,

@@ -261,6 +261,7 @@ class VolumetricTriangulationNet(nn.Module):
             vol_confidences = vol_confidences.view(batch_size, n_views, *vol_confidences.shape[1:])
 
         # calcualte shapes
+        # TODO Breakpoint? Why resize to heatmap_shape
         image_shape, heatmap_shape = tuple(images.shape[3:]), tuple(heatmaps.shape[3:])
         n_joints = heatmaps.shape[2]
 
@@ -296,6 +297,8 @@ class VolumetricTriangulationNet(nn.Module):
             base_points[batch_i] = torch.from_numpy(base_point).to(device)
 
             # build cuboid
+            # NOTE: This is part of the paper where they build the cuboid used 
+            # for volumetric extrapolation from the pelvis
             sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
             position = base_point - sides / 2
             cuboid = volumetric.Cuboid3D(position, sides)

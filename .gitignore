@@ -1,3 +1,6 @@
+# Ignore all CMU pose files
+mvn/datasets/cmu_preprocessed/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

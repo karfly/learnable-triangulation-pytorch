@@ -1,3 +1,6 @@
+# Stupid vscode
+.vscode
+
 # Ignore all CMU pose files
 mvn/datasets/cmu_preprocessed/*
 

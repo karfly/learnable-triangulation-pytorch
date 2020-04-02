@@ -191,7 +191,7 @@ def setup_dataloaders(config, is_train=True, distributed_train=False):
     if config.dataset.kind == 'human36m':
         train_dataloader, val_dataloader, train_sampler = setup_human36m_dataloaders(config, is_train, distributed_train)
     # TODO: ADD OUR OWN DATALOADING
-    elif config.dataset.kind == 'cmu':
+    elif config.dataset.kind in ['cmu', 'cmupanoptic']:
         train_dataloader, val_dataloader, train_sampler = setup_cmu_dataloaders(config, is_train, distributed_train)
     else:
         raise NotImplementedError("Unknown dataset: {}".format(config.dataset.kind))

@@ -1,5 +1,5 @@
-title: "human36m_vol_softmax"
-kind: "human36m"
+title: "cmu_vol_softmax"
+kind: "cmu"
 vis_freq: 1000
 vis_n_elements: 10
 
@@ -29,7 +29,8 @@ model:
   volume_aggregation_method: "softmax"
 
   init_weights: true
-  checkpoint: "./data/pretrained/human36m/human36m_vol_softmax_10-08-2019/checkpoints/0040/weights.pth"
+  # TODO: need changing?
+  checkpoint: "./data/pretrained/human36m/human36m_vol_softmax_10-08-2019/checkpoints/0040/weights.pth"   
 
   use_gt_pelvis: false
 
@@ -53,11 +54,11 @@ model:
     num_layers: 152
 
 dataset:
-  kind: "human36m"
+  kind: "cmu"
 
   train:
-    h36m_root: "./data/human36m/processed/"
-    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy" #is this really needed?
+    h36m_root: "./data/cmupanoptic/processed/"
+    labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy" #is this really needed?
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: true
@@ -72,8 +73,8 @@ dataset:
     num_workers: 5
 
   val:
-    h36m_root: "./data/human36m/processed/"
-    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    h36m_root: "./data/cmupanoptic/processed"
+    labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
     with_damaged_actions: true

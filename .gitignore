@@ -2,7 +2,7 @@
 .vscode
 
 # Ignore all CMU pose files
-mvn/datasets/cmu_preprocessed/*
+mvn/datasets/cmu_preprocessed/hd*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

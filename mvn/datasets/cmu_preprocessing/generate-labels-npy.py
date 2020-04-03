@@ -5,6 +5,22 @@
     Usage: `python3 generate-labels-npy.py <path/to/cmu-panoptic-data-root>`
 """
 
+'''
+NOTE: FOLDER/FILE FORMATTING/ORGANISATION
+
+Data are organised as follows:
+
+Images:
+    $DIR_ROOT/[SCENE_NAME]/hdImgs/00_[VIEW_ID]/00_[VIEW_ID]_[FRAME_ID].jpg
+    (e.g.) ./171026_pose1/hdImgs/00_24/00_24_00012200.jpg
+
+Pose Data:
+    $DIR_ROOT/[SCENE_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
+    (e.g.) ./171026_pose1/hdPose3d_stage1_coco19/body3DScene_00012200.json
+
+    
+'''
+
 # TODO: Modify this to fit our needs
 
 import os, sys

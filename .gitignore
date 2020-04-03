@@ -3,6 +3,8 @@
 
 # Ignore all CMU pose files
 mvn/datasets/cmu_preprocessing/hd*
+data/*
+logs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

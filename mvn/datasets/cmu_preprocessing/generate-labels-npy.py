@@ -6,9 +6,7 @@
 """
 
 '''
-NOTE: FOLDER/FILE FORMATTING/ORGANISATION
-
-Data are organised as follows:
+FORMATTING/ORGANISATION OF FOLDERS & FILES
 
 Images:
     $DIR_ROOT/[SCENE_NAME]/hdImgs/00_[VIEW_ID]/00_[VIEW_ID]_[FRAME_ID].jpg
@@ -18,7 +16,19 @@ Pose Data:
     $DIR_ROOT/[SCENE_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
     (e.g.) ./171026_pose1/hdPose3d_stage1_coco19/body3DScene_00012200.json
 
-    
+    JSON data has this notable format:
+    "bodies":[
+        {
+            "id": [PERSON_ID],
+            "joints": [ ARRAY OF JOINT COORDINATES IN COCO 19 FORMAT]
+        },
+        {
+            ...
+        }
+    ] 
+
+Camera Calibration Data:
+    $DIR_ROOT/[SCENE_NAME]/calibration_[SCENE_NAME].json
 '''
 
 # TODO: Modify this to fit our needs
@@ -69,9 +79,9 @@ table_dtype = np.dtype([
 ])
 retval['table'] = []
 
-h36m_root = sys.argv[1]
+cmu_root = sys.argv[1]
 
-destination_file_path = os.path.join(h36m_root, "extra", f"human36m-multiview-labels-{BBOXES_SOURCE}bboxes.npy")
+destination_file_path = os.path.join(cmu_root, "extra", f"cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy")
 
 una_dinosauria_root = sys.argv[2]
 cameras_params = h5py.File(os.path.join(una_dinosauria_root, 'cameras.h5'), 'r')
@@ -173,7 +183,7 @@ if BBOXES_SOURCE is not 'GT':
 from action_to_una_dinosauria import action_to_una_dinosauria
 
 for subject_idx, subject in enumerate(retval['subject_names']):
-    subject_path = os.path.join(h36m_root, "processed", subject)
+    subject_path = os.path.join(cmu_root, "processed", subject)
     actions = os.listdir(subject_path)
     try:
         actions.remove('MySegmentsMat') # folder with bbox *.mat files

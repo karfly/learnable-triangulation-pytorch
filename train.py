@@ -112,12 +112,12 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
     return train_dataloader, val_dataloader, train_sampler
 
 
-def setup_human36m_dataloaders(config, is_train, distributed_train):
+def setup_cmu_dataloaders(config, is_train, distributed_train):
     train_dataloader = None
     if is_train:
         # train
         train_dataset = cmupanoptic.CMUPanopticDataset(
-            h36m_root=config.dataset.train.h36m_root,
+            cmu_root=config.dataset.train.cmu_root,
             pred_results_path=config.dataset.train.pred_results_path if hasattr(
                 config.dataset.train, "pred_results_path") else None,
             train=True,
@@ -152,8 +152,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         )
 
     # val
-    val_dataset = human36m.Human36MMultiViewDataset(
-        h36m_root=config.dataset.val.h36m_root,
+    val_dataset = cmupanoptic.CMUPanopticDataset(
+        cmu_root=config.dataset.val.cmu_root,
         pred_results_path=config.dataset.val.pred_results_path if hasattr(
             config.dataset.val, "pred_results_path") else None,
         train=False,

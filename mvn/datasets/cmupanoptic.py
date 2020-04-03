@@ -12,7 +12,7 @@ from mvn.utils.multiview import Camera
 from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_image, scale_bbox
 from mvn.utils import volumetric
 
-class CMUDataset(Dataset):
+class CMUPanopticDataset(Dataset):
     """
         CMU Panoptic for multiview tasks.
         Adapted from the original dataset class (human36m.py)
@@ -35,7 +35,7 @@ class CMUDataset(Dataset):
                  ):
         """
             cmu_root:
-                Path to 'processed/' directory in Human3.6M
+                Path to 'processed/' directory in CMU Panoptic
             labels_path:
                 Path to 'cmu-multiview-labels.npy' 
                 TODO: Generate the labels

@@ -2,7 +2,7 @@
 .vscode
 
 # Ignore all CMU pose files
-mvn/datasets/cmu_preprocessing/hd*
+mvn/datasets/cmu_preprocessing/data_test/*
 data/*
 logs/*
 

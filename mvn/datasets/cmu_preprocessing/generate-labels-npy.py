@@ -99,12 +99,40 @@ for pose_name in os.listdir(cmu_root):
     calibration_file = os.path.join(pose_dir, f"calibration_{pose_name}.json")
     camera_data = parseCameraData(calibration_file)
     
-    # Find the subjects
-    for used_cameras in os.listdir(
-        os.path.join(pose_dir, "hdImgs")
-    ): 
-        retval["camera_names"].append(pose_name)
-        print(used_cameras)
+    # Count the frames by adding them to the dictionary
+    # Only the frames with correct length are valid
+    # Otherwise have missing data/images --> ignore
+    frame_cnt = {}
+
+    for frame_name in os.listdir(
+        os.path.join(pose_dir, "hdPose3d_stage1_coco19")
+    ):
+        frame_name = frame_name.replace("body3DScene_","").replace(".json","")
+        frame_cnt[frame_name] = 1
+
+    # Find the cameras
+    images_dir = os.path.join(pose_dir, "hdImgs")
+    for camera_name in os.listdir(images_dir):
+        # Populate frames dictionary
+        images_dir_cam = os.path.join(images_dir, camera_name)
+
+        for frame_name in os.listdir(images_dir_cam):
+            frame_name = frame_name.replace(f"{camera_name}_","").replace(".jpg","").replace(".png","")
+
+            if frame_name in frame_cnt:
+                frame_cnt[frame_name] += 1
+
+        retval["camera_names"].append(camera_name)
+
+    retval["camera_names"] = list(set(retval["camera_names"]))
+
+    valid_frames = []
+    for frame_name in frame_cnt:
+        if frame_cnt[frame_name] == 1 + len(retval["camera_names"]):
+            valid_frames.append(frame_name)
+
+    del frame_cnt
+    print(pose_name, end=" "); print(valid_frames)
 
 print(retval)
 exit()

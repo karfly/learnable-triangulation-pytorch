@@ -99,7 +99,12 @@ for pose_name in os.listdir(cmu_root):
     calibration_file = os.path.join(pose_dir, f"calibration_{pose_name}.json")
     camera_data = parseCameraData(calibration_file)
     
-    
+    # Find the subjects
+    for used_cameras in os.listdir(
+        os.path.join(pose_dir, "hdImgs")
+    ): 
+        retval["camera_names"].append(pose_name)
+        print(used_cameras)
 
 print(retval)
 exit()

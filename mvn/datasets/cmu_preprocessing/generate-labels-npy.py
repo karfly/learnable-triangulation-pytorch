@@ -87,6 +87,20 @@ def parseCameraData(filename):
 
     return data
 
+def parseJointsData(joints_data):
+    # TODO: Parse somehow: Numpy array?
+    return np.array(joints_data)
+
+def parsePersonData(filename):
+    info_array = jsonToDict(filename)["bodies"]
+    people_array = []
+
+    for person_data in info_array:
+        joints = parseJointsData(person_data["joints19"])
+        people_array.append(joints)
+    
+    return people_array
+
 # Loop thru directory files and find scene names
 for pose_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene
@@ -101,16 +115,19 @@ for pose_name in os.listdir(cmu_root):
     # Retrieve camera calibration data
     calibration_file = os.path.join(pose_dir, f"calibration_{pose_name}.json")
     camera_data = parseCameraData(calibration_file)
-    
+
     # Count the frames by adding them to the dictionary
     # Only the frames with correct length are valid
     # Otherwise have missing data/images --> ignore
     frame_cnt = {}
     camera_names = []
+    person_data_path = os.path.join(pose_dir, "hdPose3d_stage1_coco19")
 
-    for frame_name in os.listdir(
-        os.path.join(pose_dir, "hdPose3d_stage1_coco19")
-    ):
+    for frame_name in os.listdir(person_data_path):
+        person_data_filename = os.path.join(person_data_path, frame_name);
+        person_data = parsePersonData(person_data_filename)
+        #print(frame_name, end=" "); print(person_data)
+
         frame_name = frame_name.replace("body3DScene_","").replace(".json","")
         frame_cnt[frame_name] = 1
 

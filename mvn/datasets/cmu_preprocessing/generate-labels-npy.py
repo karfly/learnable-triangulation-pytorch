@@ -1,3 +1,5 @@
+#!/bin/python
+
 """
     Generate 'labels.npy' for multiview 'human36m.py'
     from https://github.sec.samsung.net/RRU8-VIOLET/multi-view-net/
@@ -88,6 +90,7 @@ def parseCameraData(filename):
 # Loop thru directory files and find scene names
 for pose_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene
+    # and not sth like "scripts" or "matlab"
     if "_pose" not in pose_name:
         continue
 
@@ -103,6 +106,7 @@ for pose_name in os.listdir(cmu_root):
     # Only the frames with correct length are valid
     # Otherwise have missing data/images --> ignore
     frame_cnt = {}
+    camera_names = []
 
     for frame_name in os.listdir(
         os.path.join(pose_dir, "hdPose3d_stage1_coco19")
@@ -122,17 +126,20 @@ for pose_name in os.listdir(cmu_root):
             if frame_name in frame_cnt:
                 frame_cnt[frame_name] += 1
 
-        retval["camera_names"].append(camera_name)
+        camera_names.append(camera_name)
 
-    retval["camera_names"] = list(set(retval["camera_names"]))
-
+    # Only frames with full count are counted
     valid_frames = []
     for frame_name in frame_cnt:
-        if frame_cnt[frame_name] == 1 + len(retval["camera_names"]):
+        if frame_cnt[frame_name] == 1 + len(camera_names):
             valid_frames.append(frame_name)
 
     del frame_cnt
     print(pose_name, end=" "); print(valid_frames)
+
+    retval["camera_names"] += camera_names
+
+retval["camera_names"] = list(set(retval["camera_names"]))
 
 print(retval)
 exit()

@@ -33,7 +33,7 @@ class Camera:
 
     def update_after_resize(self, image_shape, new_image_shape):
         height, width = image_shape
-        new_width, new_height = new_image_shape
+        new_height, new_width = new_image_shape
 
         fx, fy, cx, cy = self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2]
 

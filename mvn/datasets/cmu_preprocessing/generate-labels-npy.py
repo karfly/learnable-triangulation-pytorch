@@ -25,11 +25,13 @@ def jsonToDict(filename):
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's "ground truth".
 BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
 
+'''
 retval = {
     'subject_names': [],
     'camera_names': [],
     'pose_names': []
 }
+'''
 
 cmu_root = sys.argv[1]
 
@@ -88,7 +90,8 @@ def parseCameraData(filename):
     return data
 
 def parseJointsData(joints_data):
-    # TODO: Parse somehow: Numpy array?
+    # TODO: Number of joints seem to be in the form of (19,4)
+    # TODO: Homogeneous coordinates?
     return np.array(joints_data)
 
 def parsePersonData(filename):
@@ -101,6 +104,10 @@ def parsePersonData(filename):
     
     return people_array
 
+# In CMU data everything is by pose, not by person
+# NOTE: Calibration data for CMU is different for every pose, although only slightly :(
+data_by_pose = {}
+
 # Loop thru directory files and find scene names
 for pose_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene
@@ -108,9 +115,12 @@ for pose_name in os.listdir(cmu_root):
     if "_pose" not in pose_name:
         continue
 
-    retval["pose_names"].append(pose_name)
+    data = {}
+
+    #retval["pose_names"].append(pose_name)
 
     pose_dir = os.path.join(cmu_root, pose_name)
+    data["pose_dir"] = pose_dir
 
     # Retrieve camera calibration data
     calibration_file = os.path.join(pose_dir, f"calibration_{pose_name}.json")
@@ -152,13 +162,21 @@ for pose_name in os.listdir(cmu_root):
             valid_frames.append(frame_name)
 
     del frame_cnt
-    print(pose_name, end=" "); print(valid_frames)
 
-    retval["camera_names"] += camera_names
+    data["frame_idx"] = valid_frames
+    data["camera_names"] = camera_names
+    data["camera_names"].sort()
 
-retval["camera_names"] = list(set(retval["camera_names"]))
+    # Generate camera data
+    data["camera_data"] = {}
+    for camera_name in data["camera_names"]:
+        data["camera_data"][camera_name] = camera_data[camera_name]
 
-print(retval)
+    data_by_pose[pose_name] = data
+
+print(data_by_pose)
+#retval["camera_names"] = list(set(retval["camera_names"]))
+
 exit()
 
 # Generate cameras based on len of names
@@ -176,11 +194,15 @@ table_dtype = np.dtype([
     ('subject_idx', np.int8),
     ('pose_idx', np.int8),
     ('frame_idx', np.int16),
-    ('keypoints', np.float32, (17,3)), # roughly MPII format
+    ('keypoints', np.float32, (19,4)), # 19 points in homogeneous coordinates?
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']),4))
 ])
+
+print(table_dtype['keypoints'])
+
 retval['table'] = []
 
+exit()
 
 # TODO: COPY BACK FROM HUMAN36M PREPROCESSING FILE
 

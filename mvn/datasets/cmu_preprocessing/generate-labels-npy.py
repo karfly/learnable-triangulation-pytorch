@@ -25,13 +25,10 @@ def jsonToDict(filename):
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's "ground truth".
 BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
 
-'''
 retval = {
-    'subject_names': [],
-    'camera_names': [],
+    'camera_names': set(),
     'pose_names': []
 }
-'''
 
 cmu_root = sys.argv[1]
 
@@ -79,7 +76,9 @@ def parseCameraData(filename):
     data = {}
 
     for camera_params in info_array:
-        name = camera_params["name"]
+        # make it a number
+        name = camera_params["name"].replace("_", "")
+
         data[name] = {}
 
         data[name]['R'] = np.array(camera_params['R'])
@@ -117,7 +116,7 @@ for pose_name in os.listdir(cmu_root):
 
     data = {}
 
-    #retval["pose_names"].append(pose_name)
+    retval["pose_names"].append(pose_name)
 
     pose_dir = os.path.join(cmu_root, pose_name)
     data["pose_dir"] = pose_dir
@@ -136,7 +135,8 @@ for pose_name in os.listdir(cmu_root):
     for frame_name in os.listdir(person_data_path):
         person_data_filename = os.path.join(person_data_path, frame_name);
         person_data = parsePersonData(person_data_filename)
-        #print(frame_name, end=" "); print(person_data)
+        
+        # TODO: Do something with person data!
 
         frame_name = frame_name.replace("body3DScene_","").replace(".json","")
         frame_cnt[frame_name] = 1
@@ -153,6 +153,9 @@ for pose_name in os.listdir(cmu_root):
             if frame_name in frame_cnt:
                 frame_cnt[frame_name] += 1
 
+        camera_name = camera_name.replace("_", "")
+
+        retval["camera_names"].add(camera_name)
         camera_names.append(camera_name)
 
     # Only frames with full count are counted
@@ -175,32 +178,47 @@ for pose_name in os.listdir(cmu_root):
     data_by_pose[pose_name] = data
 
 print(data_by_pose)
-#retval["camera_names"] = list(set(retval["camera_names"]))
 
-exit()
+retval['camera_names'] = list(retval['camera_names'])
 
 # Generate cameras based on len of names
+# Note that camera calibrations are different for each pose
 retval['cameras'] = np.empty(
-    (len(retval['subject_names']), len(retval['camera_names'])),
+    (len(retval['pose_names']), len(retval['camera_names'])),
     dtype=[
-        ('R', np.float32, (3,3)),
-        ('t', np.float32, (3,1)),
-        ('K', np.float32, (3,3)),
+        ('R', np.float32, (3, 3)),
+        ('t', np.float32, (3, 1)),
+        ('K', np.float32, (3, 3)),
         ('dist', np.float32, 5)
     ]
 )
+
+# Now that we have collated the data into easier-to-parse ways
+# Need to reorganise data into return values needed for dataset class 
 
 table_dtype = np.dtype([
     ('subject_idx', np.int8),
     ('pose_idx', np.int8),
     ('frame_idx', np.int16),
-    ('keypoints', np.float32, (19,4)), # 19 points in homogeneous coordinates?
-    ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']),4))
+    ('keypoints', np.float32, (19, 4)),  # roughly MPII format
+    ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 4))
 ])
 
-print(table_dtype['keypoints'])
-
 retval['table'] = []
+
+for pose_idx, pose_name in enumerate(data_by_pose):
+    data = data_by_pose[pose_name]
+
+    table_segment = np.empty(len(frame_idxs), dtype=table_dtype)
+    table_segment['subject_idx'] = subject_idx
+    table_segment['pose_idx'] = pose_idx
+    table_segment['frame_idx'] = frame_idxs
+    table_segment['keypoints'] = poses_world
+    # let a (0,0,0,0) bbox mean that this view is missing
+    table_segment['bbox_by_camera_tlbr'] = 0
+
+    retval['table'].append(table_segment)
+
 
 exit()
 

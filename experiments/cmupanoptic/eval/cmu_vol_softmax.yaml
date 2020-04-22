@@ -21,7 +21,7 @@ opt:
   process_features_lr: 0.001
   volume_net_lr: 0.001
 
-  scale_keypoints_3d: 0.1
+  scale_keypoints_3d: 1.0
 
 model:
   name: "vol"
@@ -34,7 +34,7 @@ model:
 
   use_gt_pelvis: false
 
-  cuboid_side: 2500.0
+  cuboid_side: 250.0
 
   volume_size: 64
   volume_multiplier: 1.0

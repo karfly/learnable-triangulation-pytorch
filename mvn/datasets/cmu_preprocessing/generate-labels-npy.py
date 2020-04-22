@@ -133,11 +133,6 @@ for pose_name in os.listdir(cmu_root):
     person_data_path = os.path.join(pose_dir, "hdPose3d_stage1_coco19")
 
     for frame_name in os.listdir(person_data_path):
-        person_data_filename = os.path.join(person_data_path, frame_name);
-        person_data = parsePersonData(person_data_filename)
-        
-        # TODO: Do something with person data!
-
         frame_name = frame_name.replace("body3DScene_","").replace(".json","")
         frame_cnt[frame_name] = 1
 
@@ -160,13 +155,21 @@ for pose_name in os.listdir(cmu_root):
 
     # Only frames with full count are counted
     valid_frames = []
+    person_data = {} # by frame name
+
     for frame_name in frame_cnt:
         if frame_cnt[frame_name] == 1 + len(camera_names):
             valid_frames.append(frame_name)
+            
+            person_data_filename = os.path.join(person_data_path, frame_name)
+            person_data_arr = parsePersonData(person_data_filename)
+
+            person_data[frame_name] = person_data_arr
 
     del frame_cnt
 
-    data["frame_idx"] = valid_frames
+    data["valid_frames"] = valid_frames
+    data["person_data"] = person_data
     data["camera_names"] = camera_names
     data["camera_names"].sort()
 
@@ -196,10 +199,11 @@ retval['cameras'] = np.empty(
 # Now that we have collated the data into easier-to-parse ways
 # Need to reorganise data into return values needed for dataset class 
 
+# Each pose, person has different entry
 table_dtype = np.dtype([
+    ('pose_name', np.int8), 
     ('subject_idx', np.int8),
-    ('pose_idx', np.int8),
-    ('frame_idx', np.int16),
+    ('frame_names', np.int16),
     ('keypoints', np.float32, (19, 4)),  # roughly MPII format
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 4))
 ])
@@ -209,16 +213,20 @@ retval['table'] = []
 for pose_idx, pose_name in enumerate(data_by_pose):
     data = data_by_pose[pose_name]
 
-    table_segment = np.empty(len(frame_idxs), dtype=table_dtype)
-    table_segment['subject_idx'] = subject_idx
-    table_segment['pose_idx'] = pose_idx
-    table_segment['frame_idx'] = frame_idxs
-    table_segment['keypoints'] = poses_world
-    # let a (0,0,0,0) bbox mean that this view is missing
-    table_segment['bbox_by_camera_tlbr'] = 0
+    for person_idx, person_name in enumerate(data[""]):
+        table_segment = np.empty(len(data["valid_frames"]), dtype=table_dtype)
 
-    retval['table'].append(table_segment)
+        # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
 
+        table_segment['person_idx'] = person_idx
+        table_segment['pose_names'] = pose_name
+        table_segment['frame_names'] = data["valid_frames"]
+        table_segment['keypoints'] = poses_world
+
+        # let a (0,0,0,0) bbox mean that this view is missing
+        table_segment['bbox_by_camera_tlbr'] = 0
+
+        retval['table'].append(table_segment)
 
 exit()
 

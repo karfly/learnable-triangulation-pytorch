@@ -114,7 +114,7 @@ class CMUPanopticDataset(Dataset):
         shot = self.labels['table'][idx]
 
         subject = self.labels['subject_names'][shot['subject_idx']]
-        action = self.labels['action_names'][shot['action_idx']]
+        action = self.labels['pose_names'][shot['action_idx']]
         frame_idx = shot['frame_idx']
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
@@ -196,15 +196,15 @@ class CMUPanopticDataset(Dataset):
                 'Average': {'total_loss': per_pose_error[mask].sum(), 'frame_count': np.count_nonzero(mask)}
             }
 
-            for action_idx in range(len(self.labels['action_names'])):
+            for action_idx in range(len(self.labels['pose_names'])):
                 action_mask = (self.labels['table']['action_idx'] == action_idx) & mask
                 action_per_pose_error = per_pose_error[action_mask]
-                action_scores[self.labels['action_names'][action_idx]] = {
+                action_scores[self.labels['pose_names'][action_idx]] = {
                     'total_loss': action_per_pose_error.sum(), 'frame_count': len(action_per_pose_error)
                 }
 
             action_names_without_trials = \
-                [name[:-2] for name in self.labels['action_names'] if name.endswith('-1')]
+                [name[:-2] for name in self.labels['pose_names'] if name.endswith('-1')]
 
             for action_name_without_trial in action_names_without_trials:
                 combined_score = {'total_loss': 0.0, 'frame_count': 0}

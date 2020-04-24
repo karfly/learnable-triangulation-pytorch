@@ -77,7 +77,7 @@ def parseCameraData(filename):
 
     for camera_params in info_array:
         # make it a number
-        name = camera_params["name"].replace("_", "")
+        name = camera_params["name"]
 
         data[name] = {}
 
@@ -88,22 +88,25 @@ def parseCameraData(filename):
 
     return data
 
+# Number of joints are in the form of (19,4)
+# Return an np array accordingly
 def parseJointsData(joints_data):
-    # TODO: Number of joints seem to be in the form of (19,4)
-    # TODO: Homogeneous coordinates?
-    return np.array(joints_data)
+    return np.array(joints_data).reshape((19,4))
 
 def parsePersonData(filename):
     info_array = jsonToDict(filename)["bodies"]
     people_array = []
 
     for person_data in info_array:
-        joints = parseJointsData(person_data["joints19"])
-        people_array.append(joints)
+        D = {}
+        D["joints"] = parseJointsData(person_data["joints19"])
+        D["id"] = int(person_data["id"]) # note: may have only 1 body, but id = 4
+
+        people_array.append(D)
     
     return people_array
 
-# In CMU data everything is by pose, not by person
+# In CMU data everything is by pose, not by person/subject
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
@@ -148,8 +151,6 @@ for pose_name in os.listdir(cmu_root):
             if frame_name in frame_cnt:
                 frame_cnt[frame_name] += 1
 
-        camera_name = camera_name.replace("_", "")
-
         retval["camera_names"].add(camera_name)
         camera_names.append(camera_name)
 
@@ -161,17 +162,16 @@ for pose_name in os.listdir(cmu_root):
         if frame_cnt[frame_name] == 1 + len(camera_names):
             valid_frames.append(frame_name)
             
-            person_data_filename = os.path.join(person_data_path, frame_name)
+            person_data_filename = os.path.join(person_data_path, f"body3DScene_{frame_name}.json")
             person_data_arr = parsePersonData(person_data_filename)
 
             person_data[frame_name] = person_data_arr
 
     del frame_cnt
 
-    data["valid_frames"] = valid_frames
+    data["valid_frames"] = sorted(valid_frames)
     data["person_data"] = person_data
-    data["camera_names"] = camera_names
-    data["camera_names"].sort()
+    data["camera_names"] = sorted(camera_names)
 
     # Generate camera data
     data["camera_data"] = {}
@@ -180,9 +180,8 @@ for pose_name in os.listdir(cmu_root):
 
     data_by_pose[pose_name] = data
 
-print(data_by_pose)
-
 retval['camera_names'] = list(retval['camera_names'])
+retval['camera_names'].sort()
 
 # Generate cameras based on len of names
 # Note that camera calibrations are different for each pose
@@ -196,13 +195,15 @@ retval['cameras'] = np.empty(
     ]
 )
 
+
+
 # Now that we have collated the data into easier-to-parse ways
 # Need to reorganise data into return values needed for dataset class 
 
 # Each pose, person has different entry
 table_dtype = np.dtype([
-    ('pose_name', np.int8), 
-    ('subject_idx', np.int8),
+    ('pose_idx', np.int8), 
+    ('person_id', np.int8),
     ('frame_names', np.int16),
     ('keypoints', np.float32, (19, 4)),  # roughly MPII format
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 4))
@@ -210,25 +211,36 @@ table_dtype = np.dtype([
 
 retval['table'] = []
 
-for pose_idx, pose_name in enumerate(data_by_pose):
+print(retval.keys())
+print(retval["cameras"])
+
+for pose_idx, pose_name in enumerate(retval["pose_names"]):
     data = data_by_pose[pose_name]
 
-    for person_idx, person_name in enumerate(data[""]):
+    for frame_name in data['person_data']:
         table_segment = np.empty(len(data["valid_frames"]), dtype=table_dtype)
 
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
+        person_data_arr = data['person_data'][frame_name]
 
-        table_segment['person_idx'] = person_idx
-        table_segment['pose_names'] = pose_name
-        table_segment['frame_names'] = data["valid_frames"]
-        table_segment['keypoints'] = poses_world
+        for person_data in person_data_arr:
+            table_segment['person_id'] = person_data["id"]
+            table_segment['pose_idx'] = pose_idx 
+            table_segment['frame_names'] = data["valid_frames"]  # TODO: Check this
+            table_segment['keypoints'] = person_data["joints"]
 
-        # let a (0,0,0,0) bbox mean that this view is missing
-        table_segment['bbox_by_camera_tlbr'] = 0
+            # TODO: Load from external MRCNN Detections file
 
-        retval['table'].append(table_segment)
+            # let a (0,0,0,0) bbox mean that this view is missing
+            table_segment['bbox_by_camera_tlbr'] = 0
+
+            retval['table'].append(table_segment)
 
 exit()
+
+# NOTE: Camera data also need to be filled 
+# camera_id = int(camera_name.replace("_", ""))
+
 
 # TODO: COPY BACK FROM HUMAN36M PREPROCESSING FILE
 

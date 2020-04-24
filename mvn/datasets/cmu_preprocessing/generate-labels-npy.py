@@ -1,11 +1,9 @@
 #!/bin/python
 
-'"'
-    Generate 'labels.npy' for multiview 'human36m.py'
-    from https://github.sec.samsung.net/RRU8-VIOLET/multi-view-net/
-
+'''
+    Generate `labels.npy` for multiview `cmupanoptic.py`
     Usage: `python3 generate-labels-npy.py <path/to/cmu-panoptic-data-root>`
-'"'
+'''
 
 # TODO: Modify this to fit our needs
 
@@ -136,7 +134,7 @@ for pose_name in os.listdir(cmu_root):
     person_data_path = os.path.join(pose_dir, 'hdPose3d_stage1_coco19')
 
     for frame_name in os.listdir(person_data_path):
-        frame_name = frame_name.replace('body3DScene_','").replace(".json','')
+        frame_name = frame_name.replace('body3DScene_','').replace('.json','')
         frame_cnt[frame_name] = 1
 
     # Find the cameras
@@ -146,7 +144,7 @@ for pose_name in os.listdir(cmu_root):
         images_dir_cam = os.path.join(images_dir, camera_name)
 
         for frame_name in os.listdir(images_dir_cam):
-            frame_name = frame_name.replace(f'{camera_name}_','").replace(".jpg","").replace(".png','')
+            frame_name = frame_name.replace(f'{camera_name}_','').replace('.jpg','').replace('.png','')
 
             if frame_name in frame_cnt:
                 frame_cnt[frame_name] += 1

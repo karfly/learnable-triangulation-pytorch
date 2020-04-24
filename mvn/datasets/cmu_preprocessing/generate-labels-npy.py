@@ -31,7 +31,7 @@ retval = {
 cmu_root = sys.argv[1]
 
 destination_file_path = os.path.join(
-    cmu_root, 'extra', f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
+    cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
 
 '''
 FORMATTING/ORGANISATION OF FOLDERS & FILES
@@ -207,11 +207,13 @@ table_dtype = np.dtype([
 
 retval['table'] = []
 
-# Iterate through the pose to fill up the table and camera data
+# Iterate through the poses to fill up the table and camera data
 for pose_idx, pose_name in enumerate(retval['pose_names']):
     data = data_by_pose[pose_name]
 
     for camera_idx, camera_name in enumerate(data['camera_data']):
+        print(f"{pose_name}, cam {camera_name}: ({pose_idx},{camera_idx})")
+
         cam_retval = retval['cameras'][pose_idx][camera_idx]
         camera_data = data['camera_data'][camera_name]
 
@@ -221,15 +223,19 @@ for pose_idx, pose_name in enumerate(retval['pose_names']):
         cam_retval['t'] = camera_data['t']
         cam_retval['dist'] = camera_data['dist']
 
-        #print(camera_idx, camera_name);
+    print("")
 
-    for frame_name in data['person_data']:
+    for frame_idx, frame_name in enumerate(data['valid_frames']):
         table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
 
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
         person_data_arr = data['person_data'][frame_name]
 
         for person_data in person_data_arr:
+            print(
+                f"{pose_name}, frame {frame_name}, person {person_data['id']}"
+            )
+
             table_segment['person_id'] = person_data['id']
             table_segment['pose_idx'] = pose_idx 
             table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
@@ -242,20 +248,24 @@ for pose_idx, pose_name in enumerate(retval['pose_names']):
 
             retval['table'].append(table_segment)
 
+    print("\n")
 
-print(retval.keys())
-print(retval['cameras'][0][0])
+# Check 
+for pose_idx, pose_name in enumerate(retval['pose_names']):
+    for camera_idx, camera_name in enumerate(retval['camera_names']):
+        print(data_by_pose[retval['pose_names'][pose_idx]]
+              ["camera_data"][retval['camera_names'][camera_idx]]['R'])
 
-exit()
+        print(retval['cameras'][pose_idx][camera_idx]['R'])
+        print("")
 
 # NOTE: Camera data also need to be filled 
 # camera_id = int(camera_name.replace('_'$1', "'))
 
-
-# TODO: COPY BACK FROM HUMAN36M PREPROCESSING FILE
-
+# Ready to Save!
 retval['table'] = np.concatenate(retval['table'])
 assert retval['table'].ndim == 1
 
 print('Total frames in CMU Panoptic Dataset:', len(retval['table']))
+
 np.save(destination_file_path, retval)

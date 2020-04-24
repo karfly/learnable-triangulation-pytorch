@@ -233,7 +233,7 @@ class CMUPanopticDataset(Dataset):
 
         return subject_scores
 
-    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
+    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=True, transfer_human36m_to_human36m=False):
         keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(

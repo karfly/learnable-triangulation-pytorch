@@ -244,7 +244,7 @@ for pose_idx, pose_name in enumerate(retval['pose_names']):
 
 
 print(retval.keys())
-print(retval['cameras'])
+print(retval['cameras'][0][0])
 
 exit()
 

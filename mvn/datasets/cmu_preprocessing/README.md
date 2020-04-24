@@ -49,11 +49,16 @@ Camera Calibration Data:
 
 Move the folders to `$THIS_REPOSITORY/data/cmupanoptic`.
 
-2. Run `generate-labels-npy.py` to convert the data from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use:
+2. We need the BBOXES detections of each person in the scene, by camera. The script will handle this also, but you need to download the files from the original paper's [Google Drive](https://drive.google.com/drive/folders/1Nf2XPjHR4rw7-nESrrcoI8rMmdJmuxqX). See the original GitHub issue [#19](https://github.com/karfly/learnable-triangulation-pytorch/issues/19#issuecomment-545993330) for more details.
+
+Save the bboxes in their original directory structure at `$THIS_REPOSITORY/data/pretrained/cmu`
+
+3. Run `generate-labels-npy.py` to convert the data from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the pretrained BBOXES for the person detections:
 
 ```bash
-python3 $THIS_REPOSITORY/data/cmupanoptic
+python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/pretrained/cmu
 ```
+
 
 There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder
  

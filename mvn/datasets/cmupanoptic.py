@@ -18,8 +18,8 @@ class CMUPanopticDataset(Dataset):
         Adapted from the original dataset class (human36m.py)
     """
     def __init__(self,
-                 cmu_root='../datasets/cmupanoptic/processed/',
-                 labels_path='../datasets/cmupanoptic/cmu-multiview-labels-SSDbboxes.npy',
+                 cmu_root='../data/cmupanoptic/',
+                 labels_path='../data/cmupanoptic/cmu-multiview-labels-SSDbboxes.npy',
                  pred_results_path=None,
                  image_shape=(256, 256),
                  train=False,
@@ -54,7 +54,7 @@ class CMUPanopticDataset(Dataset):
         """
         assert train or test, '`CMUPanopticDataset` must be constructed with at least ' \
                               'one of `test=True` / `train=True`'
-        assert kind in ("mpii")
+        assert kind in ("mpii", "cmu")
 
         self.cmu_root = cmu_root
         self.labels_path = labels_path
@@ -69,25 +69,23 @@ class CMUPanopticDataset(Dataset):
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
-        #TODO: Either format the CMU labels differently, or change the names here to reflect the different format 
         #NOTE: https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox/blob/master/README.md
         n_cameras = len(self.labels['camera_names'])
-        assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
+        # assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
 
         # TODO: Adapt according to cmu dataset
         train_subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
         test_subjects = ['S9', 'S11']
 
-        train_subjects = list(self.labels['subject_names'].index(x) for x in train_subjects)
-        test_subjects  = list(self.labels['subject_names'].index(x) for x in test_subjects)
+        train_subjects = list(self.labels['person_names'].index(x) for x in train_subjects)
+        test_subjects  = list(self.labels['person_names'].index(x) for x in test_subjects)
 
         indices = []
         if train:
-            mask = np.isin(self.labels['table']['subject_idx'], train_subjects, assume_unique=True)
+            mask = np.isin(self.labels['table']['person_id'], train_subjects, assume_unique=True)
             indices.append(np.nonzero(mask)[0])
         if test:
-            mask = np.isin(self.labels['table']['subject_idx'], test_subjects, assume_unique=True)
-
+            mask = np.isin(self.labels['table']['person_id'], test_subjects, assume_unique=True)
             indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_test])
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
@@ -95,7 +93,7 @@ class CMUPanopticDataset(Dataset):
         self.num_keypoints = 16 if kind == "mpii" else 17
         
         # TODO: Change
-        #assert self.labels['table']['keypoints'].shape[1] == 17, "Use a newer 'labels' file"
+        assert self.labels['table']['keypoints'].shape[1] == 19, "Error with keypoints in 'labels' file"
 
         self.keypoints_3d_pred = None
         if pred_results_path is not None:
@@ -113,8 +111,8 @@ class CMUPanopticDataset(Dataset):
         sample = defaultdict(list) # return value
         shot = self.labels['table'][idx]
 
-        subject = self.labels['subject_names'][shot['subject_idx']]
-        action = self.labels['pose_names'][shot['action_idx']]
+        person = self.labels['person_names'][shot['person_id']]
+        action = self.labels['action_names'][shot['action_idx']]
         frame_idx = shot['frame_idx']
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
@@ -134,14 +132,14 @@ class CMUPanopticDataset(Dataset):
             # TODO: change
             # load image
             image_path = os.path.join(
-                self.cmu_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
+                self.cmu_root, person, action, 'imageSequence' + '-undistorted' * self.undistort_images,
                 camera_name, 'img_%06d.jpg' % (frame_idx+1))
             assert os.path.isfile(image_path), '%s doesn\'t exist' % image_path
             image = cv2.imread(image_path)
 
             # load camera
             
-            shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
+            shot_camera = self.labels['cameras'][shot['action_idx'], camera_idx]
             retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
 
             if self.crop:
@@ -196,15 +194,15 @@ class CMUPanopticDataset(Dataset):
                 'Average': {'total_loss': per_pose_error[mask].sum(), 'frame_count': np.count_nonzero(mask)}
             }
 
-            for action_idx in range(len(self.labels['pose_names'])):
+            for action_idx in range(len(self.labels['action_names'])):
                 action_mask = (self.labels['table']['action_idx'] == action_idx) & mask
                 action_per_pose_error = per_pose_error[action_mask]
-                action_scores[self.labels['pose_names'][action_idx]] = {
+                action_scores[self.labels['action_names'][action_idx]] = {
                     'total_loss': action_per_pose_error.sum(), 'frame_count': len(action_per_pose_error)
                 }
 
             action_names_without_trials = \
-                [name[:-2] for name in self.labels['pose_names'] if name.endswith('-1')]
+                [name[:-2] for name in self.labels['action_names'] if name.endswith('-1')]
 
             for action_name_without_trial in action_names_without_trials:
                 combined_score = {'total_loss': 0.0, 'frame_count': 0}
@@ -222,18 +220,18 @@ class CMUPanopticDataset(Dataset):
 
             return action_scores
 
-        subject_scores = {
+        person_scores = {
             'Average': evaluate_by_actions(self, per_pose_error)
         }
 
-        for subject_idx in range(len(self.labels['subject_names'])):
-            subject_mask = self.labels['table']['subject_idx'] == subject_idx
-            subject_scores[self.labels['subject_names'][subject_idx]] = \
-                evaluate_by_actions(self, per_pose_error, subject_mask)
+        for person_id in range(len(self.labels['person_names'])):
+            person_mask = self.labels['table']['person_id'] == person_id
+            person_scores[self.labels['person_names'][person_id]] = \
+                evaluate_by_actions(self, per_pose_error, person_mask)
 
-        return subject_scores
+        return person_scores
 
-    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=True, transfer_human36m_to_human36m=False):
+    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
         keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(

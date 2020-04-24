@@ -2,7 +2,7 @@
 
 '''
     Generate `labels.npy` for multiview `cmupanoptic.py`
-    Usage: `python3 generate-labels-npy.py <path/to/cmu-panoptic-data-root>`
+    Usage: `python3 generate-labels-npy.py <path/to/cmu-panoptic-data-root> <path/to/cmu-mrcnn-bbox-detections>`
 '''
 
 # TODO: Modify this to fit our needs
@@ -21,14 +21,15 @@ def jsonToDict(filename):
 
 
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's 'ground truth'.
-BBOXES_SOURCE = 'GT' # or 'MRCNN' or 'SSD'
+BBOXES_SOURCE = 'SSD' # or 'MRCNN' or 'SSD'
 
 retval = {
     'camera_names': set(),
-    'pose_names': []
+    'action_names': []
 }
 
 cmu_root = sys.argv[1]
+bbox_root = sys.argv[2]
 
 destination_file_path = os.path.join(
     cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
@@ -37,11 +38,11 @@ destination_file_path = os.path.join(
 FORMATTING/ORGANISATION OF FOLDERS & FILES
 
 Images:
-    $DIR_ROOT/[POSE_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
+    $DIR_ROOT/[action_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
     (e.g.) ./171026_pose1/hdImgs/00_24/00_24_00012200.jpg
 
 Pose Data:
-    $DIR_ROOT/[POSE_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
+    $DIR_ROOT/[action_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
     (e.g.) ./171026_pose1/hdPose3d_stage1_coco19/body3DScene_00012200.json
 
     JSON data has this notable format:
@@ -56,7 +57,7 @@ Pose Data:
     ] 
 
 Camera Calibration Data:
-    $DIR_ROOT/[POSE_NAME]/calibration_[POSE_NAME].json
+    $DIR_ROOT/[action_NAME]/calibration_[action_NAME].json
 '''
 
 '''
@@ -79,10 +80,10 @@ def parseCameraData(filename):
 
         data[name] = {}
 
-        data[name]['R'] = np.array(camera_params['R'])
-        data[name]['t'] = np.array(camera_params['t'])
-        data[name]['K'] = np.array(camera_params['K'])
-        data[name]['dist'] = np.array(camera_params['distCoef'])
+        data[name]['R'] = camera_params['R']
+        data[name]['t'] = camera_params['t']
+        data[name]['K'] = camera_params['K']
+        data[name]['dist'] = camera_params['distCoef']
 
     return data
 
@@ -104,26 +105,37 @@ def parsePersonData(filename):
     
     return people_array
 
+
+# BBOX Data
+def collectBBOXData(bbox_dir):
+    bbox_data = {}
+    
+    
+
+    return bbox_data
+
+bbox_data = collectBBOXData(bbox_root)
+
 # In CMU data everything is by pose, not by person/subject
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
 # Loop thru directory files and find scene names
-for pose_name in os.listdir(cmu_root):
+for action_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene
     # and not sth like 'scripts' or 'matlab'
-    if '_pose' not in pose_name:
+    if '_pose' not in action_name:
         continue
 
     data = {}
 
-    retval['pose_names'].append(pose_name)
+    retval['action_names'].append(action_name)
 
-    pose_dir = os.path.join(cmu_root, pose_name)
-    data['pose_dir'] = pose_dir
+    action_dir = os.path.join(cmu_root, action_name)
+    data['action_dir'] = action_dir
 
     # Retrieve camera calibration data
-    calibration_file = os.path.join(pose_dir, f'calibration_{pose_name}.json')
+    calibration_file = os.path.join(action_dir, f'calibration_{action_name}.json')
     camera_data = parseCameraData(calibration_file)
 
     # Count the frames by adding them to the dictionary
@@ -131,14 +143,14 @@ for pose_name in os.listdir(cmu_root):
     # Otherwise have missing data/images --> ignore
     frame_cnt = {}
     camera_names = []
-    person_data_path = os.path.join(pose_dir, 'hdPose3d_stage1_coco19')
+    person_data_path = os.path.join(action_dir, 'hdPose3d_stage1_coco19')
 
     for frame_name in os.listdir(person_data_path):
         frame_name = frame_name.replace('body3DScene_','').replace('.json','')
         frame_cnt[frame_name] = 1
 
     # Find the cameras
-    images_dir = os.path.join(pose_dir, 'hdImgs')
+    images_dir = os.path.join(action_dir, 'hdImgs')
     for camera_name in os.listdir(images_dir):
         # Populate frames dictionary
         images_dir_cam = os.path.join(images_dir, camera_name)
@@ -176,15 +188,16 @@ for pose_name in os.listdir(cmu_root):
     for camera_name in data['camera_names']:
         data['camera_data'][camera_name] = camera_data[camera_name]
 
-    data_by_pose[pose_name] = data
+    data_by_pose[action_name] = data
 
+# Consolidate camera names and sort them
 retval['camera_names'] = list(retval['camera_names'])
 retval['camera_names'].sort()
 
 # Generate cameras based on len of names
 # Note that camera calibrations are different for each pose
 retval['cameras'] = np.empty(
-    (len(retval['pose_names']), len(retval['camera_names'])),
+    (len(retval['action_names']), len(retval['camera_names'])),
     dtype=[
         ('R', np.float32, (3, 3)),
         ('t', np.float32, (3, 1)),
@@ -198,7 +211,7 @@ retval['cameras'] = np.empty(
 
 # Each pose, person has different entry
 table_dtype = np.dtype([
-    ('pose_idx', np.int8), 
+    ('action_idx', np.int8), 
     ('person_id', np.int8),
     ('frame_names', np.int16),
     ('keypoints', np.float32, (19, 4)),  # roughly MPII format
@@ -208,20 +221,20 @@ table_dtype = np.dtype([
 retval['table'] = []
 
 # Iterate through the poses to fill up the table and camera data
-for pose_idx, pose_name in enumerate(retval['pose_names']):
-    data = data_by_pose[pose_name]
+for action_idx, action_name in enumerate(retval['action_names']):
+    data = data_by_pose[action_name]
 
     for camera_idx, camera_name in enumerate(data['camera_data']):
-        print(f"{pose_name}, cam {camera_name}: ({pose_idx},{camera_idx})")
+        print(f"{action_name}, cam {camera_name}: ({action_idx},{camera_idx})")
 
-        cam_retval = retval['cameras'][pose_idx][camera_idx]
+        cam_retval = retval['cameras'][action_idx][camera_idx]
         camera_data = data['camera_data'][camera_name]
 
         # TODO: Check if need transpose
-        cam_retval['R'] = camera_data['R']
-        cam_retval['K'] = camera_data['K']
-        cam_retval['t'] = camera_data['t']
-        cam_retval['dist'] = camera_data['dist']
+        cam_retval['R'] = np.array(camera_data['R'])
+        cam_retval['K'] = np.array(camera_data['K'])
+        cam_retval['t'] = np.array(camera_data['t'])
+        cam_retval['dist']=np.array(camera_data['dist'])
 
     print("")
 
@@ -233,11 +246,11 @@ for pose_idx, pose_name in enumerate(retval['pose_names']):
 
         for person_data in person_data_arr:
             print(
-                f"{pose_name}, frame {frame_name}, person {person_data['id']}"
+                f"{action_name}, frame {frame_name}, person {person_data['id']}"
             )
 
             table_segment['person_id'] = person_data['id']
-            table_segment['pose_idx'] = pose_idx 
+            table_segment['action_idx'] = action_idx 
             table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
             table_segment['keypoints'] = person_data['joints']
 
@@ -251,12 +264,12 @@ for pose_idx, pose_name in enumerate(retval['pose_names']):
     print("\n")
 
 # Check 
-for pose_idx, pose_name in enumerate(retval['pose_names']):
+for action_idx, action_name in enumerate(retval['action_names']):
     for camera_idx, camera_name in enumerate(retval['camera_names']):
-        print(data_by_pose[retval['pose_names'][pose_idx]]
+        print(data_by_pose[retval['action_names'][action_idx]]
               ["camera_data"][retval['camera_names'][camera_idx]]['R'])
 
-        print(retval['cameras'][pose_idx][camera_idx]['R'])
+        print(retval['cameras'][action_idx][camera_idx]['R'])
         print("")
 
 # NOTE: Camera data also need to be filled 

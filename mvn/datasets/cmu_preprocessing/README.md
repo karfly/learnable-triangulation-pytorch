@@ -16,6 +16,8 @@ Here is how we do it (brace yourselves):
     ```
     * or just store the dataset along with the code at `$THIS_REPOSITORY/data/cmupanoptic/`.
 
+__NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINKS BELOW, YOU DO NOT HAVE TO, AS THE SCRIPT WILL TAKE CARE OF MISSING SCENES OR DATA FOR YOU. HOWEVER, THIS MAY ALSO MEAN INVALID TRAINING/TESTING DATA.__
+
 1. Clone the [panoptic toolbox](https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox). Follow their manual to download, extract and unpack CMU Panoptic dataset into image files (follow up to step 4 of the manual). 
 
 There are many poses and scenes that you can use, for example, [`171204_pose1`](http://domedb.perception.cs.cmu.edu/171204_pose1.html) under the ["Range of Motion"](http://domedb.perception.cs.cmu.edu/range_of_motion.html) scene and [`170407_haggling_a2`](http://domedb.perception.cs.cmu.edu/170407_haggling_a2.html) under the ["Haggling"](http://domedb.perception.cs.cmu.edu/haggling.html) scene. It does not matter which set of scenes, poses or even images that you choose to extract; the scripts will handle that. It is advised that you only download the HD videos/images though.
@@ -49,23 +51,32 @@ Camera Calibration Data:
 
 Move the folders to `$THIS_REPOSITORY/data/cmupanoptic`.
 
-2. We need the BBOXES detections of each person in the scene, by camera. The script will handle this also, but you need to download the files from the original paper's [Google Drive](https://drive.google.com/drive/folders/1Nf2XPjHR4rw7-nESrrcoI8rMmdJmuxqX). See the original GitHub issue [#19](https://github.com/karfly/learnable-triangulation-pytorch/issues/19#issuecomment-545993330) for more details.
+2. We need the BBOXES detections of each person in the scene, by camera. You can either generate the necessary npy file yourself, or use the npy file shipped with this repo at $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/.
+
+To generate the npy file yourself, you need to download the files from the original paper's [Google Drive](https://drive.google.com/drive/folders/1Nf2XPjHR4rw7-nESrrcoI8rMmdJmuxqX). See the original GitHub issue [#19](https://github.com/karfly/learnable-triangulation-pytorch/issues/19#issuecomment-545993330) for more details.
 
 Save the bboxes in their original directory structure at `$THIS_REPOSITORY/data/pretrained/cmu`
 
-3. Run `generate-labels-npy.py` to convert the data from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the pretrained BBOXES for the person detections:
+Then, run the python file in `$THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/` as follows:
+
+```bash
+python3 generate-labels-npy.py  
+```
+
+3. 
+
+4. Run `generate-labels-npy.py` to convert the data and bbox info from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the pretrained bounding boxes for the person detections:
 
 ```bash
 python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/pretrained/cmu
 ```
 
-
-There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder
+There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder. In this case, if you used the MRCNN bboxes, then {BBOX_SOURCE} will clearly be MRCNN
  
 1. Optionally, you can test if everything went well by viewing frames with skeletons and bounding boxes on a GUI machine:
 
     ```bash
-    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/extra/human36m-multiview-labels-GTbboxes.npy [<start-sample-number> [<samples-per-step>]]`
+    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/extra/human36m-multiview-labels-{BBOXES_SOURCE}.npy [<start-sample-number> [<samples-per-step>]]`
     ```
 
     You can test different settings by changing dataset constructor parameters in `view-dataset.py`.

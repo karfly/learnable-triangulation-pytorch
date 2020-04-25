@@ -13,8 +13,18 @@ $ python3 collect-bboxes-npy.py $THIS_REPOSITORY/data/pretrained/cmu/mrcnn-detec
 
 import os, sys
 import numpy as np
+import json
+from collections import defaultdict
 
-DEBUG = True
+DEBUG = False
+
+def jsonToDict(filename):
+    # Read file
+    with open(filename, 'r') as f:
+        data = f.read()
+
+    # parse file
+    return json.loads(data)
 
 try:
     bbox_dir = sys.argv[1]
@@ -30,9 +40,13 @@ except:
 destination_file_path = os.path.join(output_dir, "cmu-bboxes.npy")
 
 # BBOX Data
-bbox_data = {}
+def nesteddict(): return defaultdict(nesteddict)
+
+bbox_data = nesteddict()
+
 #bbox_dir = os.path.join(bbox_root, 'mrcnn-detections')
 
+print("Collecting BBOXes...")
 assert os.path.isdir(bbox_dir), "Invalid BBOX directory '%s'\n%s" % (bbox_dir, USAGE_PROMPT)
 
 for action_name in os.listdir(bbox_dir):
@@ -58,10 +72,18 @@ for action_name in os.listdir(bbox_dir):
         if DEBUG:
             print(action_name, camera_name)
 
+print("Done!\nSaving bbox npy file...")
 
-print("\nSaving bbox npy file...")
+def freeze_defaultdict(x):
+    x.default_factory = None
+    for value in x.values():
+        if type(value) is defaultdict:
+            freeze_defaultdict(value)
 
+# convert to normal dict
 try:
+    freeze_defaultdict(bbox_data)
+
     np.save(destination_file_path, bbox_data)
     print(f"BBOX npy file saved to {destination_file_path}")
 except:

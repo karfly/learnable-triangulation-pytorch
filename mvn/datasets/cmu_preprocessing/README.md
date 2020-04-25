@@ -60,15 +60,25 @@ Save the bboxes in their original directory structure at `$THIS_REPOSITORY/data/
 Then, run the python file in `$THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/` as follows:
 
 ```bash
-python3 generate-labels-npy.py  
+python3 collect-bboxes-npy.py <path/to/mrcnn-detections/folder> <path/to/output/file>
 ```
 
-3. 
-
-4. Run `generate-labels-npy.py` to convert the data and bbox info from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the pretrained bounding boxes for the person detections:
+For example (default):
 
 ```bash
-python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/pretrained/cmu
+python3 collect-bboxes-npy.py $THIS_REPOSITORY/data/pretrained/cmu/mrcnn-detections $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing
+```
+
+3. Run `generate-labels-npy.py` to convert the data and bbox info from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the npy file of pretrained bounding boxes for the person detections, generated after the previous step:
+
+```bash
+python3 <path/to/data> <path/to/bbox-npy-file>
+```
+
+For example (default):
+
+```bash
+python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
 ```
 
 There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder. In this case, if you used the MRCNN bboxes, then {BBOX_SOURCE} will clearly be MRCNN

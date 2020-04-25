@@ -11,6 +11,14 @@ import os, sys
 import numpy as np
 import json
 
+USAGE_PROMPT = 
+"""
+$ python3 <path/to/data> <path/to/bbox-npy-file>
+
+Example (default):
+$ python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
+"""
+
 def jsonToDict(filename):
     # Read file
     with open(filename, 'r') as f:
@@ -35,7 +43,7 @@ bbox_root = sys.argv[2]
 destination_file_path = os.path.join(
     cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
 
-assert os.path.isdir(cmu_root), "Invalid data directory '%s'" % cmu_root
+assert os.path.isdir(cmu_root), "Invalid data directory '%s'\n%s" % cmu_root, USAGE_PROMPT
 
 '''
 FORMATTING/ORGANISATION OF FOLDERS & FILES
@@ -110,7 +118,7 @@ def parsePersonData(filename):
 
 if BBOXES_SOURCE == 'MRCNN':
     bbox_data = collectBBOXData(bbox_root)
-    print("BBOX Data Saved!\n")
+    print(f"{BBOXES_SOURCE} bboxes loaded!\n")
 else:
     # NOTE: If you are not using the provided MRCNN detections, you have to implement the parser yourself
     raise NotImplementedError
@@ -119,6 +127,7 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
+print("Generating labels...")
 # Loop thru directory files and find scene names
 for action_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene

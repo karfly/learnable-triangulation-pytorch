@@ -10,13 +10,13 @@
 import os, sys
 import numpy as np
 import json
+import pickle
 
-USAGE_PROMPT = 
-"""
-$ python3 <path/to/data> <path/to/bbox-npy-file>
+USAGE_PROMPT = """
+$ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file>
 
 Example (default):
-$ python3 $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
+$ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
 """
 
 def jsonToDict(filename):
@@ -37,13 +37,17 @@ retval = {
     'action_names': []
 }
 
-cmu_root = sys.argv[1]
-bbox_root = sys.argv[2]
+try:
+    cmu_root = sys.argv[1]
+    bbox_root = sys.argv[2]
+except:
+    print("Usage: ",USAGE_PROMPT)
+    exit()
 
 destination_file_path = os.path.join(
     cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
 
-assert os.path.isdir(cmu_root), "Invalid data directory '%s'\n%s" % cmu_root, USAGE_PROMPT
+assert os.path.isdir(cmu_root), "Invalid data directory '%s'\n%s" % (cmu_root, USAGE_PROMPT)
 
 '''
 FORMATTING/ORGANISATION OF FOLDERS & FILES
@@ -116,8 +120,39 @@ def parsePersonData(filename):
     
     return people_array
 
+
+def square_the_bbox(bbox):
+    top, left, bottom, right = bbox
+    width = right - left
+    height = bottom - top
+
+    if height < width:
+        center = (top + bottom) * 0.5
+        top = int(round(center - width * 0.5))
+        bottom = top + width
+    else:
+        center = (left + right) * 0.5
+        left = int(round(center - height * 0.5))
+        right = left + height
+
+    return top, left, bottom, right
+
+def parseBBOXData(bbox_dir):
+    bboxes = np.load(bbox_root, allow_pickle=True).item()
+
+    return bboxes
+
+    for action in bboxes.keys():
+        for camera, bbox_array in bboxes[action].items():
+            for frame_idx, bbox in enumerate(bbox_array):
+                bbox[:] = square_the_bbox(bbox)
+
+    return bboxes
+
 if BBOXES_SOURCE == 'MRCNN':
-    bbox_data = collectBBOXData(bbox_root)
+    bbox_data = parseBBOXData(bbox_root)
+    print(bbox_data)
+
     print(f"{BBOXES_SOURCE} bboxes loaded!\n")
 else:
     # NOTE: If you are not using the provided MRCNN detections, you have to implement the parser yourself
@@ -274,11 +309,8 @@ for action_idx, action_name in enumerate(retval['action_names']):
             table_segment['bbox_by_camera_tlbr'] = 0
 
             for camera_idx, camera_name in enumerate(retval['camera_names']):
-                table_segment['bbox_by_camera_tlbr'] = bbox_data[action_name]
-
-                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], frame_idxs):
-                    bbox[camera_idx] = bboxes[subject][action][camera][frame_idx]
-                    # print("[NOTE] Missing bbox view: ", action_name, )
+                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
+                    bbox[camera_idx] = bbox_data[action_name][camera_name][frame_idx]
 
             retval['table'].append(table_segment)
 

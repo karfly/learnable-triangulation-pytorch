@@ -21,7 +21,8 @@ def jsonToDict(filename):
 
 
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's 'ground truth'.
-BBOXES_SOURCE = 'SSD' # or 'MRCNN' or 'SSD'
+BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
+DEBUG = False
 
 retval = {
     'camera_names': set(),
@@ -33,6 +34,8 @@ bbox_root = sys.argv[2]
 
 destination_file_path = os.path.join(
     cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
+
+assert os.path.isdir(cmu_root), "Invalid data directory '%s'" % cmu_root
 
 '''
 FORMATTING/ORGANISATION OF FOLDERS & FILES
@@ -105,16 +108,12 @@ def parsePersonData(filename):
     
     return people_array
 
-
-# BBOX Data
-def collectBBOXData(bbox_dir):
-    bbox_data = {}
-    
-    
-
-    return bbox_data
-
-bbox_data = collectBBOXData(bbox_root)
+if BBOXES_SOURCE == 'MRCNN':
+    bbox_data = collectBBOXData(bbox_root)
+    print("BBOX Data Saved!\n")
+else:
+    # NOTE: If you are not using the provided MRCNN detections, you have to implement the parser yourself
+    raise NotImplementedError
 
 # In CMU data everything is by pose, not by person/subject
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
@@ -129,9 +128,13 @@ for action_name in os.listdir(cmu_root):
 
     data = {}
 
-    retval['action_names'].append(action_name)
-
     action_dir = os.path.join(cmu_root, action_name)
+    
+    # Ensure is a proper directory
+    if not os.path.isdir(action_dir):
+        continue
+
+    retval['action_names'].append(action_name)
     data['action_dir'] = action_dir
 
     # Retrieve camera calibration data
@@ -224,8 +227,9 @@ retval['table'] = []
 for action_idx, action_name in enumerate(retval['action_names']):
     data = data_by_pose[action_name]
 
-    for camera_idx, camera_name in enumerate(data['camera_data']):
-        print(f"{action_name}, cam {camera_name}: ({action_idx},{camera_idx})")
+    for camera_idx, camera_name in enumerate(retval['camera_names']):
+        if DEBUG: 
+            print(f"{action_name}, cam {camera_name}: ({action_idx},{camera_idx})")
 
         cam_retval = retval['cameras'][action_idx][camera_idx]
         camera_data = data['camera_data'][camera_name]
@@ -236,7 +240,8 @@ for action_idx, action_name in enumerate(retval['action_names']):
         cam_retval['t'] = np.array(camera_data['t'])
         cam_retval['dist']=np.array(camera_data['dist'])
 
-    print("")
+    if DEBUG:
+        print("")
 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
@@ -245,32 +250,40 @@ for action_idx, action_name in enumerate(retval['action_names']):
         person_data_arr = data['person_data'][frame_name]
 
         for person_data in person_data_arr:
-            print(
-                f"{action_name}, frame {frame_name}, person {person_data['id']}"
-            )
+            if DEBUG:
+                print(
+                    f"{action_name}, frame {frame_name}, person {person_data['id']}"
+                )
 
             table_segment['person_id'] = person_data['id']
             table_segment['action_idx'] = action_idx 
             table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
             table_segment['keypoints'] = person_data['joints']
 
-            # TODO: Load from external MRCNN Detections file
-
+            # Load BBOX Data (loaded above from external MRCNN Detections file)
             # let a (0,0,0,0) bbox mean that this view is missing
             table_segment['bbox_by_camera_tlbr'] = 0
+
+            for camera_idx, camera_name in enumerate(retval['camera_names']):
+                table_segment['bbox_by_camera_tlbr'] = bbox_data[action_name]
+
+                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], frame_idxs):
+                    bbox[camera_idx] = bboxes[subject][action][camera][frame_idx]
+                    # print("[NOTE] Missing bbox view: ", action_name, )
 
             retval['table'].append(table_segment)
 
     print("\n")
 
 # Check 
-for action_idx, action_name in enumerate(retval['action_names']):
-    for camera_idx, camera_name in enumerate(retval['camera_names']):
-        print(data_by_pose[retval['action_names'][action_idx]]
-              ["camera_data"][retval['camera_names'][camera_idx]]['R'])
+if DEBUG:
+    for action_idx, action_name in enumerate(retval['action_names']):
+        for camera_idx, camera_name in enumerate(retval['camera_names']):
+            print(data_by_pose[retval['action_names'][action_idx]]
+                ["camera_data"][retval['camera_names'][camera_idx]]['R'])
 
-        print(retval['cameras'][action_idx][camera_idx]['R'])
-        print("")
+            print(retval['cameras'][action_idx][camera_idx]['R'])
+            print("")
 
 # NOTE: Camera data also need to be filled 
 # camera_id = int(camera_name.replace('_'$1', "'))
@@ -281,4 +294,10 @@ assert retval['table'].ndim == 1
 
 print('Total frames in CMU Panoptic Dataset:', len(retval['table']))
 
-np.save(destination_file_path, retval)
+print("\nSaving labels file...")
+
+try:
+    np.save(destination_file_path, retval)
+    print(f"Labels file saved to {destination_file_path}")
+except: 
+    raise f"Failed to save file {destination_file_path}"

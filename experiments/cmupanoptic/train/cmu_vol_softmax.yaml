@@ -56,7 +56,7 @@ dataset:
   kind: "cmu"
 
   train:
-    h36m_root: "./data/cmupanoptic/processed/"
+    cmu_root: "./data/cmupanoptic"
     labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
@@ -72,7 +72,7 @@ dataset:
     num_workers: 5
 
   val:
-    h36m_root: "./data/cmupanoptic/processed/"
+    cmu_root: "./data/cmupanoptic"
     labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 

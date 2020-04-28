@@ -175,13 +175,18 @@ for action_name in os.listdir(cmu_root):
     
     # Ensure is a proper directory
     if not os.path.isdir(action_dir):
+        if DEBUG:
+            print(f"{action_dir} does not exist")
         continue
-
-    retval['action_names'].append(action_name)
-    data['action_dir'] = action_dir
 
     # Retrieve camera calibration data
     calibration_file = os.path.join(action_dir, f'calibration_{action_name}.json')
+
+    if not os.path.isfile(calibration_file):
+        if DEBUG:
+            print(f"{calibration_file} does not exist")
+        continue
+    
     camera_data = parseCameraData(calibration_file)
 
     # Count the frames by adding them to the dictionary
@@ -191,12 +196,23 @@ for action_name in os.listdir(cmu_root):
     camera_names = []
     person_data_path = os.path.join(action_dir, 'hdPose3d_stage1_coco19')
 
+    if not os.path.isdir(person_data_path):
+        if DEBUG:
+            print(f"{person_data_path} does not exist")
+        continue
+
     for frame_name in os.listdir(person_data_path):
         frame_name = frame_name.replace('body3DScene_','').replace('.json','')
         frame_cnt[frame_name] = 1
 
     # Find the cameras
     images_dir = os.path.join(action_dir, 'hdImgs')
+
+    if not os.path.isdir(images_dir):
+        if DEBUG:
+            print(f"Image directory {images_dir} does not exist")
+        continue
+
     for camera_name in os.listdir(images_dir):
         # Populate frames dictionary
         images_dir_cam = os.path.join(images_dir, camera_name)
@@ -209,6 +225,10 @@ for action_name in os.listdir(cmu_root):
 
         retval['camera_names'].add(camera_name)
         camera_names.append(camera_name)
+
+    # Only add the action names when we know that this is valid
+    retval['action_names'].append(action_name)
+    data['action_dir'] = action_dir
 
     # Only frames with full count are counted
     valid_frames = []

@@ -16,7 +16,7 @@ USAGE_PROMPT = """
 $ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file>
 
 Example (default):
-$ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
+$ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy
 """
 
 def jsonToDict(filename):

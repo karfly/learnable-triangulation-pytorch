@@ -28,14 +28,10 @@ def jsonToDict(filename):
 
 try:
     bbox_dir = sys.argv[1]
+    output_dir = sys.argv[2]
 except:
     print(USAGE_PROMPT)
     exit()
-
-try:
-    output_dir = sys.argv[2]
-except:
-    output_dir = "./"
 
 destination_file_path = os.path.join(output_dir, "cmu-bboxes.npy")
 

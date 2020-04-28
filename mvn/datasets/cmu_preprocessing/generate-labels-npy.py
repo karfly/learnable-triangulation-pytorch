@@ -288,7 +288,7 @@ table_dtype = np.dtype([
     ('person_id', np.int8),
     ('frame_names', np.int16),
     ('keypoints', np.float32, (19, 4)),  # roughly MPII format
-    ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 4))
+    ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 5))
 ])
 
 retval['table'] = []
@@ -337,10 +337,6 @@ for action_idx, action_name in enumerate(retval['action_names']):
             for camera_idx, camera_name in enumerate(retval['camera_names']):
                 for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
                     bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_idx)]
-
-                    if DEBUG: 
-                        print(bbox)
-                        print(action_name, camera_name, int(frame_idx))
 
             retval['table'].append(table_segment)
 

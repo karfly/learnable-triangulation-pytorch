@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, help="Local rank of the process on the node")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
-    parser.add_argument("--logdir", type=str, default="/Vol1/dbstore/datasets/k.iskakov/logs/multi-view-net-repr", help="Path, where logs will be stored")
+    parser.add_argument("--logdir", type=str, default="./logs", help="Path, where logs will be stored")
 
     args = parser.parse_args()
     return args
@@ -190,7 +190,6 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
 def setup_dataloaders(config, is_train=True, distributed_train=False):
     if config.dataset.kind == 'human36m':
         train_dataloader, val_dataloader, train_sampler = setup_human36m_dataloaders(config, is_train, distributed_train)
-    # TODO: ADD OUR OWN DATALOADING
     elif config.dataset.kind in ['cmu', 'cmupanoptic']:
         train_dataloader, val_dataloader, train_sampler = setup_cmu_dataloaders(config, is_train, distributed_train)
     else:

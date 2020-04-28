@@ -13,7 +13,7 @@ import json
 import pickle
 
 USAGE_PROMPT = """
-$ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file>
+$ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file> <1-for-debug(optional)>
 
 Example (default):
 $ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy
@@ -30,7 +30,6 @@ def jsonToDict(filename):
 
 # Change this line if you want to use Mask-RCNN or SSD bounding boxes instead of H36M's 'ground truth'.
 BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
-DEBUG = False
 
 retval = {
     'camera_names': set(),
@@ -43,6 +42,13 @@ try:
 except:
     print("Usage: ",USAGE_PROMPT)
     exit()
+
+try:
+    DEBUG = bool(sys.argv[3])
+except:
+    DEBUG = False
+
+print(f"Debug mode: {DEBUG}\n")
 
 destination_file_path = os.path.join(
     cmu_root, f'cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy')
@@ -140,7 +146,7 @@ def square_the_bbox(bbox):
 def parseBBOXData(bbox_dir):
     bboxes = np.load(bbox_dir, allow_pickle=True).item()
 
-    return bboxes
+    print(bbox_dir, bboxes.keys())
 
     for action in bboxes.keys():
         for camera, bbox_array in bboxes[action].items():
@@ -153,6 +159,9 @@ if BBOXES_SOURCE == 'MRCNN':
     bbox_data = parseBBOXData(bbox_root)
     
     print(f"{BBOXES_SOURCE} bboxes loaded!\n")
+
+    if DEBUG: 
+        print(bbox_data)
 else:
     # NOTE: If you are not using the provided MRCNN detections, you have to implement the parser yourself
     raise NotImplementedError
@@ -329,7 +338,11 @@ for action_idx, action_name in enumerate(retval['action_names']):
 
             for camera_idx, camera_name in enumerate(retval['camera_names']):
                 for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
-                    bbox[camera_idx] = bbox_data[action_name][camera_name][frame_idx]
+                    bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_idx)]
+
+                    if DEBUG: 
+                        print(bbox)
+                        print(action_name, camera_name, int(frame_idx))
 
             retval['table'].append(table_segment)
 

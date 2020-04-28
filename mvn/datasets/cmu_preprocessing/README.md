@@ -60,7 +60,7 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
     Then, run the python file in `$THIS_REPOSITORY/mvn/datasets/cmu_preprocessing/` as follows:
 
     ```bash
-    python3 collect-bboxes-npy.py <path/to/mrcnn-detections/folder> <path/to/output/file>
+    python3 collect-bboxes-npy.py <path/to/mrcnn-detections/folder> <path/to/output/file> <1-for-debug(optional)>
     ```
 
     For example (default):
@@ -74,7 +74,7 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
 3. Run `generate-labels-npy.py` to convert the data and bbox info from native json format to an npy format which the `CMUPanopticDataset(Dataset)` class can use. The first argument is the directory to the CMU Panoptic Data; the second argument is to the npy file of pretrained bounding boxes for the person detections, generated after the previous step:
 
     ```bash
-    python3 generate-labels-npy.py <path/to/data> <path/to/bbox-npy-file>
+    python3 generate-labels-npy.py <path/to/data> <path/to/bbox-npy-file>  <1-for-debug(optional)>
     ```
 
     For example (default):

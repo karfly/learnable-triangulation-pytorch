@@ -5,10 +5,10 @@ Collate BBOX data from CMU Panoptic Dataset into a npy file
 '''
 
 USAGE_PROMPT="""
-$ python3 collect-bboxes-npy.py <path/to/mrcnn-detections/folder> <path/to/output/file(optional)>
+$ python3 collect-bboxes-npy.py <path/to/mrcnn-detections/folder> <path/to/output/file> <1-for-debug(optional)>
 
 Example:
-$ python3 collect-bboxes-npy.py $THIS_REPOSITORY/data/pretrained/cmu/mrcnn-detections $THIS_REPOSITORY/mvn/datasets/cmu_preprocessing
+$ python3 collect-bboxes-npy.py $THIS_REPOSITORY/data/pretrained/cmu/mrcnn-detections $THIS_REPOSITORY/data/pretrained/cmu
 """
 
 import os, sys
@@ -32,6 +32,13 @@ try:
 except:
     print(USAGE_PROMPT)
     exit()
+
+try:
+    DEBUG = bool(sys.argv[3])
+except:
+    DEBUG = False
+
+print(f"Debug mode: {DEBUG}\n")
 
 destination_file_path = os.path.join(output_dir, "cmu-bboxes.npy")
 

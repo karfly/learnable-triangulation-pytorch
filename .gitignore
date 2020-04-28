@@ -5,11 +5,10 @@
 mvn/datasets/cmu_preprocessing/data_test/*
 mvn/datasets/cmu_preprocessing/bbox_test/*
 mvn/datasets/*.npy
-mvn/datasets/cmu_preprocessing/*.npy
+mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
+
 data/*
 logs/*
-
-cmu-bboxes.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -57,7 +57,7 @@ dataset:
 
   train:
     cmu_root: "./data/cmupanoptic"
-    labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy"
+    labels_path: "./data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: true
@@ -73,7 +73,7 @@ dataset:
 
   val:
     cmu_root: "./data/cmupanoptic"
-    labels_path: "./data/cmupanoptic/extra/cmu-multiview-labels-GTbboxes.npy"
+    labels_path: "./data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
     with_damaged_actions: true

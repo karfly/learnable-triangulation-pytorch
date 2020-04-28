@@ -53,11 +53,11 @@ assert os.path.isdir(cmu_root), "Invalid data directory '%s'\n%s" % (cmu_root, U
 FORMATTING/ORGANISATION OF FOLDERS & FILES
 
 Images:
-    $DIR_ROOT/[action_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
+    $DIR_ROOT/[ACTION_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
     (e.g.) ./171026_pose1/hdImgs/00_24/00_24_00012200.jpg
 
 Pose Data:
-    $DIR_ROOT/[action_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
+    $DIR_ROOT/[ACTION_NAME]/hdPose3d_stage1_coco19/body3DScene_[FRAME_ID].jpg
     (e.g.) ./171026_pose1/hdPose3d_stage1_coco19/body3DScene_00012200.json
 
     JSON data has this notable format:
@@ -72,7 +72,7 @@ Pose Data:
     ] 
 
 Camera Calibration Data:
-    $DIR_ROOT/[action_NAME]/calibration_[action_NAME].json
+    $DIR_ROOT/[ACTION_NAME]/calibration_[ACTION_NAME].json
 '''
 
 '''

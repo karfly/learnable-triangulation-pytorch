@@ -4,7 +4,7 @@
 # Ignore all CMU pose files
 mvn/datasets/cmu_preprocessing/data_test/*
 mvn/datasets/cmu_preprocessing/bbox_test/*
-mvn/datasets/cmu_preprocessing/*.npy
+*.npy
 data/*
 logs/*
 

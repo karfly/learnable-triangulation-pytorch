@@ -151,8 +151,7 @@ def parseBBOXData(bbox_dir):
 
 if BBOXES_SOURCE == 'MRCNN':
     bbox_data = parseBBOXData(bbox_root)
-    print(bbox_data)
-
+    
     print(f"{BBOXES_SOURCE} bboxes loaded!\n")
 else:
     # NOTE: If you are not using the provided MRCNN detections, you have to implement the parser yourself
@@ -314,7 +313,8 @@ for action_idx, action_name in enumerate(retval['action_names']):
 
             retval['table'].append(table_segment)
 
-    print("\n")
+    if DEBUG: 
+        print("\n")
 
 # Check 
 if DEBUG:

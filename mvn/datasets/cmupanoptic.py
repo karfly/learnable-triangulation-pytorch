@@ -19,7 +19,7 @@ class CMUPanopticDataset(Dataset):
     """
     def __init__(self,
                  cmu_root='../data/cmupanoptic/',
-                 labels_path='../data/cmupanoptic/cmu-multiview-labels-SSDbboxes.npy',
+                 labels_path='../data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy',
                  pred_results_path=None,
                  image_shape=(256, 256),
                  train=False,
@@ -35,11 +35,11 @@ class CMUPanopticDataset(Dataset):
                  ):
         """
             cmu_root:
-                Path to 'processed/' directory in CMU Panoptic
+                Path to directory in CMU Panoptic containing all the data
+            
             labels_path:
-                Path to 'cmu-multiview-labels.npy' 
-                TODO: Generate the labels
-                
+                Path to 'cmu-multiview-labels.npy'
+
             retain_every_n_frames_in_test:
                 By default, there are 159 181 frames in training set and 26 634 in test (val) set.
                 With this parameter, test set frames will be evenly skipped frames so that the
@@ -47,7 +47,7 @@ class CMUPanopticDataset(Dataset):
                 Use a value of 13 to get 2049 frames in test set.
                 
             kind:
-                Keypoint format, 'mpii' (for now)
+                Keypoint format, '??' (for now)
 
             ignore_cameras:
                 A list with indices of cameras to exclude (0 to 3 inclusive)
@@ -64,6 +64,7 @@ class CMUPanopticDataset(Dataset):
         self.cuboid_side = cuboid_side
         self.kind = kind
         self.undistort_images = undistort_images
+        # TODO: Use config files to select cameras
         self.ignore_cameras = ignore_cameras
         self.crop = crop
 

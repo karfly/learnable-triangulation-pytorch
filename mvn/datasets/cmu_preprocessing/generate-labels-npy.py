@@ -128,7 +128,7 @@ def parsePersonData(filename):
 
 
 def square_the_bbox(bbox):
-    top, left, bottom, right = bbox
+    top, left, bottom, right, confidence = bbox
     width = right - left
     height = bottom - top
 
@@ -141,12 +141,10 @@ def square_the_bbox(bbox):
         left = int(round(center - height * 0.5))
         right = left + height
 
-    return top, left, bottom, right
+    return top, left, bottom, right, confidence
 
 def parseBBOXData(bbox_dir):
     bboxes = np.load(bbox_dir, allow_pickle=True).item()
-
-    print(bbox_dir, bboxes.keys())
 
     for action in bboxes.keys():
         for camera, bbox_array in bboxes[action].items():

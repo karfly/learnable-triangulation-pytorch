@@ -138,7 +138,7 @@ def square_the_bbox(bbox):
     return top, left, bottom, right
 
 def parseBBOXData(bbox_dir):
-    bboxes = np.load(bbox_root, allow_pickle=True).item()
+    bboxes = np.load(bbox_dir, allow_pickle=True).item()
 
     return bboxes
 

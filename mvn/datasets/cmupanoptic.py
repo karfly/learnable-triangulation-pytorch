@@ -29,7 +29,6 @@ class CMUPanopticDataset(Dataset):
                  scale_bbox=1.5,
                  norm_image=True,
                  kind="mpii",
-                 undistort_images=False,
                  ignore_cameras=[],
                  crop=True
                  ):
@@ -38,7 +37,7 @@ class CMUPanopticDataset(Dataset):
                 Path to directory in CMU Panoptic containing all the data
             
             labels_path:
-                Path to 'cmu-multiview-labels.npy'
+                Path to 'cmu-multiview-labels-{BBOX_SOURCE}bboxes.npy'
 
             retain_every_n_frames_in_test:
                 By default, there are 159 181 frames in training set and 26 634 in test (val) set.
@@ -63,7 +62,6 @@ class CMUPanopticDataset(Dataset):
         self.norm_image = norm_image
         self.cuboid_side = cuboid_side
         self.kind = kind
-        self.undistort_images = undistort_images
         # TODO: Use config files to select cameras
         self.ignore_cameras = ignore_cameras
         self.crop = crop
@@ -72,28 +70,30 @@ class CMUPanopticDataset(Dataset):
 
         #NOTE: https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox/blob/master/README.md
         n_cameras = len(self.labels['camera_names'])
-        # assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
+        assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
 
-        # TODO: Adapt according to cmu dataset
-        train_subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
-        test_subjects = ['S9', 'S11']
+        # TODO: Get these from the config file?
+        train_actions = ["171026_pose3", "171026_pose2", "171026_pose1", "171204_pose4",
+            "171204_pose3", "171204_pose2", "171204_pose1"]
+        test_actions = ["171204_pose5", "171204_pose6"]
 
-        train_subjects = list(self.labels['person_names'].index(x) for x in train_subjects)
-        test_subjects  = list(self.labels['person_names'].index(x) for x in test_subjects)
+        train_actions = list(self.labels['action_names'].index(x) for x in train_actions)
+        test_actions = list(self.labels['action_names'].index(x) for x in test_actions)
 
         indices = []
         if train:
-            mask = np.isin(self.labels['table']['person_id'], train_subjects, assume_unique=True)
+            mask = np.isin(self.labels['table']['action_idx'], train_actions, assume_unique=True)
             indices.append(np.nonzero(mask)[0])
         if test:
-            mask = np.isin(self.labels['table']['person_id'], test_subjects, assume_unique=True)
+            mask = np.isin(self.labels['table']['action_idx'], test_actions, assume_unique=True)
             indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_test])
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
 
+        # TODO: Change? Keypoints are change 
         self.num_keypoints = 16 if kind == "mpii" else 17
-        
-        # TODO: Change
+        #self.num_keypoints = 19
+
         assert self.labels['table']['keypoints'].shape[1] == 19, "Error with keypoints in 'labels' file"
 
         self.keypoints_3d_pred = None
@@ -112,16 +112,20 @@ class CMUPanopticDataset(Dataset):
         sample = defaultdict(list) # return value
         shot = self.labels['table'][idx]
 
-        person = self.labels['person_names'][shot['person_id']]
-        action = self.labels['action_names'][shot['action_idx']]
-        frame_idx = shot['frame_idx']
+        #person = self.labels['person_names'][shot['person_id']]
+        person = shot['person_id']
+
+        action_idx = shot['action_idx']
+        action = self.labels['action_names'][action_idx]
+        
+        frame_idx = shot['frame_names'] # TODO: why is this an array?
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
             if camera_idx in self.ignore_cameras:
                 continue
 
             # load bounding box
-            bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2]] # TLBR to LTRB
+            bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
             bbox_height = bbox[2] - bbox[0]
             if bbox_height == 0:
                 # convention: if the bbox is empty, then this view is missing
@@ -130,17 +134,17 @@ class CMUPanopticDataset(Dataset):
             # scale the bounding box
             bbox = scale_bbox(bbox, self.scale_bbox)
 
-            # TODO: change
             # load image
+            # $DIR_ROOT/[action_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
+            print(frame_idx)
             image_path = os.path.join(
-                self.cmu_root, person, action, 'imageSequence' + '-undistorted' * self.undistort_images,
-                camera_name, 'img_%06d.jpg' % (frame_idx+1))
+                self.cmu_root, action, 'hdImgs',
+                camera_name, f'{camera_name}_{frame_idx:08}.jpg')
             assert os.path.isfile(image_path), '%s doesn\'t exist' % image_path
             image = cv2.imread(image_path)
 
             # load camera
-            
-            shot_camera = self.labels['cameras'][shot['action_idx'], camera_idx]
+            shot_camera = self.labels['camera_name'][action_idx, camera_idx]
             retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
 
             if self.crop:
@@ -160,7 +164,7 @@ class CMUPanopticDataset(Dataset):
                 image = normalize_image(image)
 
             sample['images'].append(image)
-            sample['detections'].append(bbox + (1.0,)) # TODO add real confidences
+            sample['detections'].append(bbox) #in CMU, real confidences already exist
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
@@ -186,6 +190,7 @@ class CMUPanopticDataset(Dataset):
         sample.default_factory = None
         return sample
 
+    # TODO: Need to check this
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):
         def evaluate_by_actions(self, per_pose_error, mask=None):
             if mask is None:
@@ -202,6 +207,7 @@ class CMUPanopticDataset(Dataset):
                     'total_loss': action_per_pose_error.sum(), 'frame_count': len(action_per_pose_error)
                 }
 
+            # TODO: What is this?!?
             action_names_without_trials = \
                 [name[:-2] for name in self.labels['action_names'] if name.endswith('-1')]
 
@@ -221,16 +227,20 @@ class CMUPanopticDataset(Dataset):
 
             return action_scores
 
+        # TODO: May need to add person id
         person_scores = {
             'Average': evaluate_by_actions(self, per_pose_error)
         }
 
+        '''
         for person_id in range(len(self.labels['person_names'])):
             person_mask = self.labels['table']['person_id'] == person_id
             person_scores[self.labels['person_names'][person_id]] = \
                 evaluate_by_actions(self, per_pose_error, person_mask)
+        '''
 
         return person_scores
+        
 
     def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
         keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]

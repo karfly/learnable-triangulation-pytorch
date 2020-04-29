@@ -156,12 +156,7 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
-print(f"\nFinding actions, frames and cameras in {cmu_root}", end='')
-
-if USE_MULTIPROCESSING:
-    print(f"using {num_processes} processors...")
-else:
-    print(f". No multiprocessing used (see usage on how to setup multiprocessing)")
+print(f"\nFinding actions, frames and cameras in {cmu_root}")
 
 def get_frames_data(images_dir_cam, camera_name):
     valid_frames = set()

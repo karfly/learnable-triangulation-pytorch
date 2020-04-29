@@ -88,8 +88,6 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
 
     There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder (or the folder where you ran it from if it failed). In this case, if you used the MRCNN bboxes, then {BBOX_SOURCE} will clearly be `MRCNN`.
 
-    **NOTE: This processing will likely take a few hours. Go take a (long) nap.**
-
 4. Optionally, you can test if everything went well by viewing frames with skeletons and bounding boxes on a GUI machine:
 
     ```bash

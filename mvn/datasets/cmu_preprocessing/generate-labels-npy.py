@@ -300,7 +300,7 @@ if USE_MULTIPROCESSING:
 else:
     print(f"\nGenerating labels. No multiprocessing used (see usage on how to setup multiprocessing)")
 
-print("NOTE: This may take a while (a few hours)!")
+# print("NOTE: This may take a while (a few hours)!")
 
 # Async process?
 def load_table_segment(data, action_idx, action_name):
@@ -396,17 +396,18 @@ if USE_MULTIPROCESSING:
 retval['person_ids'] = sorted(list(retval['person_ids']))
 
 # Check 
-if DEBUG:
+if DEBUG or False:
+    print("\nChecking cameras:")
     for action_idx, action_name in enumerate(retval['action_names']):
         for camera_idx, camera_name in enumerate(retval['camera_names']):
-            print(data_by_pose[retval['action_names'][action_idx]]
-                ["camera_data"][retval['camera_names'][camera_idx]]['R'])
-
-            print(retval['cameras'][action_idx][camera_idx]['R'])
-            print("")
+            try:
+                print(data_by_pose[action_name]["camera_data"][camera_name]['R'])
+                print(retval['cameras'][action_idx][camera_idx]['R'])
+                print("")
+            except KeyError:
+                print(f"Missing {action_name}, {camera_name}")
 
 # Ready to Save!
-
 retval['table'] = np.concatenate(retval['table'])
 assert retval['table'].ndim == 1
 

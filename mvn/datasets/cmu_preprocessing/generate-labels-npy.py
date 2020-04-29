@@ -231,8 +231,7 @@ for action_name in os.listdir(cmu_root):
         images_dir_cam = os.path.join(images_dir, camera_name)
 
         for frame_name in os.listdir(images_dir_cam):
-            frame_name = frame_name.replace(f'{camera_name}_', '').replace(
-                '.jpg', '').replace('.png', '')
+            frame_name = frame_name.replace(f'{camera_name}_', '').replace('.jpg', '')
 
             if frame_name in frame_cnt:
                 frame_cnt[frame_name] += 1

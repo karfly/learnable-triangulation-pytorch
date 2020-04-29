@@ -156,9 +156,6 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
-print(bbox_data["171204_pose3"])
-exit()
-
 print(f"\nFinding actions, frames and cameras in {cmu_root}")
 
 def get_frames_data(images_dir_cam, camera_name):
@@ -320,10 +317,10 @@ def load_table_segment(data, action_idx, action_name):
         for bbox, frame_nm in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
             try:
                 bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
-            except:
-                print(bbox_data[action_name].keys())
-                raise Exception(f"bbox[{camera_idx}] failed: {action_name} {camera_name} {frame_nm}")
-
+            except KeyError:
+                print(f"Missing bbox data {action_name}, {camera_name}.. Ignoring")
+                bbox[camera_idx] = (0,0,0,0,0)
+                
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
         person_data_arr = data['person_data'][frame_name]

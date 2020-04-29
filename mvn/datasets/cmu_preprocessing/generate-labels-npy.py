@@ -322,7 +322,6 @@ def load_table_segment(data, action_idx, action_name):
                 bbox[camera_idx] = (0,0,0,0,0)
                 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
-        # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
         person_data_arr = data['person_data'][frame_name]
 
         for person_data in person_data_arr:

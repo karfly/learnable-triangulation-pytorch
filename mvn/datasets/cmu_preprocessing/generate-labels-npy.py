@@ -33,7 +33,8 @@ BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
 
 retval = {
     'camera_names': set(),
-    'action_names': []
+    'action_names': [],
+    'person_ids': set()
 }
 
 try:
@@ -325,6 +326,7 @@ for action_idx, action_name in enumerate(retval['action_names']):
                     f"{action_name}, frame {frame_name}, person {person_data['id']}"
                 )
 
+            retval['person_ids'].add(person_data['id'])
             table_segment['person_id'] = person_data['id']
             table_segment['action_idx'] = action_idx 
             table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
@@ -343,6 +345,8 @@ for action_idx, action_name in enumerate(retval['action_names']):
     if DEBUG: 
         print("\n")
 
+retval['person_ids'] = sorted(list(retval['person_ids']))
+
 # Check 
 if DEBUG:
     for action_idx, action_name in enumerate(retval['action_names']):
@@ -352,9 +356,6 @@ if DEBUG:
 
             print(retval['cameras'][action_idx][camera_idx]['R'])
             print("")
-
-# NOTE: Camera data also need to be filled 
-# camera_id = int(camera_name.replace('_'$1', "'))
 
 # Ready to Save!
 retval['table'] = np.concatenate(retval['table'])
@@ -368,4 +369,10 @@ try:
     np.save(destination_file_path, retval)
     print(f"Labels file saved to {destination_file_path}")
 except: 
-    raise f"Failed to save file {destination_file_path}"
+    print(f"Failed to save file {destination_file_path}... Attempting to save in current directory instead...")
+
+    try:
+        np.save("./", retval)
+        print(f"Labels file saved to current directory")
+    except:
+        raise f"Completely failed to save file: {destination_file_path}"

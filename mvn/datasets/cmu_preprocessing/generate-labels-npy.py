@@ -302,9 +302,6 @@ else:
 
 print("NOTE: This may take a while (a few hours)!")
 
-print(bbox_data["171026_pose1"].keys())
-exit()
-
 # Async process?
 def load_table_segment(data, action_idx, action_name):
     person_ids = set()
@@ -318,7 +315,10 @@ def load_table_segment(data, action_idx, action_name):
     
     for camera_idx, camera_name in enumerate(retval['camera_names']):
         for bbox, frame_nm in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
-            bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
+            try:
+                bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
+            except:
+                raise f"bbox[{camera_idx}] failed: {action_name} {camera_name} {frame_nm}")
 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically

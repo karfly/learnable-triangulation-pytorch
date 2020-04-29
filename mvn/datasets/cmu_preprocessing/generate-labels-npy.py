@@ -318,7 +318,7 @@ def load_table_segment(data, action_idx, action_name):
             try:
                 bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
             except:
-                raise f"bbox[{camera_idx}] failed: {action_name} {camera_name} {frame_nm}")
+                raise f"bbox[{camera_idx}] failed: {action_name} {camera_name} {frame_nm}"
 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically

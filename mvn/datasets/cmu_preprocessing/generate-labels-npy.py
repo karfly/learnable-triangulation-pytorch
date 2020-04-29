@@ -281,7 +281,7 @@ retval['cameras'] = np.empty(
 table_dtype = np.dtype([
     ('action_idx', np.int8), 
     ('person_id', np.int8),
-    ('frame_names', np.int16),
+    ('frame_name', np.int16),
     ('keypoints', np.float32, (19, 4)),  # roughly MPII format
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 5))
 ])
@@ -299,34 +299,35 @@ print("NOTE: This may take a while (a few hours)!")
 def load_table_segment(data, action_idx, action_name, frame_idx, frame_name):
     person_ids = set()
 
-    if DEBUG: 
-        print(f"Loading segement {action_idx}:{action_name}, {frame_idx}:{frame_name}...")
-
+    # NOTE: THIS IS AN ARRAY!
     table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
 
-    # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
-    person_data_arr = data['person_data'][frame_name]
+    for frame_idx, frame_name in enumerate(data['valid_frames']):
+        if DEBUG: 
+            print(f"Loading segment {action_idx}:{action_name}, {frame_idx}:{frame_name}...")
 
-    for person_data in person_data_arr:
-        if DEBUG:
-            print(
-                f"{action_name}, frame {frame_name}, person {person_data['id']}"
-            )
+        # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
+        person_data_arr = data['person_data'][frame_name]
 
-        person_ids.add(person_data['id'])
-        table_segment['person_id'] = person_data['id']
-        table_segment['action_idx'] = action_idx
-        table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
-        table_segment['keypoints'] = person_data['joints']
+        for person_data in person_data_arr:
+            if DEBUG:
+                print(
+                    f"{action_name}, frame {frame_name}, person {person_data['id']}"
+                )
 
-        # Load BBOX Data (loaded above from external MRCNN Detections file)
-        # let a (0,0,0,0) bbox mean that this view is missing
-        table_segment['bbox_by_camera_tlbr'] = 0
+            person_ids.add(person_data['id'])
+            table_segment[frame_idx]['person_id'] = person_data['id']
+            table_segment[frame_idx]['action_idx'] = action_idx
+            table_segment[frame_idx]['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
+            table_segment[frame_idx]['keypoints'] = person_data['joints']
 
-        for camera_idx, camera_name in enumerate(retval['camera_names']):
-            for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
-                bbox[camera_idx] = bbox_data[action_name][camera_name][int(
-                    frame_idx)]
+            # Load BBOX Data (loaded above from external MRCNN Detections file)
+            # let a (0,0,0,0) bbox mean that this view is missing
+            table_segment['bbox_by_camera_tlbr'] = 0
+
+            for camera_idx, camera_name in enumerate(retval['camera_names']):
+                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
+                    bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_idx)]
 
     return table_segment, person_ids
 
@@ -345,7 +346,7 @@ for action_idx, action_name in enumerate(retval['action_names']):
     data = data_by_pose[action_name]
 
     # For CMU, at most 31 cameras, so should be fast
-    for camera_idx, camera_name in enumerate(retval['camera_names']):
+    for camera_idx, camera_name in enumerate(data['camera_data']):
         if DEBUG: 
             print(f"{action_name}, cam {camera_name}: ({action_idx},{camera_idx})")
 
@@ -361,23 +362,22 @@ for action_idx, action_name in enumerate(retval['action_names']):
     if DEBUG:
         print("")
 
-    for frame_idx, frame_name in enumerate(data['valid_frames']):
-        # Multiprocessing
-        if USE_MULTIPROCESSING:
-            async_result = pool.apply_async(
-                load_table_segment,
-                args=(data,
-                      action_idx, action_name,
-                      frame_idx, frame_name),
-                callback=save_segment_to_table
-            )
+    # Load table segment
+    if USE_MULTIPROCESSING:
+        async_result = pool.apply_async(
+            load_table_segment,
+            args=(data,
+                    action_idx, action_name,
+                    frame_idx, frame_name),
+            callback=save_segment_to_table
+        )
 
-            async_errors.append(async_result)
-        else:
-            args = load_table_segment(data,
-                          action_idx, action_name,
-                          frame_idx, frame_name)
-            save_segment_to_table(args)
+        async_errors.append(async_result)
+    else:
+        args = load_table_segment(data,
+                        action_idx, action_name,
+                        frame_idx, frame_name)
+        save_segment_to_table(args)
 
     if DEBUG: 
         print("\n")

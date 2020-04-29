@@ -11,12 +11,13 @@ import os, sys
 import numpy as np
 import json
 import pickle
+import multiprocessing
 
 USAGE_PROMPT = """
-$ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file> <1-for-debug(optional)>
+$ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file> <number-of-processors> <1-for-debug(optional)>
 
 Example (default):
-$ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy
+$ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy 4
 """
 
 def jsonToDict(filename):
@@ -40,12 +41,13 @@ retval = {
 try:
     cmu_root = sys.argv[1]
     bbox_root = sys.argv[2]
+    num_processes = int(sys.argv[3])
 except:
     print("Usage: ",USAGE_PROMPT)
     exit()
 
 try:
-    DEBUG = bool(sys.argv[3])
+    DEBUG = bool(sys.argv[4])
 except:
     DEBUG = False
 
@@ -169,7 +171,8 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
-print("Generating labels...")
+print(f"\nFinding actions, frames and cameras in {cmu_root}...")
+
 # Loop thru directory files and find scene names
 for action_name in os.listdir(cmu_root):
     # Make sure that this is actually a scene
@@ -294,6 +297,40 @@ table_dtype = np.dtype([
 
 retval['table'] = []
 
+print(f"\nGenerating labels using {num_processes} processors...")
+print("NOTE: This may take a while (a few hours)!")
+
+# Async process?
+def loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_name):
+    # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
+    person_data_arr = data['person_data'][frame_name]
+
+    for person_data in person_data_arr:
+        if DEBUG:
+            print(
+                f"{action_name}, frame {frame_name}, person {person_data['id']}"
+            )
+
+        retval['person_ids'].add(person_data['id'])
+        table_segment['person_id'] = person_data['id']
+        table_segment['action_idx'] = action_idx
+        table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
+        table_segment['keypoints'] = person_data['joints']
+
+        # Load BBOX Data (loaded above from external MRCNN Detections file)
+        # let a (0,0,0,0) bbox mean that this view is missing
+        table_segment['bbox_by_camera_tlbr'] = 0
+
+        for camera_idx, camera_name in enumerate(retval['camera_names']):
+            for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
+                bbox[camera_idx] = bbox_data[action_name][camera_name][int(
+                    frame_idx)]
+
+        return table_segment
+
+pool = multiprocessing.Pool(num_processes)
+async_errors = []
+
 # Iterate through the poses to fill up the table and camera data
 for action_idx, action_name in enumerate(retval['action_names']):
     data = data_by_pose[action_name]
@@ -317,30 +354,9 @@ for action_idx, action_name in enumerate(retval['action_names']):
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
 
-        # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
-        person_data_arr = data['person_data'][frame_name]
+        loaded_segment = loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_name)
 
-        for person_data in person_data_arr:
-            if DEBUG:
-                print(
-                    f"{action_name}, frame {frame_name}, person {person_data['id']}"
-                )
-
-            retval['person_ids'].add(person_data['id'])
-            table_segment['person_id'] = person_data['id']
-            table_segment['action_idx'] = action_idx 
-            table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
-            table_segment['keypoints'] = person_data['joints']
-
-            # Load BBOX Data (loaded above from external MRCNN Detections file)
-            # let a (0,0,0,0) bbox mean that this view is missing
-            table_segment['bbox_by_camera_tlbr'] = 0
-
-            for camera_idx, camera_name in enumerate(retval['camera_names']):
-                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
-                    bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_idx)]
-
-            retval['table'].append(table_segment)
+        retval['table'].append(loaded_segment)
 
     if DEBUG: 
         print("\n")

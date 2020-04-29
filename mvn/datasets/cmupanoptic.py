@@ -92,7 +92,7 @@ class CMUPanopticDataset(Dataset):
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
 
-        # TODO: Change? Keypoints are change 
+        # TODO: Change? 
         self.num_keypoints = 16 if kind == "mpii" else 17
         #self.num_keypoints = 19
 
@@ -194,6 +194,9 @@ class CMUPanopticDataset(Dataset):
         sample.default_factory = None
         return sample
 
+    def remap_keypoints():
+        return
+
     def square_the_bbox(bbox):
         top, left, bottom, right, confidence = bbox
         width = right - left
@@ -264,14 +267,15 @@ class CMUPanopticDataset(Dataset):
         return person_scores
         
 
-    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
+    def evaluate(self, keypoints_3d_predicted, split_by_subject=False):
         keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(
                 '`keypoints_3d_predicted` shape should be %s, got %s' % \
                 (keypoints_gt.shape, keypoints_3d_predicted.shape))
 
-        #TODO: Remove since already (probably) in cmu format?
+        # TODO: Conversion Code
+        # TODO: Remove unnecessary 4th coordinate (confidences)
         if transfer_cmu_to_human36m or transfer_human36m_to_human36m:
             human36m_joints = [10, 11, 15, 14, 1, 4]
             if transfer_human36m_to_human36m:
@@ -279,17 +283,16 @@ class CMUPanopticDataset(Dataset):
             else:
                 cmu_joints = [10, 8, 9, 7, 14, 13]
 
-            keypoints_gt = keypoints_gt[:, human36m_joints]
+            # keypoints_gt = keypoints_gt[:, human36m_joints]
+            keypoints_gt = keypoints_gt[:, cmu_joints]
             keypoints_3d_predicted = keypoints_3d_predicted[:, cmu_joints]
 
         # mean error per 16/17 joints in mm, for each pose
         per_pose_error = np.sqrt(((keypoints_gt - keypoints_3d_predicted) ** 2).sum(2)).mean(1)
 
         # relative mean error per 16/17 joints in mm, for each pose
-        if not (transfer_cmu_to_human36m or transfer_human36m_to_human36m):
-            root_index = 6 if self.kind == "mpii" else 6
-        else:
-            root_index = 0
+        # root_index = 6 if self.kind == "mpii" else 6
+        root_index = 0
 
         keypoints_gt_relative = keypoints_gt - keypoints_gt[:, root_index:root_index + 1, :]
         keypoints_3d_predicted_relative = keypoints_3d_predicted - keypoints_3d_predicted[:, root_index:root_index + 1, :]

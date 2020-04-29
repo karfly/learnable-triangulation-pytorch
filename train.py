@@ -126,6 +126,7 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
                 config, "image_shape") else (256, 256),
             labels_path=config.dataset.train.labels_path,
             scale_bbox=config.dataset.train.scale_bbox,
+            square_bbox=config.dataset.train.square_bbox if hasattr(config.dataset.train, "square_bbox") else True,
             kind=config.kind,
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(
                 config.dataset.train, "ignore_cameras") else [],
@@ -162,9 +163,9 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
         labels_path=config.dataset.val.labels_path,
         retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
         scale_bbox=config.dataset.val.scale_bbox,
+        square_bbox=config.dataset.val.square_bbox if hasattr(config.dataset.val, "square_bbox") else True,
         kind=config.kind,
-        ignore_cameras=config.dataset.val.ignore_cameras if hasattr(
-            config.dataset.val, "ignore_cameras") else [],
+        ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop if hasattr(
             config.dataset.val, "crop") else True,
     )

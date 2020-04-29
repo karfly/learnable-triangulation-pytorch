@@ -42,6 +42,8 @@ try:
     cmu_root = sys.argv[1]
     bbox_root = sys.argv[2]
     num_processes = int(sys.argv[3])
+
+    USE_MULTIPROCESSING = False if num_processes <= 0 else True
 except:
     print("Usage: ",USAGE_PROMPT)
     exit()
@@ -134,8 +136,6 @@ def parseBBOXData(bbox_dir):
 
     return bboxes
 
-    # For transportability, do not square the bboxes
-    # Has since been moved to cmupanoptic file instead
     '''
     for action in bboxes.keys():
         for camera, bbox_array in bboxes[action].items():
@@ -288,11 +288,22 @@ table_dtype = np.dtype([
 
 retval['table'] = []
 
-print(f"\nGenerating labels using {num_processes} processors...")
+if USE_MULTIPROCESSING:
+    print(f"\nGenerating labels using {num_processes} processors...")
+else:
+    print(f"\nGenerating labels. No multiprocessing used (see usage on how to setup multiprocessing)")
+
 print("NOTE: This may take a while (a few hours)!")
 
 # Async process?
-def loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_name):
+def load_table_segment(data, action_idx, action_name, frame_idx, frame_name):
+    person_ids = set()
+
+    if DEBUG: 
+        print(f"Loading segement {action_idx}:{action_name}, {frame_idx}:{frame_name}...")
+
+    table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
+
     # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
     person_data_arr = data['person_data'][frame_name]
 
@@ -302,7 +313,7 @@ def loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_na
                 f"{action_name}, frame {frame_name}, person {person_data['id']}"
             )
 
-        retval['person_ids'].add(person_data['id'])
+        person_ids.add(person_data['id'])
         table_segment['person_id'] = person_data['id']
         table_segment['action_idx'] = action_idx
         table_segment['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
@@ -317,10 +328,17 @@ def loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_na
                 bbox[camera_idx] = bbox_data[action_name][camera_name][int(
                     frame_idx)]
 
-        return table_segment
+    return table_segment, person_ids
 
-pool = multiprocessing.Pool(num_processes)
-async_errors = []
+def save_segment_to_table(args):
+    table_segment, person_ids = args
+
+    retval['table'].append(table_segment)
+    retval['person_ids'].union(person_ids)
+
+if USE_MULTIPROCESSING:
+    pool = multiprocessing.Pool(num_processes)
+    async_errors = []
 
 # Iterate through the poses to fill up the table and camera data
 for action_idx, action_name in enumerate(retval['action_names']):
@@ -344,14 +362,33 @@ for action_idx, action_name in enumerate(retval['action_names']):
         print("")
 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
-        table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
+        # Multiprocessing
+        if USE_MULTIPROCESSING:
+            async_result = pool.apply_async(
+                load_table_segment,
+                args=(data,
+                      action_idx, action_name,
+                      frame_idx, frame_name),
+                callback=save_segment_to_table
+            )
 
-        loaded_segment = loadTableSegment(table_segment, action_idx, action_name, frame_idx, frame_name)
-
-        retval['table'].append(loaded_segment)
+            async_errors.append(async_result)
+        else:
+            args = load_table_segment(data,
+                          action_idx, action_name,
+                          frame_idx, frame_name)
+            save_segment_to_table(args)
 
     if DEBUG: 
         print("\n")
+
+if USE_MULTIPROCESSING:
+    pool.close()
+    pool.join()
+
+    # raise any exceptions from pool's processes
+    for async_result in async_errors:
+        async_result.get()
 
 retval['person_ids'] = sorted(list(retval['person_ids']))
 
@@ -366,6 +403,7 @@ if DEBUG:
             print("")
 
 # Ready to Save!
+
 retval['table'] = np.concatenate(retval['table'])
 assert retval['table'].ndim == 1
 

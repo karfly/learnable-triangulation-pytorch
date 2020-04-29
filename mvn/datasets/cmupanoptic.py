@@ -208,6 +208,7 @@ class CMUPanopticDataset(Dataset):
                 }
 
             # TODO: What is this?!?
+            '''
             action_names_without_trials = \
                 [name[:-2] for name in self.labels['action_names'] if name.endswith('-1')]
 
@@ -221,6 +222,7 @@ class CMUPanopticDataset(Dataset):
                     del action_scores[action_name]
 
                 action_scores[action_name_without_trial] = combined_score
+            '''
 
             for k, v in action_scores.items():
                 action_scores[k] = float('nan') if v['frame_count'] == 0 else (v['total_loss'] / v['frame_count'])

@@ -11,7 +11,6 @@ import os, sys
 import numpy as np
 import json
 import pickle
-import multiprocessing
 
 USAGE_PROMPT = """
 $ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file> <number-of-processors> <1-for-debug(optional)>
@@ -43,7 +42,11 @@ try:
     bbox_root = sys.argv[2]
     num_processes = int(sys.argv[3])
 
-    USE_MULTIPROCESSING = False if num_processes <= 0 else True
+    USE_MULTIPROCESSING = False if num_processes <= 1 else True
+
+    if USE_MULTIPROCESSING:
+        import multiprocessing
+
 except:
     print("Usage: ",USAGE_PROMPT)
     exit()
@@ -162,7 +165,26 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
-print(f"\nFinding actions, frames and cameras in {cmu_root}...")
+print(f"\nFinding actions, frames and cameras in {cmu_root}", end='')
+
+if USE_MULTIPROCESSING:
+    print(f"using {num_processes} processors...")
+else:
+    print(f". No multiprocessing used (see usage on how to setup multiprocessing)")
+
+def get_frames_data(images_dir, camera_name, frame_cnt):
+    images_dir_cam = os.path.join(images_dir, camera_name)
+
+    for frame_name in os.listdir(images_dir_cam):
+        frame_name = frame_name.replace(f'{camera_name}_', '').replace(
+            '.jpg', '').replace('.png', '')
+
+        if frame_name in frame_cnt:
+            frame_cnt[frame_name] += 1
+
+    return 
+    retval['camera_names'].add(camera_name)
+    camera_names.append(camera_name)
 
 # Loop thru directory files and find scene names
 for action_name in os.listdir(cmu_root):
@@ -215,18 +237,26 @@ for action_name in os.listdir(cmu_root):
             print(f"Image directory {images_dir} does not exist")
         continue
 
+    if USE_MULTIPROCESSING:
+        pool = multiprocessing.Pool(num_processes)
+        async_errors = []
+
     for camera_name in os.listdir(images_dir):
+        # TODO: Multiprocess this
+
         # Populate frames dictionary
-        images_dir_cam = os.path.join(images_dir, camera_name)
-
-        for frame_name in os.listdir(images_dir_cam):
-            frame_name = frame_name.replace(f'{camera_name}_','').replace('.jpg','').replace('.png','')
-
-            if frame_name in frame_cnt:
-                frame_cnt[frame_name] += 1
+        get_frames_data()
 
         retval['camera_names'].add(camera_name)
         camera_names.append(camera_name)
+
+    if USE_MULTIPROCESSING:
+        pool.close()
+        pool.join()
+
+        # raise any exceptions from pool's processes
+        for async_result in async_errors:
+            async_result.get()
 
     # Only add the action names when we know that this is valid
     retval['action_names'].append(action_name)
@@ -303,9 +333,6 @@ def load_table_segment(data, action_idx, action_name):
     table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
-        if DEBUG: 
-            print(f"Loading segment {action_idx}:{action_name}, {frame_idx}:{frame_name}...")
-
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
         person_data_arr = data['person_data'][frame_name]
 

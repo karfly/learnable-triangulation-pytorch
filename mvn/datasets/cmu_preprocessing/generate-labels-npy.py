@@ -201,7 +201,7 @@ for action_name in os.listdir(cmu_root):
     
     camera_data = parseCameraData(calibration_file)
 
-# Count the frames by adding them to the dictionary
+    # Count the frames by adding them to the dictionary
     # Only the frames with correct length are valid
     # Otherwise have missing data/images --> ignore
     frame_cnt = {}
@@ -270,83 +270,7 @@ for action_name in os.listdir(cmu_root):
         data['camera_data'][camera_name] = camera_data[camera_name]
 
     data_by_pose[action_name] = data
-
-    '''
-    # Count the frames by adding them to the dictionary
-    # Only the frames with correct length are valid
-    # Otherwise have missing data/images --> ignore
-    valid_frames = set()
-    camera_names = []
-    person_data_path = os.path.join(action_dir, 'hdPose3d_stage1_coco19')
-
-    if not os.path.isdir(person_data_path):
-        if DEBUG:
-            print(f"{person_data_path} does not exist")
-        continue
-
-    for frame_name in os.listdir(person_data_path):
-        frame_name = frame_name.replace('body3DScene_','').replace('.json','')
-        valid_frames.add(frame_name)
-
-    # Find the cameras
-    images_dir = os.path.join(action_dir, 'hdImgs')
-
-    if not os.path.isdir(images_dir):
-        if DEBUG:
-            print(f"Image directory {images_dir} does not exist")
-        continue
-
-    # Find the valid frames: Multiprocessing possible
-    # Only those with full frame count across all directories are counted
-    if USE_MULTIPROCESSING:
-        pool = multiprocessing.Pool(num_processes)
-        async_errors = []
-
-    for camera_name in os.listdir(images_dir):
-        images_dir_cam = os.path.join(images_dir, camera_name)
-
-        # Populate frames dictionary
-        retrieved_frames = get_frames_data(images_dir_cam, camera_name)
-
-        # Get only the intersection
-        valid_frames.intersection(retrieved_frames)
-
-        retval['camera_names'].add(camera_name)
-        camera_names.append(camera_name)
-
-    if USE_MULTIPROCESSING:
-        pool.close()
-        pool.join()
-
-        # raise any exceptions from pool's processes
-        for async_result in async_errors:
-            async_result.get()
-
-    # Only add the action names when we know that this is valid
-    retval['action_names'].append(action_name)
-    data['action_dir'] = action_dir
-
-    # Get person data
-    person_data = {}  # by frame name
-
-    for frame_name in valid_frames:
-        person_data_filename = os.path.join(person_data_path, f'body3DScene_{frame_name}.json')
-        person_data_arr = parsePersonData(person_data_filename)
-
-        person_data[frame_name] = person_data_arr
-
-    data['valid_frames'] = sorted(list(valid_frames))
-    data['person_data'] = person_data
-    data['camera_names'] = sorted(camera_names)
-
-    # Generate camera data
-    data['camera_data'] = {}
-    for camera_name in data['camera_names']:
-        data['camera_data'][camera_name] = camera_data[camera_name]
-
-    data_by_pose[action_name] = data
-    '''
-
+    
 # Consolidate camera names and sort them
 retval['camera_names'] = list(retval['camera_names'])
 retval['camera_names'].sort()

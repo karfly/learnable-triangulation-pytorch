@@ -10,20 +10,23 @@ Here is how we do it (brace yourselves):
 1. Allocate a folder for the dataset. Make it accessible as `$THIS_REPOSITORY/data/cmupanoptic/`, i.e. either
 
     * store your data `$SOMEWHERE_ELSE` and make a soft symbolic link:
+
     ```bash
     mkdir $THIS_REPOSITORY/data
     ln -s $SOMEWHERE_ELSE $THIS_REPOSITORY/data/cmupanoptic
     ```
+
     * or just store the dataset along with the code at `$THIS_REPOSITORY/data/cmupanoptic/`.
 
 __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINKS BELOW, YOU DO NOT HAVE TO, AS THE SCRIPT WILL TAKE CARE OF MISSING SCENES OR DATA FOR YOU. HOWEVER, THIS MAY ALSO MEAN INVALID TRAINING/TESTING DATA.__
 
-1. Clone the [panoptic toolbox](https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox). Follow their manual to download, extract and unpack CMU Panoptic dataset into image files (follow up to step 4 of the manual). 
+1. Clone the [panoptic toolbox](https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox). Follow their manual to download, extract and unpack CMU Panoptic dataset into image files (follow up to step 4 of the manual).
 
     There are many poses and scenes that you can use, for example, [`171204_pose1`](http://domedb.perception.cs.cmu.edu/171204_pose1.html) under the ["Range of Motion"](http://domedb.perception.cs.cmu.edu/range_of_motion.html) scene and [`170407_haggling_a2`](http://domedb.perception.cs.cmu.edu/170407_haggling_a2.html) under the ["Haggling"](http://domedb.perception.cs.cmu.edu/haggling.html) scene. It does not matter which set of scenes, poses or even images that you choose to extract; the scripts will handle that. It is advised that you only download the HD videos/images though.
 
     However, you must copy them over with the right structure (in this case `SCENE_NAME` is `171026_pose1`):
-    ```
+
+    ```bash
     FORMATTING/ORGANISATION OF FOLDERS & FILES
 
     Images:
@@ -43,7 +46,7 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
             {
                 ...
             }
-        ] 
+        ]
 
     Camera Calibration Data:
         $DIR_ROOT/[POSE_NAME]/calibration_[POSE_NAME].json
@@ -86,8 +89,8 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
     There will be an output file `cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy` in the `$THIS_REPOSITORY/data/cmupanoptic` folder (or the folder where you ran it from if it failed). In this case, if you used the MRCNN bboxes, then {BBOX_SOURCE} will clearly be `MRCNN`.
 
     **NOTE: This processing will likely take a few hours. Go take a (long) nap.**
- 
-1. Optionally, you can test if everything went well by viewing frames with skeletons and bounding boxes on a GUI machine:
+
+4. Optionally, you can test if everything went well by viewing frames with skeletons and bounding boxes on a GUI machine:
 
     ```bash
     python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/extra/cmu-multiview-labels-{BBOXES_SOURCE}.npy [<start-sample-number> [<samples-per-step>]]`

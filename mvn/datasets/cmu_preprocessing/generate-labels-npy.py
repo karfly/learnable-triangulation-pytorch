@@ -156,6 +156,9 @@ else:
 # NOTE: Calibration data for CMU is different for every pose, although only slightly :(
 data_by_pose = {}
 
+print(bbox_data["171204_pose3"])
+exit()
+
 print(f"\nFinding actions, frames and cameras in {cmu_root}")
 
 def get_frames_data(images_dir_cam, camera_name):

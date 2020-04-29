@@ -129,34 +129,25 @@ def parsePersonData(filename):
     
     return people_array
 
-
-def square_the_bbox(bbox):
-    top, left, bottom, right, confidence = bbox
-    width = right - left
-    height = bottom - top
-
-    if height < width:
-        center = (top + bottom) * 0.5
-        top = int(round(center - width * 0.5))
-        bottom = top + width
-    else:
-        center = (left + right) * 0.5
-        left = int(round(center - height * 0.5))
-        right = left + height
-
-    return top, left, bottom, right, confidence
-
 def parseBBOXData(bbox_dir):
     bboxes = np.load(bbox_dir, allow_pickle=True).item()
 
+    return bboxes
+
+    # For transportability, do not square the bboxes
+    # Has since been moved to cmupanoptic file instead
+    '''
     for action in bboxes.keys():
         for camera, bbox_array in bboxes[action].items():
             for frame_idx, bbox in enumerate(bbox_array):
                 bbox[:] = square_the_bbox(bbox)
 
     return bboxes
+    '''
 
 if BBOXES_SOURCE == 'MRCNN':
+    print(f"Loading bbox data from {bbox_root}...")
+
     bbox_data = parseBBOXData(bbox_root)
     
     print(f"{BBOXES_SOURCE} bboxes loaded!\n")
@@ -335,6 +326,7 @@ async_errors = []
 for action_idx, action_name in enumerate(retval['action_names']):
     data = data_by_pose[action_name]
 
+    # For CMU, at most 31 cameras, so should be fast
     for camera_idx, camera_name in enumerate(retval['camera_names']):
         if DEBUG: 
             print(f"{action_name}, cam {camera_name}: ({action_idx},{camera_idx})")

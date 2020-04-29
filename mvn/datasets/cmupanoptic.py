@@ -27,6 +27,7 @@ class CMUPanopticDataset(Dataset):
                  retain_every_n_frames_in_test=1,
                  cuboid_side=2000.0,
                  scale_bbox=1.5,
+                 square_bbox=True,
                  norm_image=True,
                  kind="mpii",
                  ignore_cameras=[],
@@ -59,6 +60,7 @@ class CMUPanopticDataset(Dataset):
         self.labels_path = labels_path
         self.image_shape = None if image_shape is None else tuple(image_shape)
         self.scale_bbox = scale_bbox
+        self.square_bbox = square_bbox
         self.norm_image = norm_image
         self.cuboid_side = cuboid_side
         self.kind = kind
@@ -132,6 +134,8 @@ class CMUPanopticDataset(Dataset):
                 continue
 
             # scale the bounding box
+            if self.square_bbox:
+                bbox = self.square_the_bbox(bbox)
             bbox = scale_bbox(bbox, self.scale_bbox)
 
             # load image
@@ -189,6 +193,22 @@ class CMUPanopticDataset(Dataset):
 
         sample.default_factory = None
         return sample
+
+    def square_the_bbox(bbox):
+        top, left, bottom, right, confidence = bbox
+        width = right - left
+        height = bottom - top
+
+        if height < width:
+            center = (top + bottom) * 0.5
+            top = int(round(center - width * 0.5))
+            bottom = top + width
+        else:
+            center = (left + right) * 0.5
+            left = int(round(center - height * 0.5))
+            right = left + height
+
+        return top, left, bottom, right, confidence
 
     # TODO: Need to check this
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):

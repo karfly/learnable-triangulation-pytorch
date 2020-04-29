@@ -139,15 +139,6 @@ def parseBBOXData(bbox_dir):
 
     return bboxes
 
-    '''
-    for action in bboxes.keys():
-        for camera, bbox_array in bboxes[action].items():
-            for frame_idx, bbox in enumerate(bbox_array):
-                bbox[:] = square_the_bbox(bbox)
-
-    return bboxes
-    '''
-
 if BBOXES_SOURCE == 'MRCNN':
     print(f"Loading bbox data from {bbox_root}...")
 
@@ -172,19 +163,16 @@ if USE_MULTIPROCESSING:
 else:
     print(f". No multiprocessing used (see usage on how to setup multiprocessing)")
 
-def get_frames_data(images_dir, camera_name, frame_cnt):
-    images_dir_cam = os.path.join(images_dir, camera_name)
+def get_frames_data(images_dir_cam, camera_name):
+    valid_frames = set()
 
     for frame_name in os.listdir(images_dir_cam):
         frame_name = frame_name.replace(f'{camera_name}_', '').replace(
             '.jpg', '').replace('.png', '')
 
-        if frame_name in frame_cnt:
-            frame_cnt[frame_name] += 1
+        valid_frames.add(frame_name)
 
-    return 
-    retval['camera_names'].add(camera_name)
-    camera_names.append(camera_name)
+    return valid_frames
 
 # Loop thru directory files and find scene names
 for action_name in os.listdir(cmu_root):
@@ -213,7 +201,7 @@ for action_name in os.listdir(cmu_root):
     
     camera_data = parseCameraData(calibration_file)
 
-    # Count the frames by adding them to the dictionary
+# Count the frames by adding them to the dictionary
     # Only the frames with correct length are valid
     # Otherwise have missing data/images --> ignore
     frame_cnt = {}
@@ -226,7 +214,8 @@ for action_name in os.listdir(cmu_root):
         continue
 
     for frame_name in os.listdir(person_data_path):
-        frame_name = frame_name.replace('body3DScene_','').replace('.json','')
+        frame_name = frame_name.replace(
+            'body3DScene_', '').replace('.json', '')
         frame_cnt[frame_name] = 1
 
     # Find the cameras
@@ -237,26 +226,19 @@ for action_name in os.listdir(cmu_root):
             print(f"Image directory {images_dir} does not exist")
         continue
 
-    if USE_MULTIPROCESSING:
-        pool = multiprocessing.Pool(num_processes)
-        async_errors = []
-
     for camera_name in os.listdir(images_dir):
-        # TODO: Multiprocess this
-
         # Populate frames dictionary
-        get_frames_data()
+        images_dir_cam = os.path.join(images_dir, camera_name)
+
+        for frame_name in os.listdir(images_dir_cam):
+            frame_name = frame_name.replace(f'{camera_name}_', '').replace(
+                '.jpg', '').replace('.png', '')
+
+            if frame_name in frame_cnt:
+                frame_cnt[frame_name] += 1
 
         retval['camera_names'].add(camera_name)
         camera_names.append(camera_name)
-
-    if USE_MULTIPROCESSING:
-        pool.close()
-        pool.join()
-
-        # raise any exceptions from pool's processes
-        for async_result in async_errors:
-            async_result.get()
 
     # Only add the action names when we know that this is valid
     retval['action_names'].append(action_name)
@@ -264,13 +246,14 @@ for action_name in os.listdir(cmu_root):
 
     # Only frames with full count are counted
     valid_frames = []
-    person_data = {} # by frame name
+    person_data = {}  # by frame name
 
     for frame_name in frame_cnt:
         if frame_cnt[frame_name] == 1 + len(camera_names):
             valid_frames.append(frame_name)
-            
-            person_data_filename = os.path.join(person_data_path, f'body3DScene_{frame_name}.json')
+
+            person_data_filename = os.path.join(
+                person_data_path, f'body3DScene_{frame_name}.json')
             person_data_arr = parsePersonData(person_data_filename)
 
             person_data[frame_name] = person_data_arr
@@ -287,6 +270,82 @@ for action_name in os.listdir(cmu_root):
         data['camera_data'][camera_name] = camera_data[camera_name]
 
     data_by_pose[action_name] = data
+
+    '''
+    # Count the frames by adding them to the dictionary
+    # Only the frames with correct length are valid
+    # Otherwise have missing data/images --> ignore
+    valid_frames = set()
+    camera_names = []
+    person_data_path = os.path.join(action_dir, 'hdPose3d_stage1_coco19')
+
+    if not os.path.isdir(person_data_path):
+        if DEBUG:
+            print(f"{person_data_path} does not exist")
+        continue
+
+    for frame_name in os.listdir(person_data_path):
+        frame_name = frame_name.replace('body3DScene_','').replace('.json','')
+        valid_frames.add(frame_name)
+
+    # Find the cameras
+    images_dir = os.path.join(action_dir, 'hdImgs')
+
+    if not os.path.isdir(images_dir):
+        if DEBUG:
+            print(f"Image directory {images_dir} does not exist")
+        continue
+
+    # Find the valid frames: Multiprocessing possible
+    # Only those with full frame count across all directories are counted
+    if USE_MULTIPROCESSING:
+        pool = multiprocessing.Pool(num_processes)
+        async_errors = []
+
+    for camera_name in os.listdir(images_dir):
+        images_dir_cam = os.path.join(images_dir, camera_name)
+
+        # Populate frames dictionary
+        retrieved_frames = get_frames_data(images_dir_cam, camera_name)
+
+        # Get only the intersection
+        valid_frames.intersection(retrieved_frames)
+
+        retval['camera_names'].add(camera_name)
+        camera_names.append(camera_name)
+
+    if USE_MULTIPROCESSING:
+        pool.close()
+        pool.join()
+
+        # raise any exceptions from pool's processes
+        for async_result in async_errors:
+            async_result.get()
+
+    # Only add the action names when we know that this is valid
+    retval['action_names'].append(action_name)
+    data['action_dir'] = action_dir
+
+    # Get person data
+    person_data = {}  # by frame name
+
+    for frame_name in valid_frames:
+        person_data_filename = os.path.join(person_data_path, f'body3DScene_{frame_name}.json')
+        person_data_arr = parsePersonData(person_data_filename)
+
+        person_data[frame_name] = person_data_arr
+
+    data['valid_frames'] = sorted(list(valid_frames))
+    data['person_data'] = person_data
+    data['camera_names'] = sorted(camera_names)
+
+    # Generate camera data
+    data['camera_data'] = {}
+    for camera_name in data['camera_names']:
+        data['camera_data'][camera_name] = camera_data[camera_name]
+
+    data_by_pose[action_name] = data
+    '''
 
 # Consolidate camera names and sort them
 retval['camera_names'] = list(retval['camera_names'])
@@ -312,7 +371,7 @@ table_dtype = np.dtype([
     ('action_idx', np.int8), 
     ('person_id', np.int8),
     ('frame_name', np.int16),
-    ('keypoints', np.float32, (19, 4)),  # roughly MPII format
+    ('keypoints', np.float32, (19, 4)),  # CMU format; needs conversion
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 5))
 ])
 
@@ -332,6 +391,14 @@ def load_table_segment(data, action_idx, action_name):
     # NOTE: THIS IS AN ARRAY!
     table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
 
+    # Load BBOX: MRCNN Detections
+    # let a (0,0,0,0) bbox mean that this view is missing
+    table_segment['bbox_by_camera_tlbr'] = 0
+    
+    for camera_idx, camera_name in enumerate(retval['camera_names']):
+        for bbox, frame_nm in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
+            bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
+
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         # TODO: Poses changing from CMU to H36M, if the current one doesn't do it automatically
         person_data_arr = data['person_data'][frame_name]
@@ -347,15 +414,7 @@ def load_table_segment(data, action_idx, action_name):
             table_segment[frame_idx]['action_idx'] = action_idx
             table_segment[frame_idx]['frame_name'] = int(frame_name)  # TODO: Check this
             table_segment[frame_idx]['keypoints'] = person_data['joints']
-
-            # Load BBOX Data (loaded above from external MRCNN Detections file)
-            # let a (0,0,0,0) bbox mean that this view is missing
-            table_segment['bbox_by_camera_tlbr'] = 0
-
-            for camera_idx, camera_name in enumerate(retval['camera_names']):
-                for bbox, frame_idx in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
-                    bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_idx)]
-
+            
     return table_segment, person_ids
 
 def save_segment_to_table(args):

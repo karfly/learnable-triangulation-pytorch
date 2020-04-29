@@ -302,6 +302,9 @@ else:
 
 print("NOTE: This may take a while (a few hours)!")
 
+print(bbox_data["171026_pose1"].keys())
+exit()
+
 # Async process?
 def load_table_segment(data, action_idx, action_name):
     person_ids = set()

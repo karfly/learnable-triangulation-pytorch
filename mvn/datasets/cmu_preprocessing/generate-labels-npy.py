@@ -296,7 +296,7 @@ else:
 print("NOTE: This may take a while (a few hours)!")
 
 # Async process?
-def load_table_segment(data, action_idx, action_name, frame_idx, frame_name):
+def load_table_segment(data, action_idx, action_name):
     person_ids = set()
 
     # NOTE: THIS IS AN ARRAY!
@@ -318,7 +318,7 @@ def load_table_segment(data, action_idx, action_name, frame_idx, frame_name):
             person_ids.add(person_data['id'])
             table_segment[frame_idx]['person_id'] = person_data['id']
             table_segment[frame_idx]['action_idx'] = action_idx
-            table_segment[frame_idx]['frame_names'] = np.array(data['valid_frames']).astype(np.int16)  # TODO: Check this
+            table_segment[frame_idx]['frame_name'] = int(frame_name)  # TODO: Check this
             table_segment[frame_idx]['keypoints'] = person_data['joints']
 
             # Load BBOX Data (loaded above from external MRCNN Detections file)
@@ -366,17 +366,13 @@ for action_idx, action_name in enumerate(retval['action_names']):
     if USE_MULTIPROCESSING:
         async_result = pool.apply_async(
             load_table_segment,
-            args=(data,
-                    action_idx, action_name,
-                    frame_idx, frame_name),
+            args=(data, action_idx, action_name),
             callback=save_segment_to_table
         )
 
         async_errors.append(async_result)
     else:
-        args = load_table_segment(data,
-                        action_idx, action_name,
-                        frame_idx, frame_name)
+        args = load_table_segment(data, action_idx, action_name)
         save_segment_to_table(args)
 
     if DEBUG: 

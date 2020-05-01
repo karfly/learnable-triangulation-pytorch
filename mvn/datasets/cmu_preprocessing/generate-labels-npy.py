@@ -301,6 +301,8 @@ else:
     print(f"\nGenerating labels. No multiprocessing used (see usage on how to setup multiprocessing)")
 
 # print("NOTE: This may take a while (a few hours)!")
+missing_data_file = "./missing-data-labels.txt"
+missing_data = []
 
 # Async process?
 def load_table_segment(data, action_idx, action_name):
@@ -319,6 +321,7 @@ def load_table_segment(data, action_idx, action_name):
                 bbox[camera_idx] = bbox_data[action_name][camera_name][int(frame_nm)]
             except KeyError:
                 print(f"Missing bbox data {action_name}, {camera_name}.. Ignoring")
+                missing_data.append((action_name, camera_name))
                 bbox[camera_idx] = (0,0,0,0,0)
                 
     for frame_idx, frame_name in enumerate(data['valid_frames']):
@@ -426,3 +429,11 @@ except:
         print(f"Labels file saved to current directory")
     except:
         raise Exception(f"Completely failed to save file: {destination_file_path}")
+
+# Save list of missing bbox files
+if DEBUG and len(missing_data) > 0:
+    with open(missing_data_file, "w") as f:
+        f.writelines("%s %s\n" % (action_name, camera_name)
+                     for (action_name, camera_name) in missing_data)
+
+    print(f"List of missing bbox data saved into {missing_data_file}")

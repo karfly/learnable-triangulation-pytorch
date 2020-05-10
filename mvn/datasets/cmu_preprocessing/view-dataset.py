@@ -58,14 +58,19 @@ while True:
     
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
-    subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]
+    #subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]
+    person_id = sample_info['person_id']
     action_name = dataset.labels['action_names'][sample_info['action_idx']]
     camera_name = dataset.labels['camera_names'][camera_idx]
     frame_idx = sample_info['frame_name']
 
     cv2.imshow('w', display)
-    cv2.setWindowTitle('w', f"{subject_name}/{action_name}/{camera_name}/{frame_idx}")
-    cv2.waitKey(0)
+    cv2.setWindowTitle('w', f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}")
+    c = cv2.waitKey(0) % 256
+
+    if c == ord('q') or c == 27:
+        print('Quitting...')
+        break
 
     action = sample_info['action_idx']
     if action != prev_action: # started a new action

@@ -70,6 +70,27 @@ JOINT_NAMES_DICT = {
         14: "right_knee",
         15: "left_ankle",
         16: "right_ankle"
+    },
+    'cmu': {
+        0: 'neck'
+        1: 'nose'
+        2: 'center_hip'
+        3: 'left_shoulder'
+        4: 'left_elbow'
+        5: 'left_wrist,'
+        6: 'left_hip'
+        7: 'left_knee'
+        8: 'left_ankle'
+        9: 'right_shoulder'
+        10: 'right_elbow'
+        11: 'right_wrist'
+        12: 'right_hip'
+        13: 'right_knee'
+        14: 'right_ankle'
+        15: 'right_eye'
+        16: 'left_eye'
+        17: 'right_ear'
+        18: 'left_ear'
     }
 }
 

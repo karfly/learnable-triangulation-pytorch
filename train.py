@@ -350,6 +350,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     results['indexes'].append(batch['indexes'])
 
                 # plot visualization
+                # TODO: see if transfer_cmu_h36m visualisation error
                 if master:
                     if n_iters_total % config.vis_freq == 0:# or total_l2.item() > 500.0:
                         vis_kind = config.kind

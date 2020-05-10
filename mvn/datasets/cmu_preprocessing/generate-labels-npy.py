@@ -32,6 +32,7 @@ def jsonToDict(filename):
 BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
 
 retval = {
+    'cameras': None
     'camera_names': set(),
     'action_names': [],
     'person_ids': set(),

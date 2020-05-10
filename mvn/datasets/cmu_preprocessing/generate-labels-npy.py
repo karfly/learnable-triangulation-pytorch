@@ -34,7 +34,8 @@ BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
 retval = {
     'camera_names': set(),
     'action_names': [],
-    'person_ids': set()
+    'person_ids': set(),
+    'table': []
 }
 
 try:
@@ -292,8 +293,6 @@ table_dtype = np.dtype([
     ('keypoints', np.float32, (19, 4)),  # CMU format; needs conversion
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']), 5))
 ])
-
-retval['table'] = []
 
 if USE_MULTIPROCESSING:
     print(f"\nGenerating labels using {num_processes} processors...")

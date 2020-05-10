@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 from mvn.utils.multiview import Camera
 from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_image, scale_bbox
 from mvn.utils import volumetric
+from mvn.utils import vis # only for keypoint mapping
 
 class CMUPanopticDataset(Dataset):
     """
@@ -103,9 +104,13 @@ class CMUPanopticDataset(Dataset):
             pred_results = np.load(pred_results_path, allow_pickle=True)
             keypoints_3d_pred = pred_results['keypoints_3d'][np.argsort(pred_results['indexes'])]
             self.keypoints_3d_pred = keypoints_3d_pred[::retain_every_n_frames_in_test]
+            
+            # TODO: Why is this here/necessary?
+            '''
             assert len(self.keypoints_3d_pred) == len(self), \
                 f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
+            '''
 
     def __len__(self):
         return len(self.labels['table'])
@@ -120,7 +125,7 @@ class CMUPanopticDataset(Dataset):
         action_idx = shot['action_idx']
         action = self.labels['action_names'][action_idx]
         
-        frame_idx = shot['frame_names'] # TODO: why is this an array?
+        frame_idx = shot['frame_name']
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
             if camera_idx in self.ignore_cameras:
@@ -140,7 +145,7 @@ class CMUPanopticDataset(Dataset):
 
             # load image
             # $DIR_ROOT/[action_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg
-            print(frame_idx)
+            # NOTE: pad with 0s using {frame_idx:08}
             image_path = os.path.join(
                 self.cmu_root, action, 'hdImgs',
                 camera_name, f'{camera_name}_{frame_idx:08}.jpg')
@@ -188,14 +193,12 @@ class CMUPanopticDataset(Dataset):
         # save sample's index
         sample['indexes'] = idx
 
+        # TODO: Check this? Keypoints are different
         if self.keypoints_3d_pred is not None:
             sample['pred_keypoints_3d'] = self.keypoints_3d_pred[idx]
 
         sample.default_factory = None
         return sample
-
-    def remap_keypoints():
-        return
 
     def square_the_bbox(bbox):
         top, left, bottom, right, confidence = bbox
@@ -276,6 +279,26 @@ class CMUPanopticDataset(Dataset):
 
         # TODO: Conversion Code
         # TODO: Remove unnecessary 4th coordinate (confidences)
+        def remap_keypoints(keypoints, kind_from, kind_to):
+            # Keypoint maps are in `vis.py`
+            print(JOINT_NAMES_DICT)
+
+            values_from = JOINT_NAMES_DICT[kind_from].values()
+            values_to = JOINT_NAMES_DICT[kind_to].values()
+
+            keypoints_new = []            
+
+            for i, val in enumerate(values_to):
+                
+
+                keypoints.append(keypoint_new)
+
+            return keypoints_new
+
+        keypoints_gt = remap_keypoints(keypoints_gt, "cmu", "coco")
+        keypoints_3d_predicted = map_keypoints_cmu_to_h36m(keypoints_3d_predicted, "cmu", "coco")
+
+        '''
         if transfer_cmu_to_human36m or transfer_human36m_to_human36m:
             human36m_joints = [10, 11, 15, 14, 1, 4]
             if transfer_human36m_to_human36m:
@@ -286,6 +309,7 @@ class CMUPanopticDataset(Dataset):
             # keypoints_gt = keypoints_gt[:, human36m_joints]
             keypoints_gt = keypoints_gt[:, cmu_joints]
             keypoints_3d_predicted = keypoints_3d_predicted[:, cmu_joints]
+        '''
 
         # mean error per 16/17 joints in mm, for each pose
         per_pose_error = np.sqrt(((keypoints_gt - keypoints_3d_predicted) ** 2).sum(2)).mean(1)

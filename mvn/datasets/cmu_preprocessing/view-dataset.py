@@ -82,7 +82,7 @@ while sample_idx < len(dataset):
     keypoints_2d = project(camera.projection, sample['keypoints_3d'][:, :3])
     
     for i, (x,y) in enumerate(keypoints_2d):
-        cv2.circle(display, (int(x), int(y)), 3, (5*i, 0, 255), -1)
+        cv2.circle(display, (int(x), int(y)), 3, (12*i, 12*i, 255), -1)
         # cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
     
     # Get window name

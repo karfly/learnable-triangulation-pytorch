@@ -1,3 +1,5 @@
+#!/bin/python
+
 """
     A GUI script for inspecting Human3.6M and its wrappers, namely:
     - `CMUPanopticDataset`

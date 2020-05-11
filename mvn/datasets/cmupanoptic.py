@@ -290,8 +290,7 @@ class CMUPanopticDataset(Dataset):
 
             for i, val in enumerate(values_to):
                 
-
-                keypoints.append(keypoint_new)
+                keypoints_new.append(keypoint_new)
 
             return keypoints_new
 

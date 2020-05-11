@@ -132,7 +132,10 @@ class CMUPanopticDataset(Dataset):
                 continue
 
             # load bounding box
-            bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
+            bbox_with_confidence = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
+            top, left, bottom, right, bbox_confidence = bbox_with_confidence
+            bbox = (top, left, bottom, right)
+            
             bbox_height = bbox[2] - bbox[0]
             if bbox_height == 0:
                 # convention: if the bbox is empty, then this view is missing
@@ -140,7 +143,7 @@ class CMUPanopticDataset(Dataset):
 
             # scale the bounding box
             if self.square_bbox:
-                bbox = self.square_the_bbox(bbox)
+                bbox = get_square_bbox(bbox)
             bbox = scale_bbox(bbox, self.scale_bbox)
 
             # load image
@@ -172,8 +175,10 @@ class CMUPanopticDataset(Dataset):
             if self.norm_image:
                 image = normalize_image(image)
 
+            # bbox_with_confidence = bbox + (bbox_confidence, )
+
             sample['images'].append(image)
-            sample['detections'].append(bbox) #in CMU, real confidences already exist
+            sample['detections'].append(bbox) 
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
@@ -199,12 +204,6 @@ class CMUPanopticDataset(Dataset):
 
         sample.default_factory = None
         return sample
-
-    def square_the_bbox(self, bbox):
-        top, left, bottom, right, confidence = bbox
-        top, left, bottom, right = get_square_bbox((top, left, bottom, right))
-
-        return top, left, bottom, right, confidence
 
     # TODO: Need to check this
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):

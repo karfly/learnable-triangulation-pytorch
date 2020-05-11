@@ -12,6 +12,7 @@ import numpy as np
 import cv2
 
 import os, sys
+import math
 
 cmu_root = sys.argv[1]
 labels_path = sys.argv[2]
@@ -45,7 +46,7 @@ dataset = CMUPanopticDataset(
     ignore_cameras=[])
 
 print("Total Samples:", len(dataset))
-print("Total Images Shown (Est.):", ceil(len(dataset)/step))
+print("Total Images Shown (Est.):", math.ceil(len(dataset)/step))
 
 prev_action = None
 patience = 0

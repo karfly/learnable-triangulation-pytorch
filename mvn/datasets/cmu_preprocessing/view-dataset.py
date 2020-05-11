@@ -66,7 +66,7 @@ patience = 0
 while sample_idx < len(dataset):
     sample = dataset[sample_idx]
 
-    camera_idx = 20
+    camera_idx = 9
 
     try:
         image = sample['images'][camera_idx]

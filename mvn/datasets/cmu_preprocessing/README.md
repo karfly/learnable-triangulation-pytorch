@@ -94,10 +94,16 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
     python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-{BBOXES_SOURCE}bboxes.npy [<start-sample-number>] [<samples-per-step>] [1-for-save-instead-of-displaying-images]
     ```
 
-    For example, 
+    For example,
 
     ```bash
     python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 0 10 1
+    ```
+
+    If a `1` is appended at the end of the above command, then images will be saved to the `./dataset_imgs` directory. The images are formatted as follows:
+    
+    ```bash
+    ./{action_name}/{camera_name}/{frame_idx}_p{person_id}.jpg
     ```
 
     You can test different settings by changing dataset constructor parameters in `view-dataset.py`.

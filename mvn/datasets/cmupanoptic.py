@@ -163,7 +163,8 @@ class CMUPanopticDataset(Dataset):
             if self.square_bbox:
                 print("Squaring bbox...")
                 bbox = square_the_bbox(bbox)
-            bbox = scale_bbox(bbox, self.scale_bbox)
+            
+            # bbox = scale_bbox(bbox, self.scale_bbox)
 
             # load image
             # $DIR_ROOT/[action_NAME]/hdImgs/[VIEW_ID]/[VIEW_ID]_[FRAME_ID].jpg

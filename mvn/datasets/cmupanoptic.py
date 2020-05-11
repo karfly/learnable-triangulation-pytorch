@@ -156,7 +156,7 @@ class CMUPanopticDataset(Dataset):
             image = cv2.imread(image_path)
 
             # load camera
-            shot_camera = self.labels['camera_name'][action_idx, camera_idx]
+            shot_camera = self.labels['cameras'][action_idx, camera_idx]
             retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
 
             if self.crop:

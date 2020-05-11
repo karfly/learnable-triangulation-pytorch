@@ -91,13 +91,13 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
 4. Optionally, you can test if everything went well by viewing frames with skeletons and bounding boxes on a GUI machine:
 
     ```bash
-    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/extra/cmu-multiview-labels-{BBOXES_SOURCE}.npy [<start-sample-number> [<samples-per-step>]]
+    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-{BBOXES_SOURCE}.npy [<start-sample-number> [<samples-per-step>]]
     ```
 
     For example, 
 
     ```bash
-    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/extra/cmu-multiview-labels-{BBOXES_SOURCE}.npy 0 5
+    python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNN.npy 0 5
     ```
 
     You can test different settings by changing dataset constructor parameters in `view-dataset.py`.

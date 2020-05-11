@@ -33,7 +33,6 @@ dataset = CMUPanopticDataset(
     scale_bbox=1.0,
     kind='cmu',
     norm_image=False,
-    undistort_images=True,
     ignore_cameras=[])
 print(len(dataset))
 

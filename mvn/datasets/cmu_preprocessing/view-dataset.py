@@ -93,13 +93,16 @@ while sample_idx < len(dataset):
     camera_name = dataset.labels['camera_names'][camera_idx]
     frame_idx = sample_info['frame_name']
 
-    
     if save_images_instead:
         img_path = os.path.join(imgdir, action_name, camera_name)
         if not os.path.exists(img_path):
             os.makedirs(img_path)
 
         img_path = os.path.join(img_path, f"{frame_idx:08}_p{person_id}.jpg")
+
+        # Draw BBOX
+        for left, top, right, bottom in sample['detections']:
+            cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
 
         try: 
             print(f"Saving image to {img_path}")

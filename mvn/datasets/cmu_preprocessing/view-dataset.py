@@ -75,17 +75,17 @@ while sample_idx < len(dataset):
     camera_name = dataset.labels['camera_names'][camera_idx]
     frame_idx = sample_info['frame_name']
 
-    title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
     
     if save_images_instead:
-        title = title.replace(' ', '')
-        img_path = os.path.join('.', os.path.join(imgdir, title + ".jpg"))
+        img_path = os.path.join('.', imgdir, action_name, camera_name, f"{frame_idx}_p{person_id}.jpg"))
         try: 
             print(f"Saving image to {img_path}")
             cv2.imwrite(img_path, display)
         except:
             print(f"Error: Cannot save to {img_path}")
     else:
+        title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
+
         cv2.imshow('w', display)
         cv2.setWindowTitle('w', title)
         c = cv2.waitKey(0) % 256

@@ -45,7 +45,7 @@ dataset = CMUPanopticDataset(
     ignore_cameras=[])
 
 print("Total Samples:", len(dataset))
-print("Total Images Shown (Est.):", len(dataset) // step)
+print("Total Images Shown (Est.):", ceil(len(dataset)/step))
 
 prev_action = None
 patience = 0
@@ -77,9 +77,13 @@ while sample_idx < len(dataset):
     title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
     
     if save_images_instead:
+        title = title.replace(' ', '')
         img_path = os.path.join('.', os.path.join(imgdir, title + ".jpg"))
-        print(f"Saving {title}")
-        cv2.imwrite(img_path, display)
+        try: 
+            print(f"Saving image to {img_path}")
+            cv2.imwrite(img_path, display)
+        except:
+            print(f"Error: Cannot save to {img_path}")
     else:
         cv2.imshow('w', display)
         cv2.setWindowTitle('w', title)

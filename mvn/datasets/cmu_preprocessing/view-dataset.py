@@ -55,8 +55,13 @@ while sample_idx < len(dataset):
     sample = dataset[sample_idx]
 
     camera_idx = 0
-    image = sample['images'][camera_idx]
-    camera = sample['cameras'][camera_idx]
+
+    try:
+        image = sample['images'][camera_idx]
+        camera = sample['cameras'][camera_idx]
+    except:
+        print(f"Sample {sample_idx} does not have an associated image or camera {camera_idx}")
+        continue
 
     display = image.copy()
 

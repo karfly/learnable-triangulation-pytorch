@@ -78,8 +78,8 @@ while sample_idx < len(dataset):
     
     if save_images_instead:
         img_path = os.path.join(imgdir, action_name, camera_name)
-        if not os.path.isdir(img_path):
-            os.mkdir(img_path)
+        if not os.path.exists(img_path):
+            os.makedirs(img_path)
 
         img_path = os.path.join(img_path, f"{frame_idx:08}_p{person_id}.jpg")
 

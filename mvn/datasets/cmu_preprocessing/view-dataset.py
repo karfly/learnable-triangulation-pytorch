@@ -102,7 +102,8 @@ while sample_idx < len(dataset):
 
         # Draw BBOX
         for left, top, right, bottom in sample['detections']:
-            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 2)
+            print((left, top), (right, bottom))
+            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
 
         try: 
             print(f"Saving image to {img_path}")

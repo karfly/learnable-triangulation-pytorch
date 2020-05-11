@@ -41,6 +41,7 @@ dataset = CMUPanopticDataset(
     image_shape=(512,512),
     retain_every_n_frames_in_test=1,
     scale_bbox=1.0,
+    square_bbox=True,
     kind='cmu',
     norm_image=False,
     ignore_cameras=[])

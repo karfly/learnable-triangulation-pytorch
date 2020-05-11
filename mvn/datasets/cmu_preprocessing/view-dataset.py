@@ -36,10 +36,12 @@ from mvn.datasets.cmupanoptic import CMUPanopticDataset
 scale_bbox = 1.0
 square_bbox = False
 norm_image = False
+crop = False
 
 print(f"Scale bbox: {scale_bbox}")
 print(f"Square bbox: {square_bbox}")
 print(f"Norm Image: {norm_image}")
+print(f"Crop: {crop}\n")
 
 dataset = CMUPanopticDataset(
     cmu_root,
@@ -52,7 +54,8 @@ dataset = CMUPanopticDataset(
     square_bbox=square_bbox,
     kind='cmu',
     norm_image=norm_image,
-    ignore_cameras=[])
+    ignore_cameras=[],
+    crop=crop)
 
 print("Total Samples:", len(dataset))
 print("Total Images Shown/Saved:", math.ceil((len(dataset) - sample_idx)/step))

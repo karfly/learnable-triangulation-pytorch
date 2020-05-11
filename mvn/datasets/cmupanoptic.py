@@ -200,19 +200,9 @@ class CMUPanopticDataset(Dataset):
         sample.default_factory = None
         return sample
 
-    def square_the_bbox(bbox):
+    def square_the_bbox(self, bbox):
         top, left, bottom, right, confidence = bbox
-        width = right - left
-        height = bottom - top
-
-        if height < width:
-            center = (top + bottom) * 0.5
-            top = int(round(center - width * 0.5))
-            bottom = top + width
-        else:
-            center = (left + right) * 0.5
-            left = int(round(center - height * 0.5))
-            right = left + height
+        top, left, bottom, right = get_square_bbox((top, left, bottom, right))
 
         return top, left, bottom, right, confidence
 

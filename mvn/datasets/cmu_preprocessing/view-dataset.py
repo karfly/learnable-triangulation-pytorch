@@ -78,7 +78,7 @@ while sample_idx < len(dataset):
     
     if save_images_instead:
         print(f"Saving {title}")
-        cv2.imwrite(os.path.join(imgdir, title + ".jpg"))
+        cv2.imwrite(os.path.join(imgdir, title + ".jpg"), display)
     else:
         cv2.imshow('w', display)
         cv2.setWindowTitle('w', title)

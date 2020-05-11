@@ -3,7 +3,9 @@
 cd ./mvn/datasets/cmu_preprocessing
 git pull
 
-rm -rf dataset_imgs && rm dataset_imgs.tar.gz && "Cleaned up old files"
+rm -rf dataset_imgs
+rm dataset_imgs.tar.gz
+"Cleaned up old files"
 
 python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 50000 10000 1
 

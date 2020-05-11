@@ -5,8 +5,6 @@
     Usage: `python3 generate-labels-npy.py <path/to/cmu-panoptic-data-root> <path/to/cmu-mrcnn-bbox-detections>`
 '''
 
-# TODO: Modify this to fit our needs
-
 import os, sys
 import numpy as np
 import json
@@ -19,7 +17,7 @@ Example (default):
 $ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy 4
 """
 
-def jsonToDict(filename):
+def jsonict(filename):
     # Read file
     with open(filename, 'r') as f:
         data = f.read()
@@ -336,7 +334,7 @@ def load_table_segment(data, action_idx, action_name):
             person_ids.add(person_data['id'])
             table_segment[frame_idx]['person_id'] = person_data['id']
             table_segment[frame_idx]['action_idx'] = action_idx
-            table_segment[frame_idx]['frame_name'] = int(frame_name)  # TODO: Check this
+            table_segment[frame_idx]['frame_name'] = int(frame_name)
             table_segment[frame_idx]['keypoints'] = person_data['joints']
             
     return table_segment, person_ids
@@ -363,7 +361,6 @@ for action_idx, action_name in enumerate(retval['action_names']):
         cam_retval = retval['cameras'][action_idx][camera_idx]
         camera_data = data['camera_data'][camera_name]
 
-        # TODO: Check if need transpose
         cam_retval['R'] = np.array(camera_data['R'])
         cam_retval['K'] = np.array(camera_data['K'])
         cam_retval['t'] = np.array(camera_data['t'])

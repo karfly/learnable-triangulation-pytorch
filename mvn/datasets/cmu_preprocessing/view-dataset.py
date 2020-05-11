@@ -23,7 +23,9 @@ try:    step = int(sys.argv[4])
 except: step = 10
 
 try:
-    save_images_instead = (sys.argv[5] == 1)
+    imgdir = "dataset_imgs"
+    save_images_instead = (int(sys.argv[5]) == 1)
+    print(f"Saving images to {imgdir} instead of displaying them...")
 except: 
     save_images_instead = False
 
@@ -41,9 +43,10 @@ dataset = CMUPanopticDataset(
     kind='cmu',
     norm_image=False,
     ignore_cameras=[])
-print(len(dataset))
 
-imgdir = "dataset_imgs"
+print("Total Samples:", len(dataset))
+print("Total Images Shown (Est.):", len(dataset) // step)
+
 prev_action = None
 patience = 0
 
@@ -72,8 +75,9 @@ while sample_idx < len(dataset):
     frame_idx = sample_info['frame_name']
 
     title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
-
+    
     if save_images_instead:
+        print(f"Saving {title}")
         cv2.imwrite(os.path.join(imgdir, title + ".jpg"))
     else:
         cv2.imshow('w', display)
@@ -98,3 +102,5 @@ while sample_idx < len(dataset):
     else: # in progess, just increment sample_idx
         patience -= 1
         sample_idx += step
+
+print("Done.")

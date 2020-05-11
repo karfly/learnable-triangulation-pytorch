@@ -101,7 +101,7 @@ __NOTE: WHILE IT IS ADVISED THAT YOU DOWNLOAD ALL DATA FROM THE APPROPRIATE LINK
     ```
 
     If a `1` is appended at the end of the above command, then images will be saved to the `./dataset_imgs` directory. The images are formatted as follows:
-    
+
     ```bash
     ./{action_name}/{camera_name}/{frame_idx}_p{person_id}.jpg
     ```

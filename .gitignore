@@ -5,6 +5,7 @@
 mvn/datasets/cmu_preprocessing/data_test/*
 mvn/datasets/cmu_preprocessing/bbox_test/*
 mvn/datasets/*.npy
+mvn/datasets/cmu_preprocessing/dataset_imgs.tar.gz
 mvn/datasets/cmu_preprocessing/dataset_imgs/*
 mvn/datasets/cmu_preprocessing/cmu-bboxes.npy
 

@@ -46,7 +46,7 @@ dataset = CMUPanopticDataset(
     ignore_cameras=[])
 
 print("Total Samples:", len(dataset))
-print("Total Images Shown (Est.):", math.ceil(len(dataset)/step))
+print("Total Images Shown/Saved:", math.ceil((len(dataset) - sample_idx)/step))
 
 prev_action = None
 patience = 0

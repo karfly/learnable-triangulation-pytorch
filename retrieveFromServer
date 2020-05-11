@@ -1,9 +1,0 @@
-#!/bin/sh
-
-if [[ "$1" == "1" ]]; then
-    rm -rf ./dataset_imgs
-fi
-
-scp bigfoot:/home/scleong/learnable-triangulation-pytorch/mvn/datasets/cmu_preprocessing/dataset_imgs.tar.gz ./ 
-tar -xvf dataset_imgs.tar.gz
-rm dataset_imgs.tar.gz

@@ -33,6 +33,14 @@ except:
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../.."))
 from mvn.datasets.cmupanoptic import CMUPanopticDataset
 
+scale_bbox = 1.0
+square_bbox = False
+norm_image = False
+
+print(f"Scale bbox: {scale_bbox}")
+print(f"Square bbox: {square_bbox}")
+print(f"Norm Image: {norm_image}")
+
 dataset = CMUPanopticDataset(
     cmu_root,
     labels_path,
@@ -40,10 +48,10 @@ dataset = CMUPanopticDataset(
     test=True,
     image_shape=(384,384),
     retain_every_n_frames_in_test=1,
-    scale_bbox=1.0,
-    square_bbox=False,
+    scale_bbox=scale_bbox,
+    square_bbox=square_bbox,
     kind='cmu',
-    norm_image=False,
+    norm_image=norm_image,
     ignore_cameras=[])
 
 print("Total Samples:", len(dataset))

@@ -7,3 +7,5 @@ fi
 scp bigfoot:/home/scleong/learnable-triangulation-pytorch/mvn/datasets/cmu_preprocessing/dataset_imgs.tar.gz ./ 
 tar -xvf dataset_imgs.tar.gz
 rm dataset_imgs.tar.gz
+
+cat dataset_imgs/timestamp.txt

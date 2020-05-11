@@ -7,7 +7,7 @@ rm -rf dataset_imgs
 rm dataset_imgs.tar.gz
 "Cleaned up old files"
 
-python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 50000 10000 1
+python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 50000 15000 1
 
 tar -cvzf dataset_imgs.tar.gz dataset_imgs && echo "Tarball saved."
 

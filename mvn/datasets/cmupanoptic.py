@@ -278,13 +278,13 @@ class CMUPanopticDataset(Dataset):
             keypoints_new = []            
 
             for i, val in enumerate(values_to):
-                
+
                 keypoints_new.append(keypoint_new)
 
             return keypoints_new
 
-        keypoints_gt = remap_keypoints(keypoints_gt, "cmu", "coco")
-        keypoints_3d_predicted = map_keypoints_cmu_to_h36m(keypoints_3d_predicted, "cmu", "coco")
+        #keypoints_gt = remap_keypoints(keypoints_gt, "cmu", "coco")
+        #keypoints_3d_predicted = map_keypoints_cmu_to_h36m(keypoints_3d_predicted, "cmu", "coco")
 
         '''
         if transfer_cmu_to_human36m or transfer_human36m_to_human36m:

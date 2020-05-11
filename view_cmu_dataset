@@ -1,0 +1,8 @@
+#!/bin/sh
+
+cd ./mvn/datasets/cmu_preprocessing
+git pull
+rm -rf dataset_imgs
+python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 10000 10000 1
+tar -cvzf dataset_imgs.tar.gz dataset_imgs
+cd -

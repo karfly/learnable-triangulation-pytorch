@@ -83,8 +83,13 @@ while sample_idx < len(dataset):
     
     for i, (x,y) in enumerate(keypoints_2d):
         cv2.circle(display, (int(x), int(y)), 3, (12*i, 12*i, 255), -1)
-        cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
+        cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0,0,255))
     
+    # Draw BBOX
+    if not crop:
+        for left, top, right, bottom in sample['detections']:
+            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
     #subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]
@@ -99,11 +104,6 @@ while sample_idx < len(dataset):
             os.makedirs(img_path)
 
         img_path = os.path.join(img_path, f"{frame_idx:08}_p{person_id}.jpg")
-
-        # Draw BBOX
-        for left, top, right, bottom in sample['detections']:
-            print((left, top), (right, bottom))
-            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
 
         try: 
             print(f"Saving image to {img_path}")

@@ -133,17 +133,35 @@ class CMUPanopticDataset(Dataset):
 
             # load bounding box
             bbox_with_confidence = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
-            top, left, bottom, right, bbox_confidence = bbox_with_confidence
-            bbox = (top, left, bottom, right)
+            left, top, right, bottom, bbox_confidence = bbox_with_confidence
+            bbox = (left, top, right, bottom)
             
-            bbox_height = bbox[2] - bbox[0]
+            bbox_height = top - bottom
             if bbox_height == 0:
                 # convention: if the bbox is empty, then this view is missing
                 continue
 
-            # scale the bounding box
+            # square and scale the bounding box
+            def square_the_bbox(bbox):
+                # return get_square_bbox(bbox)
+
+                left, top, right, bottom = bbox
+                width = right - left
+                height = bottom - top
+
+                if height < width:
+                    center = (top + bottom) * 0.5
+                    top = int(round(center - width * 0.5))
+                    bottom = top + width
+                else:
+                    center = (left + right) * 0.5
+                    left = int(round(center - height * 0.5))
+                    right = left + height
+
+                return left, top, right, bottom
+
             if self.square_bbox:
-                bbox = get_square_bbox(bbox)
+                bbox = square_the_bbox(bbox)
             bbox = scale_bbox(bbox, self.scale_bbox)
 
             # load image

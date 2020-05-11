@@ -81,8 +81,8 @@ while sample_idx < len(dataset):
     from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion as project
     keypoints_2d = project(camera.projection, sample['keypoints_3d'][:, :3])
     
-    for i,(x,y) in enumerate(keypoints_2d):
-        cv2.circle(display, (int(x), int(y)), 3, (0,0,255), -1)
+    for i, (x,y) in enumerate(keypoints_2d):
+        cv2.circle(display, (int(x), int(y)), 3, (5*i, 0, 255), -1)
         # cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
     
     # Get window name

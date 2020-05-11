@@ -77,8 +77,9 @@ while sample_idx < len(dataset):
     title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
     
     if save_images_instead:
+        img_path = os.path.join('.', os.path.join(imgdir, title + ".jpg"))
         print(f"Saving {title}")
-        cv2.imwrite(os.path.join(imgdir, title + ".jpg"), display)
+        cv2.imwrite(img_path, display)
     else:
         cv2.imshow('w', display)
         cv2.setWindowTitle('w', title)

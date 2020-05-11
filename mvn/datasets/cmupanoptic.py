@@ -160,8 +160,9 @@ class CMUPanopticDataset(Dataset):
 
                 return left, top, right, bottom
 
-            #if self.square_bbox:
-            #    bbox = square_the_bbox(bbox)
+            if self.square_bbox:
+                print("Squaring bbox...")
+                bbox = square_the_bbox(bbox)
             bbox = scale_bbox(bbox, self.scale_bbox)
 
             # load image

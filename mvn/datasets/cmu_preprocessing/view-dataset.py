@@ -22,6 +22,11 @@ except: sample_idx = 0
 try:    step = int(sys.argv[4])
 except: step = 10
 
+try:
+    save_images_instead = (sys.argv[5] == 1)
+except: 
+    save_images_instead = False
+
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../.."))
 from mvn.datasets.cmupanoptic import CMUPanopticDataset
 
@@ -38,10 +43,11 @@ dataset = CMUPanopticDataset(
     ignore_cameras=[])
 print(len(dataset))
 
+imgdir = "dataset_imgs"
 prev_action = None
 patience = 0
 
-while True:
+while sample_idx < len(dataset):
     sample = dataset[sample_idx]
 
     camera_idx = 0
@@ -65,13 +71,18 @@ while True:
     camera_name = dataset.labels['camera_names'][camera_idx]
     frame_idx = sample_info['frame_name']
 
-    cv2.imshow('w', display)
-    cv2.setWindowTitle('w', f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}")
-    c = cv2.waitKey(0) % 256
+    title = f"Person {person_id}: {action_name}/{camera_name}/{frame_idx}"
 
-    if c == ord('q') or c == 27:
-        print('Quitting...')
-        break
+    if save_images_instead:
+        cv2.imwrite(os.path.join(imgdir, title + ".jpg"))
+    else:
+        cv2.imshow('w', display)
+        cv2.setWindowTitle('w', title)
+        c = cv2.waitKey(0) % 256
+
+        if c == ord('q') or c == 27:
+            print('Quitting...')
+            break
 
     action = sample_info['action_idx']
     if action != prev_action: # started a new action

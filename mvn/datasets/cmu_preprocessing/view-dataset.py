@@ -40,9 +40,9 @@ dataset = CMUPanopticDataset(
     test=True,
     image_shape=(512,512),
     retain_every_n_frames_in_test=1,
-    scale_bbox=0.1,
+    scale_bbox=1.0,
     kind='cmu',
-    norm_image=False,
+    norm_image=True,
     ignore_cameras=[])
 
 print("Total Samples:", len(dataset))

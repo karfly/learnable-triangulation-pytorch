@@ -38,10 +38,10 @@ dataset = CMUPanopticDataset(
     labels_path,
     train=True,
     test=True,
-    image_shape=(512,512),
+    image_shape=(384,384),
     retain_every_n_frames_in_test=1,
     scale_bbox=1.0,
-    square_bbox=True,
+    square_bbox=False,
     kind='cmu',
     norm_image=False,
     ignore_cameras=[])

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+timestamp() {
+  date +"%T"
+}
+
 cd ./mvn/datasets/cmu_preprocessing
 git pull
 
@@ -8,6 +12,8 @@ rm dataset_imgs.tar.gz
 "Cleaned up old files"
 
 python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 50000 15000 1
+
+echo timestamp() >> dataset_imgs/timestamp.txt
 
 tar -cvzf dataset_imgs.tar.gz dataset_imgs && echo "Tarball saved."
 

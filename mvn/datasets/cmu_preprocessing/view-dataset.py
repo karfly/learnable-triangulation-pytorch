@@ -83,7 +83,7 @@ while sample_idx < len(dataset):
     
     for i, (x,y) in enumerate(keypoints_2d):
         cv2.circle(display, (int(x), int(y)), 3, (12*i, 12*i, 255), -1)
-        # cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
+        cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
     
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]

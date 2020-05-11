@@ -77,7 +77,7 @@ while sample_idx < len(dataset):
 
     
     if save_images_instead:
-        img_path = os.path.join('.', imgdir, action_name, camera_name, f"{frame_idx}_p{person_id}.jpg"))
+        img_path = os.path.join('.', imgdir, action_name, camera_name, f"{frame_idx}_p{person_id}.jpg")
         try: 
             print(f"Saving image to {img_path}")
             cv2.imwrite(img_path, display)

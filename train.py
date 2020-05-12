@@ -252,13 +252,15 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
+        ipdb.set_trace()
+
         for iter_i, batch in iterator:
+            ipdb.set_trace()
+
             with autograd.detect_anomaly():
                 # measure data loading time
                 data_time = time.time() - end
                     
-                ipdb.set_trace()
-
                 if batch is None:
                     print("Found None batch")
                     continue

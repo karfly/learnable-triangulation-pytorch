@@ -134,8 +134,7 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
                 config.dataset.train, "crop") else True,
         )
 
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset) if distributed_train else None
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
 
         train_dataloader = DataLoader(
             train_dataset,

@@ -102,7 +102,6 @@ while sample_idx < len(dataset):
         
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
-    #subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]
     person_id = sample_info['person_id']
     action_name = dataset.labels['action_names'][sample_info['action_idx']]
     camera_name = dataset.labels['camera_names'][camera_idx]

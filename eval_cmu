@@ -1,0 +1,6 @@
+#!/bin/sh
+
+python3 train.py \
+  --eval --eval_dataset val \
+  --config experiments/cmupanoptic/eval/cmu_vol_softmax.yaml \
+  --logdir ./logs

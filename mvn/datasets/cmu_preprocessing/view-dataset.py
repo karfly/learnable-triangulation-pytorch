@@ -41,6 +41,7 @@ crop = False
 
 print(f"Scale bbox: {scale_bbox}")
 print(f"Square bbox: {square_bbox}")
+print(f"Image Shape: {image_shape}")
 print(f"Norm Image: {norm_image}")
 print(f"Crop: {crop}\n")
 

@@ -88,7 +88,13 @@ while sample_idx < len(dataset):
         cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0,0,255))
     
     # Draw BBOX
-    left, top, right, bottom = sample['detections_after_resize'][camera_idx]
+    try:
+        left, top, right, bottom = sample['detections_after_resize'][camera_idx]
+    except KeyError: 
+        left, top, right, bottom = sample['detections'][camera_idx]
+    except:
+        raise Exception("Cannot get BBOX")    
+
     if top - bottom == 0:
         _msg = "No bbox data found"
         print(f"Sample {sample_idx}, Camera {camera_idx}: {_msg}")

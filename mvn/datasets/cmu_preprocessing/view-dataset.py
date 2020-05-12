@@ -48,7 +48,7 @@ dataset = CMUPanopticDataset(
     labels_path,
     train=True,
     test=True,
-    image_shape=(384,384),
+    image_shape=None,#(384,384),
     retain_every_n_frames_in_test=1,
     scale_bbox=scale_bbox,
     square_bbox=square_bbox,
@@ -95,11 +95,15 @@ while sample_idx < len(dataset):
         img_height, img_width, _ = display.shape
         print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions {img_height} {img_width}")
         if not crop:
-            cv2.rectangle(
-                display,
-                (left, top),(right, bottom), 
-                (255, 0, 0), 3
-            )
+            try:
+                cv2.rectangle(
+                    display,
+                    (left, top),(right, bottom), 
+                    (255, 0, 0), 3
+                )
+                print("BBOX Drawn")
+            except:
+                raise Exception("Could not draw BBOX")
         
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]

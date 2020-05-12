@@ -190,6 +190,8 @@ class CMUPanopticDataset(Dataset):
                 image = resize_image(image, self.image_shape)
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
 
+                # Why bbox not updated?
+
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 
             if self.norm_image:

@@ -16,8 +16,7 @@ $ python3 generate-lables-npy.py <path/to/data> <path/to/bbox-npy-file> <number-
 Example (default):
 $ python3 generate-lables-npy.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-bboxes.npy 4
 """
-
-def jsonict(filename):
+def jsonToDict(filename):
     # Read file
     with open(filename, 'r') as f:
         data = f.read()

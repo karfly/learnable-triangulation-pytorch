@@ -246,6 +246,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     with grad_context():
         end = time.time()
 
+        import ipdb; ipdb.set_trace()
+
         iterator = enumerate(dataloader)
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
@@ -281,7 +283,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 if n_views == 1:
                     if config.kind == "human36m":
                         base_joint = 6
-                    elif config.kind == "coco":
+                    elif config.kind in ["coco", "cmu", "cmupanoptic"]:
                         base_joint = 11
 
                     keypoints_3d_gt_transformed = keypoints_3d_gt.clone()

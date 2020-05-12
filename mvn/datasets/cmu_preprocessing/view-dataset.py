@@ -86,11 +86,16 @@ while sample_idx < len(dataset):
         cv2.putText(display, str(i), (int(x)+3, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0,0,255))
     
     # Draw BBOX
-    if not crop:
-        left, top, right, bottom = sample['detections'][camera_idx]
-        print(f"Drawing rectangle at ({left}, {top}), ({right}, {bottom})")
-        cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
-        
+    left, top, right, bottom = sample['detections'][camera_idx]
+    if top - bottom == 0:
+        print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom})")
+        if not crop:
+            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+    else:
+        _msg = f"No bbox data found for sample {sample_idx}, camera {camera_idx}"
+        print(_msg)
+        cv2.putText(display, _msg, (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0, 0, 255))
+
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
     #subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]

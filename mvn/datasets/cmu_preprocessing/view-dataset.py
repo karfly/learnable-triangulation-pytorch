@@ -92,7 +92,8 @@ while sample_idx < len(dataset):
         print(f"Sample {sample_idx}, Camera {camera_idx}: {_msg}")
         cv2.putText(display, _msg, (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0, 0, 255))
     else:
-        print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom})")
+        img_height, img_width, _ = display.shape
+        print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions {img_height} {img_width}")
         if not crop:
             cv2.rectangle(
                 display,

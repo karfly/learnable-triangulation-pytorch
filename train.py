@@ -248,7 +248,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         end = time.time()
 
         iterator = enumerate(dataloader)
-        print(len(iterator))
+        print(len(dataloader))
 
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)

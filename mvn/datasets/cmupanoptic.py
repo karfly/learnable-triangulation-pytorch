@@ -132,11 +132,7 @@ class CMUPanopticDataset(Dataset):
                 continue
 
             # load bounding box
-            # bbox_with_confidence = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
-            # left, top, right, bottom, bbox_confidence = bbox_with_confidence
-            
-            # seems to already be correctly ordered
-            left, top, right, bottom, bbox_confidence = shot['bbox_by_camera_tlbr'][camera_idx][[0,1,2,3,4]] 
+            left, top, right, bottom, bbox_confidence = shot['bbox_by_camera_tlbr'][camera_idx]
             bbox = (left, top, right, bottom)
             
             bbox_height = top - bottom
@@ -194,6 +190,7 @@ class CMUPanopticDataset(Dataset):
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
 
                 # Why bbox not updated?
+                # Resize BBOX
 
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 

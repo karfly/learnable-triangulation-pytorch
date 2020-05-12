@@ -98,12 +98,7 @@ while sample_idx < len(dataset):
         print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions {img_height} {img_width}")
         if not crop:
             try:
-                cv2.rectangle(
-                    display,
-                    (left, top),(right, bottom), 
-                    (255, 0, 0), 3
-                )
-                print("BBOX Drawn")
+                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
             except:
                 raise Exception("Could not draw BBOX")
         

@@ -182,7 +182,8 @@ class CMUPanopticDataset(Dataset):
                 right *= img_width_ratio
                 top *= img_height_ratio
                 bottom *= img_height_ratio
-                bbox = (left, top, right, bottom)
+
+                bbox = (int(left), int(top), int(right), int(bottom))
 
                 sample['detections_before_resize'].append(bbox_before_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)

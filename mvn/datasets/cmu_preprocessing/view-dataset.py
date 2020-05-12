@@ -97,8 +97,11 @@ while sample_idx < len(dataset):
         img_height, img_width, _ = display.shape
         print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions ({img_height}, {img_width})")
         if not crop:
-            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
-            
+            try:
+                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+            except:
+                raise Exception("Could not draw BBOX")
+        
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
     person_id = sample_info['person_id']

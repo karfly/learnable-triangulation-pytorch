@@ -141,7 +141,6 @@ class CMUPanopticDataset(Dataset):
 
             # square and scale the bounding box
             if self.square_bbox:
-                print("Squaring bbox...")
                 bbox = get_square_bbox(bbox)
             
             bbox = scale_bbox(bbox, self.scale_bbox)
@@ -170,22 +169,20 @@ class CMUPanopticDataset(Dataset):
                 image = resize_image(image, self.image_shape)
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
 
-                # Why bbox not updated?
                 # Resize BBOX
                 img_height_before, img_width_before = image_shape_before_resize
                 img_height_after, img_width_after = self.image_shape
                 img_height_ratio = img_height_after / img_height_before
                 img_width_ratio = img_width_after / img_width_before
-                
-                bbox_before_resize = bbox
+
                 left *= img_width_ratio
                 right *= img_width_ratio
                 top *= img_height_ratio
                 bottom *= img_height_ratio
 
-                bbox = (int(left), int(top), int(right), int(bottom))
+                bbox_after_resize = (int(left), int(top), int(right), int(bottom))
 
-                sample['detections_before_resize'].append(bbox_before_resize)
+                sample['detections_after_resize'].append(bbox_after_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 
             if self.norm_image:

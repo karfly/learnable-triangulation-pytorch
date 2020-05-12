@@ -30,7 +30,7 @@ def jsonict(filename):
 BBOXES_SOURCE = 'MRCNN' # or 'MRCNN' or 'SSD'
 
 retval = {
-    'cameras': None
+    'cameras': None,
     'camera_names': set(),
     'action_names': [],
     'person_ids': set(),

@@ -87,12 +87,9 @@ while sample_idx < len(dataset):
     
     # Draw BBOX
     if not crop:
-        if len(sample['detections']) > 0:
-            for left, top, right, bottom in sample['detections']:
-                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
-        else:
-            cv2.putText(display, "No BBOX for this image!", (10,10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
-
+        left, top, right, bottom = sample['detections'][camera_idx]
+        cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+        
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
     #subject_name = dataset.labels['subject_names'][sample_info['subject_idx']]

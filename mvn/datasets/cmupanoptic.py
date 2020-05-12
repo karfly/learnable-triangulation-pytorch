@@ -132,8 +132,7 @@ class CMUPanopticDataset(Dataset):
                 continue
 
             # load bounding box
-            print(shot['bbox_by_camera_tlbr'][camera_idx][frame_idx])
-            bbox_with_confidence = shot['bbox_by_camera_tlbr'][camera_idx][frame_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
+            bbox_with_confidence = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2,4]] # TLBR to LTRB (note extra confidence field)
             left, top, right, bottom, bbox_confidence = bbox_with_confidence
             bbox = (left, top, right, bottom)
             

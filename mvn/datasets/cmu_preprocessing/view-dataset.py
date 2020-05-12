@@ -36,6 +36,7 @@ from mvn.datasets.cmupanoptic import CMUPanopticDataset
 scale_bbox = 1.0
 square_bbox = False
 norm_image = False
+image_shape = None
 crop = False
 
 print(f"Scale bbox: {scale_bbox}")
@@ -48,7 +49,7 @@ dataset = CMUPanopticDataset(
     labels_path,
     train=True,
     test=True,
-    image_shape=None,#(384,384),
+    image_shape=image_shape,
     retain_every_n_frames_in_test=1,
     scale_bbox=scale_bbox,
     square_bbox=square_bbox,

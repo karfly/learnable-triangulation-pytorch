@@ -7,7 +7,8 @@ rm -rf dataset_imgs
 rm dataset_imgs.tar.gz
 echo "Cleaned up old files"
 
-python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 50000 15000 1
+# Random numbers
+python3 view-dataset.py $THIS_REPOSITORY/data/cmupanoptic $THIS_REPOSITORY/data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes.npy 34020 15250 1
 
 TIMESTAMP=`date +%Y-%m-%d_%H\:%M\:%S`
 echo $TIMESTAMP >> dataset_imgs/timestamp.txt

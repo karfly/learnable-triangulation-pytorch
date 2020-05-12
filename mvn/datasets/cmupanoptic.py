@@ -135,33 +135,14 @@ class CMUPanopticDataset(Dataset):
             left, top, right, bottom, bbox_confidence = shot['bbox_by_camera_tlbr'][camera_idx]
             bbox = (left, top, right, bottom)
             
-            bbox_height = top - bottom
-            if bbox_height == 0:
+            if top - bottom == 0 or left - right == 0:
                 # convention: if the bbox is empty, then this view is missing
                 continue
 
             # square and scale the bounding box
-            def square_the_bbox(bbox):
-                # return get_square_bbox(bbox)
-
-                left, top, right, bottom = bbox
-                width = right - left
-                height = bottom - top
-
-                if height < width:
-                    center = (top + bottom) * 0.5
-                    top = int(round(center - width * 0.5))
-                    bottom = top + width
-                else:
-                    center = (left + right) * 0.5
-                    left = int(round(center - height * 0.5))
-                    right = left + height
-
-                return left, top, right, bottom
-
             if self.square_bbox:
                 print("Squaring bbox...")
-                bbox = square_the_bbox(bbox)
+                bbox = get_square_bbox(bbox)
             
             bbox = scale_bbox(bbox, self.scale_bbox)
 

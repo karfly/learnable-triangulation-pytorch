@@ -95,13 +95,10 @@ while sample_idx < len(dataset):
         cv2.putText(display, _msg, (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.2, (0, 0, 255))
     else:
         img_height, img_width, _ = display.shape
-        print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions {img_height} {img_width}")
+        print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions ({img_height}, {img_width})")
         if not crop:
-            try:
-                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
-            except:
-                raise Exception("Could not draw BBOX")
-        
+            cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+            
     # Get window name
     sample_info = dataset.labels['table'][sample_idx]
     person_id = sample_info['person_id']

@@ -88,6 +88,7 @@ while sample_idx < len(dataset):
     # Draw BBOX
     if not crop:
         left, top, right, bottom = sample['detections'][camera_idx]
+        print(f"Drawing rectangle at ({left}, {top}), ({right}, {bottom})")
         cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
         
     # Get window name

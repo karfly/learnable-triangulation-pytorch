@@ -174,8 +174,8 @@ class CMUPanopticDataset(Dataset):
                 # Resize BBOX
                 img_height_before, img_width_before = image_shape_before_resize
                 img_height_after, img_width_after = self.image_shape
-                img_height_ratio = img_height_before/img_height_after
-                img_width_ratio = img_width_before/img_width_after
+                img_height_ratio = img_height_after/img_height_before
+                img_width_ratio = img_width_after/img_width_before
 
                 bbox_before_resize = bbox
                 left *= img_width_ratio

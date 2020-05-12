@@ -182,8 +182,8 @@ class CMUPanopticDataset(Dataset):
 
                 bbox_after_resize = (int(left), int(top), int(right), int(bottom))
 
-                # if self.square_bbox:
-                #    bbox_after_resize = get_square_bbox(bbox_after_resize)
+                if self.square_bbox:
+                    bbox_after_resize = get_square_bbox(bbox_after_resize)
 
                 sample['detections_after_resize'].append(bbox_after_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)

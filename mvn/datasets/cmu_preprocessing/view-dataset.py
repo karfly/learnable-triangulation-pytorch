@@ -35,7 +35,7 @@ from mvn.datasets.cmupanoptic import CMUPanopticDataset
 
 scale_bbox = 1.0
 square_bbox = True
-norm_image = True
+norm_image = False
 image_shape = (384, 384)
 crop = True
 

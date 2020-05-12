@@ -29,6 +29,7 @@ from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m, cmupanoptic
 from mvn.datasets import utils as dataset_utils
 
+import ipdb
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -246,15 +247,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     with grad_context():
         end = time.time()
 
+        iterator = enumerate(dataloader)
+
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
         for iter_i, batch in iterator:
             with autograd.detect_anomaly():
-                import ipdb; ipdb.set_trace()
-                
                 # measure data loading time
                 data_time = time.time() - end
+                    
+                ipdb.set_trace()
 
                 if batch is None:
                     print("Found None batch")

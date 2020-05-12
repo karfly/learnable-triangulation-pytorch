@@ -182,9 +182,6 @@ class CMUPanopticDataset(Dataset):
 
                 bbox_after_resize = (int(left), int(top), int(right), int(bottom))
 
-                if self.square_bbox:
-                    bbox_after_resize = get_square_bbox(bbox_after_resize)
-
                 sample['detections_after_resize'].append(bbox_after_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 
@@ -238,23 +235,6 @@ class CMUPanopticDataset(Dataset):
                     'total_loss': action_per_pose_error.sum(), 'frame_count': len(action_per_pose_error)
                 }
 
-            # TODO: What is this?!?
-            '''
-            action_names_without_trials = \
-                [name[:-2] for name in self.labels['action_names'] if name.endswith('-1')]
-
-            for action_name_without_trial in action_names_without_trials:
-                combined_score = {'total_loss': 0.0, 'frame_count': 0}
-
-                for trial in 1, 2:
-                    action_name = '%s-%d' % (action_name_without_trial, trial)
-                    combined_score['total_loss' ] += action_scores[action_name]['total_loss']
-                    combined_score['frame_count'] += action_scores[action_name]['frame_count']
-                    del action_scores[action_name]
-
-                action_scores[action_name_without_trial] = combined_score
-            '''
-
             for k, v in action_scores.items():
                 action_scores[k] = float('nan') if v['frame_count'] == 0 else (v['total_loss'] / v['frame_count'])
 
@@ -265,12 +245,10 @@ class CMUPanopticDataset(Dataset):
             'Average': evaluate_by_actions(self, per_pose_error)
         }
 
-        '''
-        for person_id in range(len(self.labels['person_names'])):
+        for person_id in range(len(self.labels['person_ids'])):
             person_mask = self.labels['table']['person_id'] == person_id
-            person_scores[self.labels['person_names'][person_id]] = \
+            person_scores[person_id] = \
                 evaluate_by_actions(self, per_pose_error, person_mask)
-        '''
 
         return person_scores
         

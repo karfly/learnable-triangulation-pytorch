@@ -37,7 +37,7 @@ scale_bbox = 1.0
 square_bbox = True
 norm_image = False
 image_shape = None #(384, 384)
-crop = False
+crop = True
 
 print(f"Scale bbox: {scale_bbox}")
 print(f"Square bbox: {square_bbox}")

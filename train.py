@@ -246,14 +246,13 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     with grad_context():
         end = time.time()
 
-        import ipdb; ipdb.set_trace()
-
-        iterator = enumerate(dataloader)
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
         for iter_i, batch in iterator:
             with autograd.detect_anomaly():
+                import ipdb; ipdb.set_trace()
+                
                 # measure data loading time
                 data_time = time.time() - end
 

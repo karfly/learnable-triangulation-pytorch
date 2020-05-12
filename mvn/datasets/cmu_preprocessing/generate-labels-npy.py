@@ -308,11 +308,13 @@ def load_table_segment(data, action_idx, action_name):
 
     # NOTE: THIS IS AN ARRAY!
     table_segment = np.empty(len(data['valid_frames']), dtype=table_dtype)
-
+    
     # Load BBOX: MRCNN Detections
     # let a (0,0,0,0,0) bbox mean that this view is missing
+    # NOTE: Also an array, of size len(cameras)
     table_segment['bbox_by_camera_tlbr'] = 0
-    
+
+    '''
     for camera_idx, camera_name in enumerate(retval['camera_names']):
         for bbox, frame_nm in zip(table_segment['bbox_by_camera_tlbr'], data['valid_frames']):
             try:
@@ -321,7 +323,8 @@ def load_table_segment(data, action_idx, action_name):
                 print(f"Missing bbox data {action_name}, {camera_name}.. Ignoring")
                 missing_data.append((action_name, camera_name))
                 bbox[camera_idx] = [0,0,0,0,0]
-                
+    '''
+
     for frame_idx, frame_name in enumerate(data['valid_frames']):
         person_data_arr = data['person_data'][frame_name]
 
@@ -336,6 +339,17 @@ def load_table_segment(data, action_idx, action_name):
             table_segment[frame_idx]['action_idx'] = action_idx
             table_segment[frame_idx]['frame_name'] = int(frame_name)
             table_segment[frame_idx]['keypoints'] = person_data['joints']
+            # Load BBOX: MRCNN Detections
+            # let a (0,0,0,0,0) bbox mean that this view is missing
+            for camera_idx, camera_name in enumerate(retval['camera_names']):
+                try:
+                    table_segment[frame_idx]['bbox_by_camera_tlbr'][camera_idx] = bbox_data[action_name][camera_name][int(frame_name)]
+                except KeyError:
+                    print(
+                        f"Missing bbox data {action_name}, {camera_name}.. Ignoring")
+                    missing_data.append((action_name, camera_name))
+                    table_segment[frame_idx]['bbox_by_camera_tlbr'][camera_idx] = [0, 0, 0, 0, 0]
+
             
     return table_segment, person_ids
 

@@ -34,7 +34,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../..
 from mvn.datasets.cmupanoptic import CMUPanopticDataset
 
 scale_bbox = 1.0
-square_bbox = False
+square_bbox = True
 norm_image = False
 image_shape = (384, 384)
 crop = False
@@ -98,7 +98,7 @@ while sample_idx < len(dataset):
         print(f"Sample {sample_idx}, Camera {camera_idx}: Drawing rectangle at ({left}, {top}), ({right}, {bottom}) for image of dimensions ({img_height}, {img_width})")
         if not crop:
             try:
-                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 3)
+                cv2.rectangle(display, (left, top), (right, bottom), (255, 0, 0), 2)
             except:
                 raise Exception("Could not draw BBOX")
         

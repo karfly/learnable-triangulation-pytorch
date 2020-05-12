@@ -172,7 +172,19 @@ class CMUPanopticDataset(Dataset):
 
                 # Why bbox not updated?
                 # Resize BBOX
+                img_height_before, img_width_before = image_shape_before_resize
+                img_height_after, img_width_after = self.image_shape
+                img_height_ratio = img_height_before/img_height_after
+                img_width_ratio = img_width_before/img_width_after
 
+                bbox_before_resize = bbox
+                left *= img_width_ratio
+                right *= img_width_ratio
+                top *= img_height_ratio
+                bottom *= img_height_ratio
+                bbox = (left, top, right, bottom)
+
+                sample['detections_before_resize'].append(bbox_before_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 
             if self.norm_image:
@@ -181,7 +193,7 @@ class CMUPanopticDataset(Dataset):
             # bbox_with_confidence = bbox + (bbox_confidence, )
 
             sample['images'].append(image)
-            sample['detections'].append(bbox) 
+            sample['detections'].append(bbox)
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 

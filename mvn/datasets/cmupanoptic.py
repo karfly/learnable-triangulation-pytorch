@@ -197,7 +197,7 @@ class CMUPanopticDataset(Dataset):
 
         # 3D keypoints
         # add dummy confidences
-        # TODO / NOTE what is the constant: dummy confidence or homogeneous coordinates or what
+        # TODO: use real confidences instead?
         sample['keypoints_3d'] = np.pad(
             shot['keypoints'][:self.num_keypoints],
             ((0,0), (0,1)), 'constant', constant_values=1.0)
@@ -240,7 +240,6 @@ class CMUPanopticDataset(Dataset):
 
             return action_scores
 
-        # TODO: May need to add person id
         person_scores = {
             'Average': evaluate_by_actions(self, per_pose_error)
         }

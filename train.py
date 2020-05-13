@@ -256,10 +256,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         - Keypoints (pred): NP Array, (17, 4) [Note: may not be there]
         '''
 
+        '''
         for iter_i, sample in iterator:
             print(len(sample), sample)
             break
-
+        '''
+        
         for iter_i, batch in iterator:
             print(iter_i)
 

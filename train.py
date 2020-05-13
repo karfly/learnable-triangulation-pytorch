@@ -276,8 +276,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
 
                 # print("Printing keypoints...")
-                print(keypoints_3d_gt)
-                import ipdb; ipdb.set_trace()
+                #print(keypoints_3d_gt)
+                #import ipdb; ipdb.set_trace()
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
@@ -313,8 +313,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # calculate loss
                 # before this was keypoints_3d_gt
                 total_loss = 0.0
-                loss = criterion(keypoints_3d_pred * scale_keypoints_3d,
-                                 keypoints_3d_validity_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
+                loss = criterion(
+                    keypoints_3d_pred * scale_keypoints_3d,
+                    keypoints_3d_gt * scale_keypoints_3d,
+                    keypoints_3d_binary_validity_gt
+                )
                 total_loss += loss
                 metric_dict[f'{config.opt.criterion}'].append(loss.item())
 

@@ -66,6 +66,7 @@ class CMUPanopticDataset(Dataset):
         self.cuboid_side = cuboid_side
         self.kind = kind
         # TODO: Use config files to select cameras
+        # TODO: Ignore more cameras
         self.ignore_cameras = ignore_cameras
         self.crop = crop
 

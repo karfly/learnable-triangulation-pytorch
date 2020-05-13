@@ -89,11 +89,22 @@ while sample_idx < len(dataset):
     
     # Draw BBOX
     try:
-        left, top, right, bottom = sample['detections_after_resize'][camera_idx]
-    except KeyError: 
         left, top, right, bottom = sample['detections'][camera_idx]
     except:
         raise Exception("Cannot get BBOX")    
+
+    # Resize image if image size has changed            if self.image_shape is not None:
+    if image_shape is not None:
+        image_shape_before_resize = sample['image_shapes_before_resize']
+        img_height_before, img_width_before = image_shape_before_resize
+        img_height_after, img_width_after = self.image_shape
+        img_height_ratio = img_height_after / img_height_before
+        img_width_ratio = img_width_after / img_width_before
+
+        left = int(left * img_width_ratio)
+        right = int(right * img_width_ratio)
+        top = int(img_height_ratio)
+        bottom = int(img_height_ratio)
 
     if top - bottom == 0:
         _msg = "No bbox data found"

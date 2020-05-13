@@ -119,7 +119,6 @@ class CMUPanopticDataset(Dataset):
         sample = defaultdict(list) # return value
         shot = self.labels['table'][idx]
 
-        #person = self.labels['person_names'][shot['person_id']]
         person = shot['person_id']
 
         action_idx = shot['action_idx']
@@ -169,26 +168,10 @@ class CMUPanopticDataset(Dataset):
                 image = resize_image(image, self.image_shape)
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
 
-                # Resize BBOX
-                img_height_before, img_width_before = image_shape_before_resize
-                img_height_after, img_width_after = self.image_shape
-                img_height_ratio = img_height_after / img_height_before
-                img_width_ratio = img_width_after / img_width_before
-
-                left *= img_width_ratio
-                right *= img_width_ratio
-                top *= img_height_ratio
-                bottom *= img_height_ratio
-
-                bbox_after_resize = (int(left), int(top), int(right), int(bottom))
-
-                sample['detections_after_resize'].append(bbox_after_resize)
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 
             if self.norm_image:
                 image = normalize_image(image)
-
-            # bbox_with_confidence = bbox + (bbox_confidence, )
 
             sample['images'].append(image)
             sample['detections'].append(bbox)

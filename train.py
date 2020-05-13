@@ -441,7 +441,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
             # dump results
             with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
-                pickle.dump(results, fout)
+                pickle.dump(results, fout, protocol=4)
 
             # dump full metric
             with open(os.path.join(checkpoint_dir, "metric.json".format(epoch)), 'w') as fout:

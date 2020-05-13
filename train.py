@@ -29,7 +29,8 @@ from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m, cmupanoptic
 from mvn.datasets import utils as dataset_utils
 
-import ipdb
+# need this to overcome overflow error with pickling
+import pickle4reducer 
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -470,6 +471,11 @@ def init_distributed(args):
 
 def main(args):
     print("Number of available GPUs: {}".format(torch.cuda.device_count()))
+
+    # Attempt to fix overflow error with pickle
+    # See https://stackoverflow.com/questions/51562221/python-multiprocessing-overflowerrorcannot-serialize-a-bytes-object-larger-t
+    ctx = torch.multiprocessing.get_context()
+    ctx.reducer = pickle4reducer.Pickle4Reducer()
 
     is_distributed = init_distributed(args)
     master = True

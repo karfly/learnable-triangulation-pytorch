@@ -263,8 +263,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         '''
 
         for iter_i, batch in iterator:
-            print(iter_i)
-
             with autograd.detect_anomaly():
                 # measure data loading time
                 data_time = time.time() - end
@@ -274,10 +272,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     continue
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
-
-                # print("Printing keypoints...")
-                #print(keypoints_3d_gt)
-                #import ipdb; ipdb.set_trace()
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":

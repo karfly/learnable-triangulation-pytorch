@@ -252,8 +252,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
             - BBOX Detection for the image: (left, top, right, bottom) tuple
             - Camera: `Camera` object from `multiview.py`
         - Index: int
-        - Keypoints (gt): NP Array, (16, 4)
-        - Keypoints (pred): NP Array, (16, 4) [Note: may not be there]
+        - Keypoints (gt): NP Array, (17, 4)
+        - Keypoints (pred): NP Array, (17, 4) [Note: may not be there]
         '''
 
         for iter_i, sample in iterator:

@@ -104,7 +104,7 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
         except:
             print(euclidean_to_homogeneous(points_3d))
             print(proj_matrix.T)
-            raise Exception("Matrix multiply error")
+            # raise Exception("Matrix multiply error")
         
         if convert_back_to_euclidean:
             result = homogeneous_to_euclidean(result)

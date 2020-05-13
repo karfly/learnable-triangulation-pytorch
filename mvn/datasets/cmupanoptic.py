@@ -80,8 +80,12 @@ class CMUPanopticDataset(Dataset):
             "171204_pose3", "171204_pose2", "171204_pose1"]
         test_actions = ["171204_pose5", "171204_pose6"]
 
-        train_actions = [self.labels['action_names'].index(x) if x in self.labels['action_names'] for x in train_actions]
-        test_actions = [self.labels['action_names'].index(x) if x in self.labels['action_names'] for x in test_actions]
+        train_actions = [
+            self.labels['action_names'].index(x) for x in train_actions if x in self.labels['action_names']
+        ]
+        test_actions = [
+            self.labels['action_names'].index(x) for x in test_actions if x in self.labels['action_names']
+        ]
 
         indices = []
         if train:

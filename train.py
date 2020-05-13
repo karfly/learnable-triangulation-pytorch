@@ -119,20 +119,16 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
         # train
         train_dataset = cmupanoptic.CMUPanopticDataset(
             cmu_root=config.dataset.train.cmu_root,
-            pred_results_path=config.dataset.train.pred_results_path if hasattr(
-                config.dataset.train, "pred_results_path") else None,
+            pred_results_path=config.dataset.train.pred_results_path if hasattr(config.dataset.train, "pred_results_path") else None,
             train=True,
             test=False,
-            image_shape=config.image_shape if hasattr(
-                config, "image_shape") else (256, 256),
+            image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
             labels_path=config.dataset.train.labels_path,
             scale_bbox=config.dataset.train.scale_bbox,
             square_bbox=config.dataset.train.square_bbox if hasattr(config.dataset.train, "square_bbox") else True,
             kind=config.kind,
-            ignore_cameras=config.dataset.train.ignore_cameras if hasattr(
-                config.dataset.train, "ignore_cameras") else [],
-            crop=config.dataset.train.crop if hasattr(
-                config.dataset.train, "crop") else True,
+            ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
+            crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
         )
 
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
@@ -140,8 +136,7 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
         train_dataloader = DataLoader(
             train_dataset,
             batch_size=config.opt.batch_size,
-            shuffle=config.dataset.train.shuffle and (
-                train_sampler is None),  # debatable
+            shuffle=config.dataset.train.shuffle and (train_sampler is None),  # debatable
             sampler=train_sampler,
             collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.train.randomize_n_views,
                                                      min_n_views=config.dataset.train.min_n_views,
@@ -158,22 +153,19 @@ def setup_cmu_dataloaders(config, is_train, distributed_train):
             config.dataset.val, "pred_results_path") else None,
         train=False,
         test=True,
-        image_shape=config.image_shape if hasattr(
-            config, "image_shape") else (256, 256),
+        image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
         labels_path=config.dataset.val.labels_path,
         retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
         scale_bbox=config.dataset.val.scale_bbox,
         square_bbox=config.dataset.val.square_bbox if hasattr(config.dataset.val, "square_bbox") else True,
         kind=config.kind,
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
-        crop=config.dataset.val.crop if hasattr(
-            config.dataset.val, "crop") else True,
+        crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
     )
 
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=config.opt.val_batch_size if hasattr(
-            config.opt, "val_batch_size") else config.opt.batch_size,
+        batch_size=config.opt.val_batch_size if hasattr(config.opt, "val_batch_size") else config.opt.batch_size,
         shuffle=config.dataset.val.shuffle,
         collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.val.randomize_n_views,
                                                  min_n_views=config.dataset.val.min_n_views,

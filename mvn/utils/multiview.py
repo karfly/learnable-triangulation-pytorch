@@ -99,7 +99,13 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
     """
     # NOTE: @ is matrix multiply
     if isinstance(proj_matrix, np.ndarray) and isinstance(points_3d, np.ndarray):
-        result = euclidean_to_homogeneous(points_3d) @ proj_matrix.T
+        try:
+            result = euclidean_to_homogeneous(points_3d) @ proj_matrix.T
+        except:
+            print(euclidean_to_homogeneous(points_3d))
+            print(proj_matrix.T)
+            raise Exception("Matrix multiply error")
+        
         if convert_back_to_euclidean:
             result = homogeneous_to_euclidean(result)
         return result

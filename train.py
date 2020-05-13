@@ -275,7 +275,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
 
-                print("Printing keypoints...")
+                # print("Printing keypoints...")
                 print(keypoints_3d_gt)
                 import ipdb; ipdb.set_trace()
 
@@ -311,8 +311,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred = keypoints_3d_pred_transformed
 
                 # calculate loss
+                # before this was keypoints_3d_gt
                 total_loss = 0.0
-                loss = criterion(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
+                loss = criterion(keypoints_3d_pred * scale_keypoints_3d,
+                                 keypoints_3d_validity_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
                 total_loss += loss
                 metric_dict[f'{config.opt.criterion}'].append(loss.item())
 
@@ -321,7 +323,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 if use_volumetric_ce_loss:
                     volumetric_ce_criterion = VolumetricCELoss()
 
-                    loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
+                    loss = volumetric_ce_criterion(
+                        coord_volumes_pred, volumes_pred, keypoints_3d_validity_gt, keypoints_3d_binary_validity_gt)
                     metric_dict['volumetric_ce_loss'].append(loss.item())
 
                     weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0

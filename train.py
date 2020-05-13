@@ -244,8 +244,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
         
-        print(len(dataloader), len(dataloader[0]))
-        print("")
+        print(len(dataloader))
+
+        for sample in dataloader[0]:
+            print(len(sample), sample)
 
         for iter_i, batch in iterator:
             print(iter_i)

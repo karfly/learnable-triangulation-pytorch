@@ -15,7 +15,7 @@ opt:
   n_epochs: 9999
 
   batch_size: 5
-  val_batch_size: 15
+  val_batch_size: 15 # might reduce
 
   lr: 0.0001
   process_features_lr: 0.001

@@ -87,8 +87,9 @@ class CMUPanopticDataset(Dataset):
             self.labels['action_names'].index(x) for x in test_actions if x in self.labels['action_names']
         ]
 
-        # Testing
-        test_actions = train_actions + test_actions
+        # Testing for smaller dataset
+        if labels_path.endswith("small.npy"):    
+            test_actions = train_actions + test_actions
 
         indices = []
         if train:

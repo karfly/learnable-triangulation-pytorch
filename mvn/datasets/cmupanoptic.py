@@ -176,14 +176,18 @@ class CMUPanopticDataset(Dataset):
             sample['images'].append(image)
             sample['detections'].append(bbox)
             sample['cameras'].append(retval_camera)
-            sample['proj_matrices'].append(retval_camera.projection)
+            # Maybe remove to save space? 
+            # sample['proj_matrices'].append(retval_camera.projection)
 
         # 3D keypoints
         # add dummy confidences
         # TODO: use real confidences instead?
+        '''
         sample['keypoints_3d'] = np.pad(
             shot['keypoints'][:self.num_keypoints],
             ((0,0), (0,1)), 'constant', constant_values=1.0)
+        '''
+        sample['keypints_3d'] = np.array(shot['keypoints'][:self.num_keypoints])
 
         # build cuboid
         # base_point = sample['keypoints_3d'][6, :3]

@@ -245,6 +245,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
+        '''
+        Data breakdown:
+        - For each of the (max) 31 cameras in CMU dataset:
+            - OpenCV Image: Numpy array [Note: likely cropped to smaller shape]
+            - BBOX Detection for the image: (left, top, right, bottom) tuple
+            - Camera: `Camera` object from `multiview.py`
+        - Index: int
+        - Keypoints (gt): NP Array, (16, 4)
+        - Keypoints (pred): NP Array, (16, 4) [Note: may not be there]
+        '''
+
         for iter_i, sample in iterator:
             print(len(sample), sample)
             break

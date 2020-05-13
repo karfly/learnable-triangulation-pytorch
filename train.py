@@ -275,6 +275,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
 
+                print("Printing keypoints...")
+                print(keypoints_3d_gt)
+                import ipdb; ipdb.set_trace()
+
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
                     keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(images_batch, proj_matricies_batch, batch)

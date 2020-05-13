@@ -53,7 +53,8 @@ def prepare_batch(batch, device, config, is_train=True):
     images_batch = torch.stack(images_batch, dim=0)
 
     # 3D keypoints
-    keypoints_3d_batch_gt = torch.from_numpy(np.stack(batch['keypoints_3d'], axis=0)[:, :, 3:]).float().to(device)
+    # TODO: Why cut off only the confidences here?
+    keypoints_3d_batch_gt = torch.from_numpy(np.stack(batch['keypoints_3d'], axis=0)[:, :, :]).float().to(device)
 
     # 3D keypoints validity
     keypoints_3d_validity_batch_gt = torch.from_numpy(np.stack(batch['keypoints_3d'], axis=0)[:, :, 3:]).float().to(device)

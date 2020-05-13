@@ -95,8 +95,7 @@ while sample_idx < len(dataset):
 
     # Resize image if image size has changed            if self.image_shape is not None:
     if image_shape is not None:
-        image_shape_before_resize = sample['image_shapes_before_resize']
-        img_height_before, img_width_before = image_shape_before_resize
+        img_height_before, img_width_before = sample['image_shapes_before_resize'][camera_idx]
         img_height_after, img_width_after = self.image_shape
         img_height_ratio = img_height_after / img_height_before
         img_width_ratio = img_width_after / img_width_before

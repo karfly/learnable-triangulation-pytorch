@@ -70,15 +70,17 @@ dataset:
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
-    num_workers: 5
-
+    num_workers: 5'
   val:
     cmu_root: "./data/cmupanoptic"
     labels_path: "./data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes-small.npy"
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
-    with_damaged_actions: true
     undistort_images: true
+    ignore_cameras:
+      - '00_02'
+      - '00_05'
+      - '00_10'
 
     scale_bbox: 1.0
 

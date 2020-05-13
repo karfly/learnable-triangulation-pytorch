@@ -188,8 +188,7 @@ class CMUPanopticDataset(Dataset):
             ((0,0), (0,1)), 'constant', constant_values=1.0)
         '''
         sample['keypoints_3d'] = np.array(shot['keypoints'][:self.num_keypoints])
-        print(sample['keypoints_3d'])
-
+        
         # build cuboid
         # base_point = sample['keypoints_3d'][6, :3]
         # sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])

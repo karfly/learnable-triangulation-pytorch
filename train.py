@@ -263,6 +263,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         '''
 
         for iter_i, batch in iterator:
+            print(iter_i)
+
             with autograd.detect_anomaly():
                 # measure data loading time
                 data_time = time.time() - end
@@ -279,6 +281,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(images_batch, proj_matricies_batch, batch)
 
+                # TODO: What is batch shape[2]; check batch shape
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
                 n_joints = keypoints_3d_pred[0].shape[1]
 
@@ -290,19 +293,28 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # TODO: Might also be good to store the outputs differently and parse from there.
 
                 # 1-view case
+                # TODO: Totally remove because CMU dataset (which doesnt have pelvis-offset errors)?
                 if n_views == 1:
                     if config.kind == "human36m":
                         base_joint = 6
                     elif config.kind in ["coco", "cmu", "cmupanoptic"]:
-                        base_joint = 11
+                        base_joint = 6 # 11
 
-                    keypoints_3d_gt_transformed = keypoints_3d_gt.clone()
-                    keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
-                    keypoints_3d_gt = keypoints_3d_gt_transformed
+                    try: 
+                        keypoints_3d_gt_transformed = keypoints_3d_gt.clone()
+                        keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
+                        keypoints_3d_gt = keypoints_3d_gt_transformed
+                    except:
+                        import ipdb; ipdb.set_trace()
 
-                    keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
-                    keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
-                    keypoints_3d_pred = keypoints_3d_pred_transformed
+                    try:
+                        keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
+                        keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
+                        keypoints_3d_pred = keypoints_3d_pred_transformed
+                    except:
+                        # Dummy index? Various shape
+                        # See where the shape mismatch is 
+                        import ipdb; ipdb.set_trace()
 
                 # calculate loss
                 # before this was keypoints_3d_gt
@@ -340,7 +352,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     opt.step()
 
                 # calculate metrics
-                l2 = KeypointsL2Loss()(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
+                l2 = KeypointsL2Loss()(
+                    keypoints_3d_pred * scale_keypoints_3d,
+                    keypoints_3d_gt * scale_keypoints_3d,
+                    keypoints_3d_binary_validity_gt
+                )
                 metric_dict['l2'].append(l2.item())
 
                 # base point l2

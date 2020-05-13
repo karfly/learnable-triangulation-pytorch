@@ -102,8 +102,8 @@ while sample_idx < len(dataset):
 
         left = int(left * img_width_ratio)
         right = int(right * img_width_ratio)
-        top = int(img_height_ratio)
-        bottom = int(img_height_ratio)
+        top = int(top * img_height_ratio)
+        bottom = int(bottom * img_height_ratio)
 
     if top - bottom == 0:
         _msg = "No bbox data found"

@@ -87,6 +87,9 @@ class CMUPanopticDataset(Dataset):
             self.labels['action_names'].index(x) for x in test_actions if x in self.labels['action_names']
         ]
 
+        # Testing
+        test_actions = train_actions + test_actions
+
         indices = []
         if train:
             mask = np.isin(self.labels['table']['action_idx'], train_actions, assume_unique=True)

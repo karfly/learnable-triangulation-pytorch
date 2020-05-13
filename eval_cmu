@@ -1,6 +1,12 @@
 #!/bin/sh
 
-python3 train.py \
-  --eval --eval_dataset val \
-  --config experiments/cmupanoptic/eval/cmu_vol_softmax.yaml \
-  --logdir ./logs
+if [[ "$1" == "1" ]]; then
+  python3 train.py \
+    --eval --eval_dataset val \
+    --config experiments/cmupanoptic/eval/cmu_vol_softmax_small.yaml \
+    --logdir ./logs
+else
+  python3 train.py \
+    --eval --eval_dataset val \
+    --config experiments/cmupanoptic/eval/cmu_vol_softmax.yaml \
+    --logdir ./logs

@@ -74,6 +74,8 @@ class CMUPanopticDataset(Dataset):
 
         #NOTE: https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox/blob/master/README.md
         n_cameras = len(self.labels['camera_names'])
+        print(self.ignore_cameras)
+
         assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
 
         # TODO: Get these from the config file?

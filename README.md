@@ -30,6 +30,9 @@ pip install -r requirements.txt
 2. The config files can be found at `$THIS_REPOSITORY/experiements/[train|eval]/cmupanoptic`
 3. You can also do a quick evaluation using the provided `./eval_cmu` script
 
+#### General Datasets
+I tried to create documentation on how you can create your own general dataset [here](https://github.com/Samleo8/learnable-triangulation-pytorch/blob/master/TESTING_ON_GENERAL_DATASET.md). I was able to evaluate the CMU Panoptic dataset using the same ideas, and an example of that is seen above [here](#cmu-panoptic-wip).
+
 ## Model zoo
 In this section we collect pretrained models and configs. All **pretrained weights** and **precalculated 3D skeletons** can be downloaded at once [from here](https://drive.google.com/drive/folders/1yjnD47hdcFNvbQj87pXDgqGt52K7rz_z) and placed to `./data/pretrained`, so that eval configs can work out-of-the-box (without additional setting of paths). Alternatively, the table below provides separate links to those files.
 

@@ -78,9 +78,9 @@ dataset:
 
     undistort_images: true
     ignore_cameras:
-      - '00_02'
-      - '00_05'
-      - '00_10'
+      - 2
+      - 5
+      - 10
 
     scale_bbox: 1.0
 

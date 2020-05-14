@@ -70,45 +70,6 @@ JOINT_NAMES_DICT = {
         14: "right_knee",
         15: "left_ankle",
         16: "right_ankle"
-    },
-    'cmu': {
-        0: 'neck',
-        1: 'nose',
-        2: 'pelvis',
-        3: 'left_shoulder',
-        4: 'left_elbow',
-        5: 'left_wrist',
-        6: 'left_hip',
-        7: 'left_knee',
-        8: 'left_ankle',
-        9: 'right_shoulder',
-        10: 'right_elbow',
-        11: 'right_wrist',
-        12: 'right_hip',
-        13: 'right_knee',
-        14: 'right_ankle',
-        15: 'right_eye',
-        16: 'left_eye',
-        17: 'right_ear',
-        18: 'left_ear'
-    },
-    "mpii": {
-        0: 'right_ankle',
-        1: 'right_knee',
-        2: 'right_hip',
-        3: 'left_hip',
-        4: 'left_knee',
-        5: 'left_ankle',
-        6: 'pelvis',
-        7: 'thorax',
-        8: 'upper_neck',
-        9: 'head_top',
-        10: 'right_wrist',
-        11: 'right_elbow',
-        12: 'right_shoulder',
-        13: 'left_shoulder',
-        14: 'left_elbow',
-        15: 'left_wrist'
     }
 }
 

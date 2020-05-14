@@ -26,11 +26,9 @@ from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulat
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
-from mvn.datasets import human36m, cmupanoptic
+from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
 
-# need this to overcome overflow error with pickling
-import pickle4reducer 
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -42,7 +40,7 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, help="Local rank of the process on the node")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
-    parser.add_argument("--logdir", type=str, default="./logs", help="Path, where logs will be stored")
+    parser.add_argument("--logdir", type=str, default="/Vol1/dbstore/datasets/k.iskakov/logs/multi-view-net-repr", help="Path, where logs will be stored")
 
     args = parser.parse_args()
     return args
@@ -114,76 +112,9 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
     return train_dataloader, val_dataloader, train_sampler
 
 
-def setup_cmu_dataloaders(config, is_train, distributed_train):
-    train_dataloader = None
-    if is_train:
-        # train
-        train_dataset = cmupanoptic.CMUPanopticDataset(
-            cmu_root=config.dataset.train.cmu_root,
-            pred_results_path=config.dataset.train.pred_results_path if hasattr(config.dataset.train, "pred_results_path") else None,
-            train=True,
-            test=False,
-            image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
-            labels_path=config.dataset.train.labels_path,
-            scale_bbox=config.dataset.train.scale_bbox,
-            square_bbox=config.dataset.train.square_bbox if hasattr(config.dataset.train, "square_bbox") else True,
-            kind=config.kind,
-            ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
-            crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
-        )
-
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
-
-        train_dataloader = DataLoader(
-            train_dataset,
-            batch_size=config.opt.batch_size,
-            shuffle=config.dataset.train.shuffle and (train_sampler is None),  # debatable
-            sampler=train_sampler,
-            collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.train.randomize_n_views,
-                                                     min_n_views=config.dataset.train.min_n_views,
-                                                     max_n_views=config.dataset.train.max_n_views),
-            num_workers=config.dataset.train.num_workers,
-            worker_init_fn=dataset_utils.worker_init_fn,
-            pin_memory=True
-        )
-
-    # val
-    val_dataset = cmupanoptic.CMUPanopticDataset(
-        cmu_root=config.dataset.val.cmu_root,
-        pred_results_path=config.dataset.val.pred_results_path if hasattr(
-            config.dataset.val, "pred_results_path") else None,
-        train=False,
-        test=True,
-        image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
-        labels_path=config.dataset.val.labels_path,
-        retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
-        scale_bbox=config.dataset.val.scale_bbox,
-        square_bbox=config.dataset.val.square_bbox if hasattr(config.dataset.val, "square_bbox") else True,
-        kind=config.kind,
-        ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
-        crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
-    )
-
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=config.opt.val_batch_size if hasattr(config.opt, "val_batch_size") else config.opt.batch_size,
-        shuffle=config.dataset.val.shuffle,
-        collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.val.randomize_n_views,
-                                                 min_n_views=config.dataset.val.min_n_views,
-                                                 max_n_views=config.dataset.val.max_n_views),
-        num_workers=config.dataset.val.num_workers,
-        worker_init_fn=dataset_utils.worker_init_fn,
-        pin_memory=True
-    )
-
-    return train_dataloader, val_dataloader, train_sampler
-
-
 def setup_dataloaders(config, is_train=True, distributed_train=False):
     if config.dataset.kind == 'human36m':
         train_dataloader, val_dataloader, train_sampler = setup_human36m_dataloaders(config, is_train, distributed_train)
-    elif config.dataset.kind in ['cmu', 'cmupanoptic']:
-        train_dataloader, val_dataloader, train_sampler = setup_cmu_dataloaders(config, is_train, distributed_train)
     else:
         raise NotImplementedError("Unknown dataset: {}".format(config.dataset.kind))
 
@@ -217,8 +148,6 @@ def setup_experiment(config, model_name, is_train=True):
     # dump config to tensorboard
     writer.add_text(misc.config_to_str(config), "config", 0)
 
-    # TODO: File with images that were processed?
-
     return experiment_dir, writer
 
 
@@ -241,43 +170,19 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         end = time.time()
 
         iterator = enumerate(dataloader)
-
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
-        '''
-        Data breakdown:
-        - For each of the (max) 31 cameras in CMU dataset:
-            - OpenCV Image: Numpy array [Note: likely cropped to smaller shape]
-            - BBOX Detection for the image: (left, top, right, bottom) tuple
-            - Camera: `Camera` object from `multiview.py`
-        - Index: int
-        - Keypoints (gt): NP Array, (17, 4)
-        - Keypoints (pred): NP Array, (17, 4) [Note: may not be there]
-        '''
-
-        '''
-        for iter_i, sample in iterator:
-            print(len(sample), sample)
-            break
-        '''
-
         for iter_i, batch in iterator:
-            print(iter_i)
-
             with autograd.detect_anomaly():
                 # measure data loading time
                 data_time = time.time() - end
-                    
+
                 if batch is None:
                     print("Found None batch")
                     continue
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
-
-                if config.dataset.kind == "cmu":
-                    keypoints_3d_gt = keypoints_3d_gt.T
-                    keypoints_3d_validity_gt = keypoints_3d_validity_gt.T
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
@@ -285,59 +190,31 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(images_batch, proj_matricies_batch, batch)
 
-                # batch shape[2] is likely to be the dimension of the keypoints (= 3)
-                # n_views is also the number of cameras being used in this batch 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
                 n_joints = keypoints_3d_pred[0].shape[1]
-                print(n_joints)
-                import ipdb; ipdb.set_trace()
-                print(keypoints_3d_pred[0], keypoints_3d_pred.shape)
 
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)
 
                 scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
-                # TODO: Might be good to use the `vis.py` to visualise the results from here
-                # TODO: Might also be good to store the outputs differently and parse from there.
-
                 # 1-view case
-                # TODO: Totally remove because CMU dataset (which doesnt have pelvis-offset errors)?
                 if n_views == 1:
                     if config.kind == "human36m":
                         base_joint = 6
-                    elif config.kind in ["coco", "cmu", "cmupanoptic"]:
+                    elif config.kind == "coco":
                         base_joint = 11
 
-                    try: 
-                        keypoints_3d_gt_transformed = keypoints_3d_gt.clone()
-                        keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
-                        keypoints_3d_gt = keypoints_3d_gt_transformed
-                    except:
-                        print("Base Joint:", base_joint, n_joints)
-                        print(keypoints_3d_gt)
-                        print(torch.arange(n_joints))
-                        import ipdb; ipdb.set_trace()
-                        keypoints_3d_gt_transformed[:,base_joint:base_joint + 1]
+                    keypoints_3d_gt_transformed = keypoints_3d_gt.clone()
+                    keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
+                    keypoints_3d_gt = keypoints_3d_gt_transformed
 
-                        # print(keypoints_3d_gt[:, torch.arange(n_joints) != base_joint])
-                        # print(keypoints_3d_gt[:, base_joint:base_joint + 1])
-                    try:
-                        keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
-                        keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
-                        keypoints_3d_pred = keypoints_3d_pred_transformed
-                    except:
-                        # Dummy index? Various shape
-                        # See where the shape mismatch is 
-                        import ipdb; ipdb.set_trace()
+                    keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
+                    keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
+                    keypoints_3d_pred = keypoints_3d_pred_transformed
 
                 # calculate loss
-                # before this was keypoints_3d_gt
                 total_loss = 0.0
-                loss = criterion(
-                    keypoints_3d_pred * scale_keypoints_3d, 
-                    keypoints_3d_gt * scale_keypoints_3d, 
-                    keypoints_3d_binary_validity_gt
-                )
+                loss = criterion(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
                 total_loss += loss
                 metric_dict[f'{config.opt.criterion}'].append(loss.item())
 
@@ -366,11 +243,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     opt.step()
 
                 # calculate metrics
-                l2 = KeypointsL2Loss()(
-                    keypoints_3d_pred * scale_keypoints_3d,
-                    keypoints_3d_gt * scale_keypoints_3d,
-                    keypoints_3d_binary_validity_gt
-                )
+                l2 = KeypointsL2Loss()(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
                 metric_dict['l2'].append(l2.item())
 
                 # base point l2
@@ -390,22 +263,18 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     metric_dict['base_point_l2'].append(base_point_l2)
 
                 # save answers for evalulation
-                # TODO: maybe save the images used (or at least links to them) as well? 
                 if not is_train:
                     results['keypoints_3d'].append(keypoints_3d_pred.detach().cpu().numpy())
                     results['indexes'].append(batch['indexes'])
 
                 # plot visualization
-                # TODO: see if transfer_cmu_h36m visualisation error
                 if master:
                     if n_iters_total % config.vis_freq == 0:# or total_l2.item() > 500.0:
-                        vis_kind = config.kind if config.kind != "cmu" else "coco"
+                        vis_kind = config.kind
                         if (config.transfer_cmu_to_human36m if hasattr(config, "transfer_cmu_to_human36m") else False):
                             vis_kind = "coco"
-                        
+
                         for batch_i in range(min(batch_size, config.vis_n_elements)):
-                            # TODO: Plot images without tensorboard?
-                            
                             keypoints_vis = vis.visualize_batch(
                                 images_batch, heatmaps_pred, keypoints_2d_pred, proj_matricies_batch,
                                 keypoints_3d_gt, keypoints_3d_pred,
@@ -483,7 +352,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
             # dump results
             with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
-                pickle.dump(results, fout, protocol=4)
+                pickle.dump(results, fout)
 
             # dump full metric
             with open(os.path.join(checkpoint_dir, "metric.json".format(epoch)), 'w') as fout:
@@ -513,11 +382,6 @@ def init_distributed(args):
 
 def main(args):
     print("Number of available GPUs: {}".format(torch.cuda.device_count()))
-
-    # Attempt to fix overflow error with pickle
-    # See https://stackoverflow.com/questions/51562221/python-multiprocessing-overflowerrorcannot-serialize-a-bytes-object-larger-t
-    ctx = torch.multiprocessing.get_context()
-    ctx.reducer = pickle4reducer.Pickle4Reducer()
 
     is_distributed = init_distributed(args)
     master = True

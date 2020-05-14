@@ -152,7 +152,7 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.image_shape is not None:
-                # rescale_size
+                # resize
                 image_shape_before_resize = image.shape[:2]
                 image = resize_image(image, self.image_shape)
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
@@ -169,7 +169,6 @@ class Human36MMultiViewDataset(Dataset):
 
         # 3D keypoints
         # add dummy confidences
-        # TODO / NOTE what is the constant: dummy confidence or homogeneous coordinates or what
         sample['keypoints_3d'] = np.pad(
             shot['keypoints'][:self.num_keypoints],
             ((0,0), (0,1)), 'constant', constant_values=1.0)

@@ -4,9 +4,6 @@
 
     Usage: `python3 generate-labels-npy-multiview.py <path/to/Human3.6M-root> <path/to/una-dinosauria-data/h36m> <path/to/bboxes-Human36M-squared.npy>`
 """
-
-# TODO: Modify this to fit our needs
-
 import os, sys
 import numpy as np
 import h5py

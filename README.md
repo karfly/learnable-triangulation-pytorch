@@ -25,14 +25,6 @@ pip install -r requirements.txt
 2. Download pretrained backbone's weights from [here](https://drive.google.com/open?id=1TGHBfa9LsFPVS5CH6Qkcy5Jr2QsJdPEa) and place them here: `./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth` (ResNet-152 trained on COCO dataset and finetuned jointly on MPII and Human3.6M).
 3. If you want to train Volumetric model, you need rough estimations of the pelvis' 3D positions both for train and val splits. In the paper we estimate them using the Algebraic model. You can use the [pretrained](#model-zoo) Algebraic model to produce predictions or just take [precalculated 3D skeletons](#model-zoo).
 
-#### CMU Panoptic (WIP)
-1. Download and preprocess the dataset by following the instructions in [mvn/datasets/cmu_preprocessing/README.md](https://github.com/Samleo8/learnable-triangulation-pytorch/blob/master/mvn/datasets/cmu_preprocessing/README.md).
-2. The config files can be found at `$THIS_REPOSITORY/experiements/[train|eval]/cmupanoptic`
-3. You can also do a quick evaluation using the provided `./eval_cmu` script
-
-#### General Datasets
-I tried to create documentation on how you can create your own general dataset [here](https://github.com/Samleo8/learnable-triangulation-pytorch/blob/master/TESTING_ON_GENERAL_DATASET.md). I was able to evaluate the CMU Panoptic dataset using the same ideas, and an example of that is seen above [here](#cmu-panoptic-wip).
-
 ## Model zoo
 In this section we collect pretrained models and configs. All **pretrained weights** and **precalculated 3D skeletons** can be downloaded at once [from here](https://drive.google.com/drive/folders/1yjnD47hdcFNvbQj87pXDgqGt52K7rz_z) and placed to `./data/pretrained`, so that eval configs can work out-of-the-box (without additional setting of paths). Alternatively, the table below provides separate links to those files.
 
@@ -48,7 +40,6 @@ Every experiment is defined by `.config` files. Configs with experiments from th
 
 #### Single-GPU
 To train a Volumetric model with softmax aggregation using **1 GPU**, run:
-
 ```bash
 python3 train.py \
   --config experiments/human36m/train/human36m_vol_softmax.yaml \
@@ -61,7 +52,6 @@ The training will start with the config file specified by `--config`, and logs (
 Multi-GPU training is implemented with PyTorch's [DistributedDataParallel](https://pytorch.org/docs/stable/nn.html#distributeddataparallel). It can be used both for single-machine and multi-machine (cluster) training. To run the processes use the PyTorch [launch utility](https://github.com/pytorch/pytorch/blob/master/torch/distributed/launch.py).
 
 To train a Volumetric model with softmax aggregation using **2 GPUs on single machine**, run:
-
 ```bash
 python3 -m torch.distributed.launch --nproc_per_node=2 --master_port=2345 \
   train.py  \
@@ -71,13 +61,11 @@ python3 -m torch.distributed.launch --nproc_per_node=2 --master_port=2345 \
 
 ## Tensorboard
 To watch your experiments' progress, run tensorboard:
-
 ```bash
 tensorboard --logdir ./logs
 ```
 
 ## Evaluation
-
 After training, you can evaluate the model. Inside the same config file, add path to the learned weights (they are dumped to `logs` dir during training):
 ```yaml
 model:
@@ -88,23 +76,19 @@ model:
 Also, you can change other config parameters like `retain_every_n_frames_test`.
 
 Run:
-
 ```bash
 python3 train.py \
   --eval --eval_dataset val \
   --config experiments/human36m/eval/human36m_vol_softmax.yaml \
   --logdir ./logs
 ```
-
 Argument `--eval_dataset` can be `val` or `train`. Results can be seen in `logs` directory or in the tensorboard.
 
 # Results
-
 * We conduct experiments on two available large multi-view datasets: Human3.6M [\[2\]](#references) and CMU Panoptic [\[3\]](#references).
 * The main metric is **MPJPE** (Mean Per Joint Position Error) which is L2 distance averaged over all joints.
 
 ## Human3.6M
-
 * We significantly improved upon the previous state of the art (error is measured relative to pelvis, without alignment).
 * Our best model reaches **17.7 mm** error in absolute coordinates, which was unattainable before.
 * Our Volumetric model is able to estimate 3D human pose using **any number of cameras**, even using **only 1 camera**. In single-view setup, we get results comparable to current state of the art [\[6\]](#references) (49.9 mm vs. 49.6 mm).

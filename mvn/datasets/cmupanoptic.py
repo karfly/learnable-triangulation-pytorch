@@ -17,6 +17,7 @@ class CMUPanopticDataset(Dataset):
     """
         CMU Panoptic for multiview tasks.
         Adapted from the original dataset class (human36m.py)
+        https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox/blob/master/README.md
     """
     def __init__(self,
                  cmu_root='../data/cmupanoptic/',
@@ -48,7 +49,7 @@ class CMUPanopticDataset(Dataset):
                 Use a value of 13 to get 2049 frames in test set.
                 
             kind:
-                Keypoint format, '??' (for now)
+                Keypoint format, 'cmu' (for now)
 
             ignore_cameras:
                 A list with indices of cameras to exclude (0 to 3 inclusive)
@@ -65,18 +66,10 @@ class CMUPanopticDataset(Dataset):
         self.norm_image = norm_image
         self.cuboid_side = cuboid_side
         self.kind = kind
-        # TODO: Use config files to select cameras
-        # TODO: Ignore more cameras
-        self.ignore_cameras = ignore_cameras
+        self.ignore_cameras = [int(i) for i in ignore_cameras]
         self.crop = crop
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
-
-        #NOTE: https://github.com/CMU-Perceptual-Computing-Lab/panoptic-toolbox/blob/master/README.md
-        n_cameras = len(self.labels['camera_names'])
-        print(self.ignore_cameras)
-
-        assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
 
         # TODO: Get these from the config file?
         train_actions = ["171026_pose3", "171026_pose2", "171026_pose1", "171204_pose4",

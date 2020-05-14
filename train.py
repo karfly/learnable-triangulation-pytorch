@@ -191,7 +191,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(images_batch, proj_matricies_batch, batch)
 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
-                n_joints = keypoints_3d_pred[0].shape[1]
+                n_joints = keypoints_3d_pred.shape[1]
 
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)
 

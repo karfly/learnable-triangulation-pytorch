@@ -70,7 +70,7 @@ dataset:
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
-    num_workers: 5'
+    num_workers: 5
   val:
     cmu_root: "./data/cmupanoptic"
     labels_path: "./data/cmupanoptic/cmu-multiview-labels-MRCNNbboxes-small.npy"

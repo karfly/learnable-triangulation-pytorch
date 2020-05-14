@@ -289,6 +289,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # n_views is also the number of cameras being used in this batch 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
                 n_joints = keypoints_3d_pred[0].shape[1]
+                print(n_joints)
+                import ipdb; ipdb.set_trace()
+                print(keypoints_3d_pred[0], keypoints_3d_pred.shape)
 
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)
 

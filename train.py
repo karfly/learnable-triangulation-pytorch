@@ -306,11 +306,14 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
                         keypoints_3d_gt = keypoints_3d_gt_transformed
                     except:
-                        print("Base Joint:", base_joint)
-                        print(keypoints_3d_gt[:, torch.arange(n_joints) != base_joint])
-                        print(keypoints_3d_gt[:, base_joint:base_joint + 1])
+                        print("Base Joint:", base_joint, n_joints)
+                        print(keypoints_3d_gt)
+                        print(torch.arange(n_joints))
                         import ipdb; ipdb.set_trace()
+                        keypoints_3d_gt_transformed[:,base_joint:base_joint + 1]
 
+                        # print(keypoints_3d_gt[:, torch.arange(n_joints) != base_joint])
+                        # print(keypoints_3d_gt[:, base_joint:base_joint + 1])
                     try:
                         keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
                         keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]

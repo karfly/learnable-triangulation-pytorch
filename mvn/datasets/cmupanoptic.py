@@ -71,7 +71,7 @@ class CMUPanopticDataset(Dataset):
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
         self.ignore_cameras = [int(i) for i in ignore_cameras if int(i) in range(len(self.labels['camera_names']))]
-        print(self.ignore_cameras)
+        print(self.ignore_cameras, ignore_cameras)
 
         # TODO: Get these from the config file?
         train_actions = ["171026_pose3", "171026_pose2", "171026_pose1", "171204_pose4",

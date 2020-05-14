@@ -70,7 +70,7 @@ class CMUPanopticDataset(Dataset):
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
-        self.ignore_cameras = [int(i) for i in ignore_cameras if i in range(self.labels['camera_names'])]
+        self.ignore_cameras = [int(i) for i in ignore_cameras if i in range(len(self.labels['camera_names']))]
         print(self.ignore_cameras)
 
         # TODO: Get these from the config file?

@@ -5,6 +5,8 @@ This repository is an official PyTorch implementation of the paper ["Learnable T
 
 If you find a bug, have a question or know to improve the code - please open an issue!
 
+:arrow_forward: [ICCV 2019 talk](https://conftube.com/video/zem03fZWLrQ?tocitem=100)
+
 <p align="center">
   <a href="http://www.youtube.com/watch?v=z3f3aPSuhqg">
     <img width=680 src="docs/video-preview.jpg">

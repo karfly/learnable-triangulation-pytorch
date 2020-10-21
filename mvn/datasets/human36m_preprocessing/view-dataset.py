@@ -3,7 +3,7 @@
     - `Human36MMultiViewDataset`
     - `human36m-multiview-labels-**bboxes.npy`
 
-    Usage: `python3 view-dataset.py <path/to/Human3.6M-root> <path/to/human36m-multiview-labels-*bboxes.npy> [<start-sample-number> [<samples-per-step>]]
+    Usage: `python3 view-dataset.py <path/to/Human3.6M-root> <path/to/human36m-multiview-labels-*bboxes.npy> <start-sample-number> <samples-per-step>
 """
 import torch
 import numpy as np
@@ -40,9 +40,6 @@ print(len(dataset))
 
 prev_action = None
 patience = 0
-
-sample_idx = 0 # number of sample to start from
-step = 10 # in frames
 
 while True:
     sample = dataset[sample_idx]

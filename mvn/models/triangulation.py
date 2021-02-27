@@ -37,7 +37,7 @@ class RANSACTriangulationNet(nn.Module):
         images = images.view(batch_size, n_views, *images.shape[1:])
         heatmaps = heatmaps.view(batch_size, n_views, *heatmaps.shape[1:])
 
-        # calcualte shapes
+        # calculate shapes
         image_shape = tuple(images.shape[3:])
         batch_size, n_views, n_joints, heatmap_shape = heatmaps.shape[0], heatmaps.shape[1], heatmaps.shape[2], tuple(heatmaps.shape[3:])
 

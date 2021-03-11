@@ -393,6 +393,9 @@ def main(args):
     else:
         device = torch.device(0)
 
+    if not torch.cuda.is_available():
+        device = 'cpu'  # warning this blows CPU
+
     # config
     config = cfg.load_config(args.config)
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size

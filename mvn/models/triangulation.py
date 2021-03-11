@@ -173,7 +173,7 @@ class AlgebraicTriangulationNet(nn.Module):
         alg_confidences = alg_confidences / alg_confidences.sum(dim=1, keepdim=True)
         alg_confidences = alg_confidences + 1e-5  # for numerical stability
 
-        # calcualte shapes
+        # calculate shapes
         image_shape = tuple(images.shape[3:])
         batch_size, n_views, n_joints, heatmap_shape = heatmaps.shape[0], heatmaps.shape[1], heatmaps.shape[2], tuple(heatmaps.shape[3:])
 
@@ -295,7 +295,7 @@ class VolumetricTriangulationNet(nn.Module):
 
             base_points[batch_i] = torch.from_numpy(base_point).to(device)
 
-            # build cuboid
+            # build cuboid L x L x L
             sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
             position = base_point - sides / 2
             cuboid = volumetric.Cuboid3D(position, sides)
@@ -348,7 +348,7 @@ class VolumetricTriangulationNet(nn.Module):
         # lift to volume
         volumes = op.unproject_heatmaps(features, proj_matricies, coord_volumes, volume_aggregation_method=self.volume_aggregation_method, vol_confidences=vol_confidences)
 
-        # integral 3d
+        # integral 3d (V2V)
         volumes = self.volume_net(volumes)
         vol_keypoints_3d, volumes = op.integrate_tensor_3d_with_coordinates(volumes * self.volume_multiplier, coord_volumes, softmax=self.volume_softmax)
 

@@ -338,6 +338,7 @@ def get_pose_net(config, device='cuda:0'):
     if config.init_weights:
         print("Loading pretrained weights from: {}".format(config.checkpoint))
         model_state_dict = model.state_dict()
+
         pretrained_state_dict = torch.load(config.checkpoint, map_location=device)
 
         if 'state_dict' in pretrained_state_dict:

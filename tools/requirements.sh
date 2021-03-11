@@ -7,7 +7,6 @@ module load PythonAnaconda/3.7
 
 # optional: load the following to test if packages conflict
 module load PyTorch
-module load torchvision
 module load scikit-learn
 module load matplotlib
 module load Pillow

@@ -1,6 +1,7 @@
 *.err
 *.out
 data/
+logs/
 
 .venv/
 *.zip

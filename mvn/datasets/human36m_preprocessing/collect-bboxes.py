@@ -13,7 +13,7 @@ import h5py
 dataset_root = sys.argv[1]
 data_path = os.path.join(dataset_root, "processed")
 subjects = [x for x in os.listdir(data_path) if x.startswith('S')]
-assert len(subjects) == 7
+# assert len(subjects) == 7
 
 destination_dir = os.path.join(dataset_root, "extra")
 os.makedirs(destination_dir, exist_ok=True)
@@ -68,14 +68,17 @@ def load_bboxes(data_path, subject, action, camera):
                     raise Exception(str(bboxes_path) + ' $ ' + str(frame_idx))
     except Exception as ex:
         # reraise with path information
-        raise Exception(str(ex) + '; %s %s %s' % (subject, action, camera))
+        # raise Exception(str(ex) + '; %s %s %s' % (subject, action, camera))
+        print(str(ex) + '; %s %s %s' % (subject, action, camera))
+        return None, None, None, None
     
     return retval, subject, action, camera
 
 # retval['S1']['Talking-1']['54534623'].shape = (n_frames, 4) # top, left, bottom, right
 def add_result_to_retval(args):
     bboxes, subject, action, camera = args
-    bboxes_retval[subject][action][camera] = bboxes
+    if subject:
+        bboxes_retval[subject][action][camera] = bboxes
 
 import multiprocessing
 num_processes = int(sys.argv[2])

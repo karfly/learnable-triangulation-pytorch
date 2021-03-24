@@ -46,7 +46,7 @@ dataset:
     h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
-    undistort_images: true
+    undistort_images: false
 
     scale_bbox: 1.0
 
@@ -54,13 +54,13 @@ dataset:
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
-    num_workers: 8
+    num_workers: 1
 
   val:
     h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
-    undistort_images: true
+    undistort_images: false
 
     scale_bbox: 1.0
 
@@ -68,6 +68,6 @@ dataset:
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
-    num_workers: 8
+    num_workers: 1
 
     retain_every_n_frames_in_test: 1

@@ -1,3 +1,7 @@
+*.err
+*.out
+data/
+
 .venv/
 *.zip
 *.pkl

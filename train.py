@@ -212,6 +212,25 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
                     keypoints_3d_pred = keypoints_3d_pred_transformed
 
+                # todo 01.04.2021
+                subset by
+                    - downsample images in config
+                    - subset of all frames
+                
+                keypoints_2d_pred = unproject with camera matrix
+                loss =
+                    - loss 3D (usual, no edits)
+                    - loss 2D (keypoints_2d_pred VS keypoints_2d_gt)
+                    - loss 3D + 2D
+
+                # todo optional
+                - data_augment by
+                    - noise
+                    - HSV
+                    - crops (look for references)
+                    - syntethic occlusions (look for references)
+                - use GPU friendly SVD implementation (first on CPU)
+
                 # calculate loss
                 total_loss = 0.0
                 loss = criterion(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)

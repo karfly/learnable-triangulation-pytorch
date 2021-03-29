@@ -3,7 +3,7 @@ kind: "human36m"
 vis_freq: 1000
 vis_n_elements: 10
 
-image_shape: [384, 384]
+image_shape: [128, 128]
 
 opt:
   criterion: "MSESmooth"
@@ -70,4 +70,4 @@ dataset:
     max_n_views: null
     num_workers: 1
 
-    retain_every_n_frames_in_test: 1
+    retain_every_n_frames_in_test: 13

@@ -59,7 +59,13 @@ def prepare_batch(batch, device, config, is_train=True):
     keypoints_3d_validity_batch_gt = torch.from_numpy(np.stack(batch['keypoints_3d'], axis=0)[:, :, 3:]).float().to(device)
 
     # projection matricies
-    proj_matricies_batch = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0) for camera_batch in batch['cameras']], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
+    proj_matricies_batch = torch.stack([
+        torch.stack([
+            torch.from_numpy(camera.projection)
+            for camera in camera_batch
+        ], dim=0)
+        for camera_batch in batch['cameras']
+    ], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
     proj_matricies_batch = proj_matricies_batch.float().to(device)
 
     return images_batch, keypoints_3d_batch_gt, keypoints_3d_validity_batch_gt, proj_matricies_batch

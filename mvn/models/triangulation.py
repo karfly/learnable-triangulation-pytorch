@@ -197,7 +197,7 @@ class AlgebraicTriangulationNet(nn.Module):
             print("keypoints_2d_batch_pred =", keypoints_2d_batch_pred)
             exit()
 
-        return keypoints_3d, keypoints_2d, heatmaps, alg_confidences
+        return keypoints_3d, keypoints_2d, heatmaps, alg_confidences  # predictions + confidence
 
 
 class VolumetricTriangulationNet(nn.Module):

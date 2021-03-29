@@ -81,7 +81,8 @@ def fig_to_array(fig):
     return fig_image
 
 
-def visualize_batch(images_batch, heatmaps_batch, keypoints_2d_batch, proj_matricies_batch,
+def visualize_batch(images_batch, heatmaps_batch, keypoints_2d_batch,
+                    proj_matricies_batch,
                     keypoints_3d_batch_gt, keypoints_3d_batch_pred,
                     kind="cmu",
                     cuboids_batch=None,
@@ -135,7 +136,10 @@ def visualize_batch(images_batch, heatmaps_batch, keypoints_2d_batch, proj_matri
 
     for view_i in range(n_cols):
         axes[row_i][view_i].imshow(images[view_i])
-        keypoints_2d_gt_proj = project_3d_points_to_image_plane_without_distortion(proj_matricies_batch[batch_index, view_i].detach().cpu().numpy(), keypoints_3d_batch_gt[batch_index].detach().cpu().numpy())
+        keypoints_2d_gt_proj = project_3d_points_to_image_plane_without_distortion(
+            proj_matricies_batch[batch_index, view_i].detach().cpu().numpy(),
+            keypoints_3d_batch_gt[batch_index].detach().cpu().numpy()
+        )
         draw_2d_pose(keypoints_2d_gt_proj, axes[row_i][view_i], kind=kind)
     row_i += 1
 
@@ -144,7 +148,10 @@ def visualize_batch(images_batch, heatmaps_batch, keypoints_2d_batch, proj_matri
 
     for view_i in range(n_cols):
         axes[row_i][view_i].imshow(images[view_i])
-        keypoints_2d_pred_proj = project_3d_points_to_image_plane_without_distortion(proj_matricies_batch[batch_index, view_i].detach().cpu().numpy(), keypoints_3d_batch_pred[batch_index].detach().cpu().numpy())
+        keypoints_2d_pred_proj = project_3d_points_to_image_plane_without_distortion(
+            proj_matricies_batch[batch_index, view_i].detach().cpu().numpy(),
+            keypoints_3d_batch_pred[batch_index].detach().cpu().numpy()
+        )
         draw_2d_pose(keypoints_2d_pred_proj, axes[row_i][view_i], kind=pred_kind)
     row_i += 1
 

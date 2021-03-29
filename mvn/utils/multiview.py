@@ -169,6 +169,8 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
 
 
 def triangulate_batch_of_points(proj_matricies_batch, points_batch, confidences_batch=None):
+    """ proj matrices, keypoints 2D (pred), confidences """
+
     batch_size, n_views, n_joints = points_batch.shape[:3]
     point_3d_batch = torch.zeros(batch_size, n_joints, 3, dtype=torch.float32, device=points_batch.device)
 

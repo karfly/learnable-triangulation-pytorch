@@ -28,6 +28,7 @@ from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsM
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
+from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 
 def parse_args():
@@ -186,9 +187,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
-                    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(images_batch, proj_matricies_batch, batch)
+                    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+                        images_batch,
+                        proj_matricies_batch,
+                        batch
+                    )
                 elif model_type == "vol":
-                    keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(images_batch, proj_matricies_batch, batch)
+                    keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
+                        images_batch,
+                        proj_matricies_batch,
+                        batch
+                    )
 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
                 n_joints = keypoints_3d_pred.shape[1]
@@ -212,29 +221,49 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
                     keypoints_3d_pred = keypoints_3d_pred_transformed
 
-                # todo 01.04.2021
-                subset by
-                    - downsample images in config
-                    - subset of all frames
-                
-                keypoints_2d_pred = unproject with camera matrix
-                loss =
-                    - loss 3D (usual, no edits)
-                    - loss 2D (keypoints_2d_pred VS keypoints_2d_gt)
-                    - loss 3D + 2D
-
                 # todo optional
-                - data_augment by
-                    - noise
-                    - HSV
-                    - crops (look for references)
-                    - syntethic occlusions (look for references)
-                - use GPU friendly SVD implementation (first on CPU)
+                # - data_augment by
+                #     - noise
+                #     - HSV
+                #     - crops (look for references)
+                #     - syntethic occlusions (look for references)
+                # - use GPU friendly SVD implementation (first on CPU)
 
                 # calculate loss
                 total_loss = 0.0
-                loss = criterion(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
-                total_loss += loss
+
+                # ... 3D
+                loss_3d = criterion(
+                    keypoints_3d_pred * scale_keypoints_3d,
+                    keypoints_3d_gt * scale_keypoints_3d,
+                    keypoints_3d_binary_validity_gt
+                )
+
+                # ... 2D
+                loss_2d = 0
+                n_views = heatmaps_pred.shape[1]
+                for batch_i in range(min(batch_size, config.vis_n_elements)):
+                    for view_i in range(n_views):
+                        keypoints_2d_gt_proj = project_3d_points_to_image_plane_without_distortion(
+                            proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                            keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                        )
+
+                        loss_2d += criterion(
+                            keypoints_2d_pred,
+                            keypoints_2d_gt_proj,
+                            keypoints_3d_binary_validity_gt
+                        )
+                
+                # ... weighted
+                weights = [1, 0]  # todo try different weights
+                weights = weights / np.sum(weights)  # normalize -> sum = 1
+                loss = np.dot(
+                    [loss_2d, loss_3d],
+                    weights  # weighted
+                )
+
+                total_loss += loss  # keep track of loss
                 metric_dict[f'{config.opt.criterion}'].append(loss.item())
 
                 # volumetric ce loss
@@ -248,6 +277,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
                     total_loss += weight * loss
 
+                # keep track of total loss
                 metric_dict['total_loss'].append(total_loss.item())
 
                 if is_train:

@@ -71,9 +71,12 @@ class Human36MMultiViewDataset(Dataset):
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
         n_cameras = len(self.labels['camera_names'])
-        assert all(camera_idx in range(n_cameras) for camera_idx in self.ignore_cameras)
+        assert all(
+            camera_idx in range(n_cameras)
+            for camera_idx in self.ignore_cameras
+        )
 
-        train_subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
+        train_subjects = ['S1', 'S6', 'S7', 'S8']  # 'S5'
         test_subjects = ['S9', 'S11']
 
         train_subjects = list(self.labels['subject_names'].index(x) for x in train_subjects)
@@ -131,13 +134,6 @@ class Human36MMultiViewDataset(Dataset):
         action = self.labels['action_names'][shot['action_idx']]
         frame_idx = shot['frame_idx']
 
-        if action == 'Waiting-2':  # todo fix
-            print('forced change of action')
-            action = 'Waiting-1'
-            
-            if frame_idx == 597:
-                frame_idx = 598
-
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
             if camera_idx in self.ignore_cameras:
                 continue
@@ -160,6 +156,8 @@ class Human36MMultiViewDataset(Dataset):
             if not os.path.isfile(image_path):
                 print('%s doesn\'t exist' % image_path)  # todo find them!
                 continue
+            else:
+                print('using image {}'.format(image_path))
 
             image = cv2.imread(image_path)
 

@@ -512,8 +512,7 @@ def main(args):
     if is_distributed:
         model = DistributedDataParallel(model, device_ids=[device])
 
-    if not args.eval:
-        # train loop
+    if not args.eval:  # train loop
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
             if train_sampler is not None:

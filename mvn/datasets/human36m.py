@@ -131,6 +131,9 @@ class Human36MMultiViewDataset(Dataset):
         action = self.labels['action_names'][shot['action_idx']]
         frame_idx = shot['frame_idx']
 
+        if action == 'Waiting-2':  # todo fix
+            action == 'Waiting-1'
+
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
             if camera_idx in self.ignore_cameras:
                 continue
@@ -151,7 +154,7 @@ class Human36MMultiViewDataset(Dataset):
                 camera_name, 'img_%06d.jpg' % (frame_idx + 1))
             
             if not os.path.isfile(image_path):
-                print('%s doesn\'t exist' % image_path)
+                print('%s doesn\'t exist' % image_path)  # todo find them!
                 continue
 
             image = cv2.imread(image_path)

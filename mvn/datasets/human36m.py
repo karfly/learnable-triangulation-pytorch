@@ -79,7 +79,7 @@ class Human36MMultiViewDataset(Dataset):
         test_subjects  = list(self.labels['subject_names'].index(x) for x in test_subjects)
 
         indices = []
-        retain_every_n_frames_in_train = 1
+        retain_every_n_frames_in_train = 5
 
         if train:
             mask = np.isin(self.labels['table']['subject_idx'], train_subjects, assume_unique=True)
@@ -98,7 +98,7 @@ class Human36MMultiViewDataset(Dataset):
 
             indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_test])
 
-        # todo check len(indices) based on retain_every_n_frames_in_train
+        print('--mona', retain_every_n_frames_in_train, len(indices))
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
 

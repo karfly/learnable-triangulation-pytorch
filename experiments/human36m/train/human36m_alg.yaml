@@ -56,6 +56,8 @@ dataset:
     max_n_views: null
     num_workers: 8
 
+    retain_every_n_frames_in_train: 10
+
   val:
     h36m_root: "./data/human36m/processed/"
     labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"

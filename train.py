@@ -175,9 +175,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
         for iter_i, batch in iterator:
-            with autograd.detect_anomaly():
-                # measure data loading time
-                data_time = time.time() - end
+            with autograd.detect_anomaly():  # todo disable
+                data_time = time.time() - end  # measure data loading time
 
                 if batch is None:
                     print("Found None batch")
@@ -242,6 +241,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # ... 2D
                 loss_2d = 0
                 n_views = heatmaps_pred.shape[1]
+
+                # todo use Tensor, not for loop
                 for batch_i in range(min(batch_size, config.vis_n_elements)):
                     for view_i in range(n_views):
                         keypoints_2d_gt_proj = project_3d_points_to_image_plane_without_distortion(
@@ -251,9 +252,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                         print(
                             '-- mona 2',
-                            keypoints_2d_pred.shape,
+                            keypoints_2d_pred[batch_i, view_i].shape,
                             keypoints_2d_gt_proj.shape,
-                            keypoints_3d_binary_validity_gt.shape
+                            keypoints_3d_binary_validity_gt[batch_i].shape
                         )
 
                         # loss_2d += criterion(
@@ -265,7 +266,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # ... weighted
                 weights = [0, 1]  # todo try different weights
                 weights = weights / np.sum(weights)  # normalize -> sum = 1
-                loss = np.dot(
+                loss = torch.dot(
                     [loss_2d, loss_3d],
                     weights  # weighted
                 )

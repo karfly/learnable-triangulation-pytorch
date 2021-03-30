@@ -82,8 +82,13 @@ class Human36MMultiViewDataset(Dataset):
         retain_every_n_frames_in_train = 5
 
         if train:
-            mask = np.isin(self.labels['table']['subject_idx'], train_subjects, assume_unique=True)
-            indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_train])
+            mask = np.isin(
+                self.labels['table']['subject_idx'], train_subjects, assume_unique=True
+            )
+            news = np.nonzero(mask)[0][::retain_every_n_frames_in_train]
+            print('--mona', retain_every_n_frames_in_train, news.shape)
+
+            indices.append(news)
         if test:
             mask = np.isin(self.labels['table']['subject_idx'], test_subjects, assume_unique=True)
 
@@ -91,14 +96,15 @@ class Human36MMultiViewDataset(Dataset):
                 mask_S9 = self.labels['table']['subject_idx'] == self.labels['subject_names'].index('S9')
 
                 damaged_actions = 'Greeting-2', 'SittingDown-2', 'Waiting-1'
-                damaged_actions = [self.labels['action_names'].index(x) for x in damaged_actions]
+                damaged_actions = [
+                    self.labels['action_names'].index(x)
+                    for x in damaged_actions
+                ]
                 mask_damaged_actions = np.isin(self.labels['table']['action_idx'], damaged_actions)
 
                 mask &= ~(mask_S9 & mask_damaged_actions)
 
             indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_test])
-
-        print('--mona', retain_every_n_frames_in_train, len(indices))
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
 

@@ -61,7 +61,7 @@ dataset:
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: true
-    undistort_images: true
+    undistort_images: false
 
     scale_bbox: 1.0
 
@@ -77,7 +77,7 @@ dataset:
     pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
     with_damaged_actions: true
-    undistort_images: true
+    undistort_images: false
 
     scale_bbox: 1.0
 

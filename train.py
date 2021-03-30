@@ -249,14 +249,21 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             keypoints_3d_gt[batch_i].detach().cpu().numpy()
                         )
 
-                        loss_2d += criterion(
-                            keypoints_2d_pred,
-                            keypoints_2d_gt_proj,
-                            keypoints_3d_binary_validity_gt
+                        print(
+                            '-- mona 2',
+                            keypoints_2d_pred.shape,
+                            keypoints_2d_gt_proj.shape,
+                            keypoints_3d_binary_validity_gt.shape
                         )
+
+                        # loss_2d += criterion(
+                        #     keypoints_2d_pred,
+                        #     keypoints_2d_gt_proj,
+                        #     keypoints_3d_binary_validity_gt
+                        # )
                 
                 # ... weighted
-                weights = [1, 0]  # todo try different weights
+                weights = [0, 1]  # todo try different weights
                 weights = weights / np.sum(weights)  # normalize -> sum = 1
                 loss = np.dot(
                     [loss_2d, loss_3d],

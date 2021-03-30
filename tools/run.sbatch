@@ -9,6 +9,8 @@
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
 
+# interactive version: srun --partition=ml --nodes=1 --tasks=1 --cpus-per-task=2 --gres=gpu:1 --mem-per-cpu=2048 --time=02:00:00 --account=p_humanpose --pty bash
+
 source ./requirements.sh
 
 source /sw/installed/Anaconda3/2019.03/etc/profile.d/conda.sh
@@ -19,4 +21,6 @@ which python  # just to check
 cd /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch
 pwd  # just to check
 
-python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_vol_softmax.yaml --logdir ./logs
+# train: python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir ./logs
+
+# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ./logs

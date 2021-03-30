@@ -115,6 +115,7 @@ class Human36MMultiViewDataset(Dataset):
             pred_results = np.load(pred_results_path, allow_pickle=True)
             keypoints_3d_pred = pred_results['keypoints_3d'][np.argsort(pred_results['indexes'])]
             self.keypoints_3d_pred = keypoints_3d_pred[::retain_every_n_frames_in_test]
+
             assert len(self.keypoints_3d_pred) == len(self), \
                 f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
@@ -147,8 +148,12 @@ class Human36MMultiViewDataset(Dataset):
             # load image
             image_path = os.path.join(
                 self.h36m_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
-                camera_name, 'img_%06d.jpg' % (frame_idx+1))
-            assert os.path.isfile(image_path), '%s doesn\'t exist' % image_path
+                camera_name, 'img_%06d.jpg' % (frame_idx + 1))
+            
+            if not os.path.isfile(image_path):
+                print('%s doesn\'t exist' % image_path)
+                continue
+
             image = cv2.imread(image_path)
 
             # load camera

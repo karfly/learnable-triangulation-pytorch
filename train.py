@@ -255,7 +255,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             keypoints_2d_pred[batch_i, view_i].shape,
                             keypoints_2d_gt_proj.shape,
                             keypoints_3d_binary_validity_gt[batch_i].shape
-                        )
+                        )  # torch.Size([17, 2]) (17, 2) torch.Size([17, 1])
 
                         # loss_2d += criterion(
                         #     keypoints_2d_pred,
@@ -264,11 +264,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         # )
                 
                 # ... weighted
-                weights = [0, 1]  # todo try different weights
+                weights = np.float32([0, 1])  # todo try different weights
                 weights = weights / np.sum(weights)  # normalize -> sum = 1
                 loss = torch.dot(
-                    [loss_2d, loss_3d],
-                    weights  # weighted
+                    torch.FloatTensor(np.float32([loss_2d, loss_3d])),
+                    torch.FloatTensor(weights)  # weighted
                 )
 
                 total_loss += loss  # keep track of loss

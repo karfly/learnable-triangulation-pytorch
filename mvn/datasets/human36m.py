@@ -132,7 +132,11 @@ class Human36MMultiViewDataset(Dataset):
         frame_idx = shot['frame_idx']
 
         if action == 'Waiting-2':  # todo fix
-            action == 'Waiting-1'
+            print('forced change of action')
+            action = 'Waiting-1'
+            
+            if frame_idx == 597:
+                frame_idx = 598
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
             if camera_idx in self.ignore_cameras:

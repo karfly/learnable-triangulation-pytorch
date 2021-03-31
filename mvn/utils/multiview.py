@@ -142,7 +142,7 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
     """Similar as triangulate_point_from_multiple_views_linear() but for PyTorch.
     For more information see its documentation.
     Args:
-        proj_matricies torch tensor of shape (N, 3, 4): sequence of projection matricies (3x4)
+        proj_matricies torch tensor of shape (N, 3, 4): sequence of projection matricies (3x4), where N is the number of views
         points torch tensor of of shape (N, 2): sequence of points' coordinates
         confidences None or torch tensor of shape (N,): confidences of points [0.0, 1.0].
                                                         If None, all confidences are supposed to be 1.0

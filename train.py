@@ -182,7 +182,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     print("Found None batch")
                     continue
 
-                images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(batch, device, config)
+                images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
+                    batch, device, config
+                )  # ~ 8, 4, 3, 4 (batch_size, n_views, 3, 4)
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
@@ -198,7 +200,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         batch
                     )
 
-                batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])
+                batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])  # 8, 4, (128, 128)
                 n_joints = keypoints_3d_pred.shape[1]
 
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)
@@ -233,29 +235,26 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # ... 3D
                 loss_3d = criterion(
-                    keypoints_3d_pred * scale_keypoints_3d,
-                    keypoints_3d_gt * scale_keypoints_3d,
-                    keypoints_3d_binary_validity_gt
+                    keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
+                    keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                    keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
                 )
 
                 # ... 2D
-                n_views = heatmaps_pred.shape[1]
-                keypoints_2d_gt_proj = torch.zeros(batch_size, n_views, 17, 2)  # todo use params
+                keypoints_2d_gt_proj = torch.zeros(batch_size, 17, 2)  # todo use params
                 for batch_i in range(batch_size):
-                    for view_i in range(n_views):
-                        keypoints_2d_gt_proj[batch_i, view_i] = torch.FloatTensor(
-                            project_3d_points_to_image_plane_without_distortion(
-                                proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
-                                keypoints_3d_gt[batch_i].detach().cpu().numpy()
-                            )
+                    view_i = 0  # todo compute for all views (not just first)
+                    keypoints_2d_gt_proj[batch_i] = torch.FloatTensor(
+                        project_3d_points_to_image_plane_without_distortion(
+                            proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                            keypoints_3d_gt[batch_i].detach().cpu().numpy()
                         )
-
-                print('-mona', keypoints_2d_pred.shape, keypoints_2d_gt_proj.shape, keypoints_3d_binary_validity_gt.shape)
+                    )
 
                 loss_2d = criterion(
-                    keypoints_2d_pred.detach().cpu(),
-                    keypoints_2d_gt_proj.detach().cpu(),
-                    keypoints_3d_binary_validity_gt.detach().cpu()
+                    keypoints_2d_pred.detach().cpu(),  # ~ 8, 17, 2
+                    keypoints_2d_gt_proj[:, 0, ...].detach().cpu(),  # ~ 8, 17, 2
+                    keypoints_3d_binary_validity_gt.detach().cpu()  # ~ 8, 17, 1
                 )
 
                 weighted_loss = element_weighted_loss(

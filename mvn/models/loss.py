@@ -4,6 +4,11 @@ import torch
 from torch import nn
 
 
+def element_weighted_loss(losses, weights):
+    weights = np.float32(weights / np.sum(weights))  # normalize
+    return torch.sum(losses[0] * weights[0] + losses[1] * weights[1])  # todo naive
+
+
 class KeypointsMSELoss(nn.Module):
     def __init__(self):
         super().__init__()

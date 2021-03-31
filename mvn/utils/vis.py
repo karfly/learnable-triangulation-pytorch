@@ -276,7 +276,7 @@ def draw_2d_pose(keypoints, ax, kind='cmu', keypoints_mask=None, point_size=2, l
     Visualizes a 2d skeleton
 
     Args
-        keypoints numpy array of shape (19, 2): pose to draw in CMU format.
+        keypoints numpy array of shape (17, 2): pose to draw in CMU format.
         ax: matplotlib axis to draw on
     """
     connectivity = CONNECTIVITY_DICT[kind]

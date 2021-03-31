@@ -23,7 +23,7 @@ from torch.nn.parallel import DistributedDataParallel
 from tensorboardX import SummaryWriter
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
-from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss
+from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
@@ -239,37 +239,27 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )
 
                 # ... 2D
-                loss_2d = 0
+                keypoints_2d_gt_proj = torch.zeros(keypoints_2d_gt_proj.shape)
+                n_views = heatmaps_pred.shape[1]
+                for batch_i in range(min(batch_size, config.vis_n_elements)):
+                    for view_i in range(n_views):
+                        keypoints_2d_gt_proj[batch_i, view_i] = project_3d_points_to_image_plane_without_distortion(
+                            proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                            keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                        )
 
-                # todo use Tensor, not for loop
-                # n_views = heatmaps_pred.shape[1]
-                # for batch_i in range(min(batch_size, config.vis_n_elements)):
-                #     for view_i in range(n_views):
-                #         keypoints_2d_gt_proj = project_3d_points_to_image_plane_without_distortion(
-                #             proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
-                #             keypoints_3d_gt[batch_i].detach().cpu().numpy()
-                #         )
+                loss_2d = criterion(
+                    keypoints_2d_pred,
+                    keypoints_2d_gt_proj,
+                    keypoints_3d_binary_validity_gt
+                )
 
-                #         print(
-                #             '-- mona 2',
-                #             keypoints_2d_pred[batch_i, view_i].shape,
-                #             keypoints_2d_gt_proj.shape,
-                #             keypoints_3d_binary_validity_gt[batch_i].shape
-                #         )  # torch.Size([17, 2]) (17, 2) torch.Size([17, 1])
+                weighted_loss = element_weighted_loss(
+                    [loss_2d, loss_3d],
+                    [1, 1]
+                )
 
-                #         # loss_2d += criterion(
-                #         #     keypoints_2d_pred,
-                #         #     keypoints_2d_gt_proj,
-                #         #     keypoints_3d_binary_validity_gt
-                #         # )
-                
-                # # ... weighted
-                # weights = np.float32([0, 1])  # todo try different weights
-                # weights = weights / np.sum(weights)  # normalize -> sum = 1
-                # loss = torch.dot(
-                #     torch.FloatTensor(np.float32([loss_2d, loss_3d])),
-                #     torch.FloatTensor(weights)  # weighted
-                # )
+                print('--mona', loss_3d, loss_2d, weighted_loss)
 
                 total_loss += loss_3d  # todo keep track of loss
                 metric_dict[f'{config.opt.criterion}'].append(loss_3d.item())

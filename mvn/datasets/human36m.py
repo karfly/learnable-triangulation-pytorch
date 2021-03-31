@@ -24,7 +24,7 @@ class Human36MMultiViewDataset(Dataset):
                  image_shape=(256, 256),
                  train=False,
                  test=False,
-                 retain_every_n_frames_in_train=10,  # todo read from .yaml
+                 retain_every_n_frames_in_train=100,  # todo read from .yaml
                  retain_every_n_frames_in_test=1,
                  with_damaged_actions=False,
                  cuboid_side=2000.0,
@@ -152,12 +152,10 @@ class Human36MMultiViewDataset(Dataset):
             image_path = os.path.join(
                 self.h36m_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
                 camera_name, 'img_%06d.jpg' % (frame_idx + 1))
-            
+
             if not os.path.isfile(image_path):
                 print('%s doesn\'t exist' % image_path)  # todo find them!
                 continue
-            else:
-                print('using image {}'.format(image_path))
 
             image = cv2.imread(image_path)
 

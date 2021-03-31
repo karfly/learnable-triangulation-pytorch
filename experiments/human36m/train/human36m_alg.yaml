@@ -10,7 +10,7 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs: 9999
+  n_epochs: 2
 
   batch_size: 8
   val_batch_size: 16

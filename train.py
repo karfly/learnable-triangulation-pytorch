@@ -241,21 +241,21 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )
 
                 # ... 2D
+                loss_2d = 0.0
                 keypoints_2d_gt_proj = torch.zeros(batch_size, 17, 2)  # todo use params
                 for batch_i in range(batch_size):
-                    view_i = 0  # todo compute for all views (not just first)
-                    keypoints_2d_gt_proj[batch_i] = torch.FloatTensor(
-                        project_3d_points_to_image_plane_without_distortion(
-                            proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
-                            keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                    for view_i in range(n_views):
+                        keypoints_2d_gt_proj[batch_i] = torch.FloatTensor(
+                            project_3d_points_to_image_plane_without_distortion(
+                                proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                                keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                            )
                         )
-                    )
-
-                loss_2d = criterion(
-                    keypoints_2d_pred.detach().cpu(),  # ~ 8, 17, 2
-                    keypoints_2d_gt_proj[:, 0, ...].detach().cpu(),  # ~ 8, 17, 2
-                    keypoints_3d_binary_validity_gt.detach().cpu()  # ~ 8, 17, 1
-                )
+                        loss_2d += criterion(
+                            keypoints_2d_pred[:, view_i, ...].detach().cpu(),  # ~ 8, 17, 2
+                            keypoints_2d_gt_proj.detach().cpu(),  # ~ 8, 17, 2
+                            keypoints_3d_binary_validity_gt.detach().cpu()  # ~ 8, 17, 1
+                        )
 
                 weighted_loss = element_weighted_loss(
                     [loss_2d, loss_3d],
@@ -264,7 +264,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 print('--mona', loss_3d, loss_2d, weighted_loss)
 
-                total_loss += loss_3d  # todo keep track of loss
+                total_loss += loss_3d
                 metric_dict[f'{config.opt.criterion}'].append(loss_3d.item())
 
                 # volumetric ce loss

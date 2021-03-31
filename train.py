@@ -243,7 +243,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 # ... 2D
                 loss_2d = 0.0
                 keypoints_2d_gt_proj = torch.zeros(17, 2)  # todo from params
-                for batch_i in range(batch_size):
+                for batch_i in range(batch_size):  # todo use Tensors, not for loops
                     for view_i in range(n_views):
                         keypoints_2d_gt_proj = torch.FloatTensor(
                             project_3d_points_to_image_plane_without_distortion(
@@ -288,7 +288,15 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     if hasattr(config.opt, "grad_clip"):
                         torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
 
-                    metric_dict['grad_norm_times_lr'].append(config.opt.lr * misc.calc_gradient_norm(filter(lambda x: x[1].requires_grad, model.named_parameters())))
+                    # todo is it needed? I don't think so
+                    # metric_dict['grad_norm_times_lr'].append(
+                    #     config.opt.lr*misc.calc_gradient_norm(
+                    #         filter(
+                    #             lambda x: x[1].requires_grad,
+                    #             model.named_parameters()
+                    #         )
+                    #     )
+                    # )
 
                     opt.step()
 

@@ -239,19 +239,23 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )
 
                 # ... 2D
-                keypoints_2d_gt_proj = torch.zeros(keypoints_2d_gt_proj.shape)
                 n_views = heatmaps_pred.shape[1]
-                for batch_i in range(min(batch_size, config.vis_n_elements)):
+                keypoints_2d_gt_proj = torch.zeros(batch_size, n_views, 17, 2)  # todo use params
+                for batch_i in range(batch_size):
                     for view_i in range(n_views):
-                        keypoints_2d_gt_proj[batch_i, view_i] = project_3d_points_to_image_plane_without_distortion(
-                            proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
-                            keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                        keypoints_2d_gt_proj[batch_i, view_i] = torch.FloatTensor(
+                            project_3d_points_to_image_plane_without_distortion(
+                                proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                                keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                            )
                         )
 
+                print('-mona', keypoints_2d_pred.shape, keypoints_2d_gt_proj.shape, keypoints_3d_binary_validity_gt.shape)
+
                 loss_2d = criterion(
-                    keypoints_2d_pred,
-                    keypoints_2d_gt_proj,
-                    keypoints_3d_binary_validity_gt
+                    keypoints_2d_pred.detach().cpu(),
+                    keypoints_2d_gt_proj.detach().cpu(),
+                    keypoints_3d_binary_validity_gt.detach().cpu()
                 )
 
                 weighted_loss = element_weighted_loss(

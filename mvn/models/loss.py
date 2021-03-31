@@ -28,7 +28,7 @@ class KeypointsMSESmoothLoss(nn.Module):
     def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity):
         dimension = keypoints_pred.shape[-1]
         diff = (keypoints_gt - keypoints_pred) ** 2 * keypoints_binary_validity
-        diff[diff > self.threshold] = torch.pow(diff[diff > self.threshold], 0.1) * (self.threshold ** 0.9)
+        diff[diff > self.threshold] = torch.pow(diff[diff > self.threshold], 0.1) * (self.threshold ** 0.9)  # soft version
         loss = torch.sum(diff) / (dimension * max(1, torch.sum(keypoints_binary_validity).item()))
         return loss
 

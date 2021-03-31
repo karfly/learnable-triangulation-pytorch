@@ -192,7 +192,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         images_batch,
                         proj_matricies_batch,
                         batch
-                    )
+                    )  # ~ (8, 17, 3), (~ 8, 4, 17, 2)
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
                         images_batch,
@@ -242,19 +242,19 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # ... 2D
                 loss_2d = 0.0
-                keypoints_2d_gt_proj = torch.zeros(batch_size, 17, 2)  # todo use params
+                keypoints_2d_gt_proj = torch.zeros(17, 2)  # todo from params
                 for batch_i in range(batch_size):
                     for view_i in range(n_views):
-                        keypoints_2d_gt_proj[batch_i] = torch.FloatTensor(
+                        keypoints_2d_gt_proj = torch.FloatTensor(
                             project_3d_points_to_image_plane_without_distortion(
                                 proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
                                 keypoints_3d_gt[batch_i].detach().cpu().numpy()
                             )
                         )
-                        loss_2d += criterion(
-                            keypoints_2d_pred[:, view_i, ...].detach().cpu(),  # ~ 8, 17, 2
-                            keypoints_2d_gt_proj.detach().cpu(),  # ~ 8, 17, 2
-                            keypoints_3d_binary_validity_gt.detach().cpu()  # ~ 8, 17, 1
+                        loss_2d += KeypointsMSELoss()(
+                            keypoints_2d_pred[batch_i, view_i, ...].detach().cpu(),  # ~ 17, 2
+                            keypoints_2d_gt_proj.detach().cpu(),  # ~ 17, 2
+                            keypoints_3d_binary_validity_gt[batch_i].detach().cpu()  # ~ 17, 1
                         )
 
                 weighted_loss = element_weighted_loss(
@@ -262,10 +262,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     [1, 1]
                 )
 
-                print('--mona', loss_3d, loss_2d, weighted_loss)
+                print('--mona loss3D:', loss_3d, 'loss2D:', loss_2d, 'weighted:', weighted_loss)
 
-                total_loss += loss_3d
-                metric_dict[f'{config.opt.criterion}'].append(loss_3d.item())
+                total_loss += loss_2d
+                metric_dict[f'{config.opt.criterion}'].append(loss_2d.item())
 
                 # volumetric ce loss
                 use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False

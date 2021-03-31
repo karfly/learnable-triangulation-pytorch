@@ -18,9 +18,11 @@ conda deactivate
 conda activate ${KERNELS_DIR}/${KERNEL_NAME}  # or source
 which python  # just to check
 
-cd /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch
+# todo use /lustre/ssd/ws/stfo194b-p_humanpose
+
+cd /home/stfo194b/tesi/learnable-triangulation-pytorch
 pwd  # just to check
 
-python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir ./logs
+python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs
 
-# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ./logs
+# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs

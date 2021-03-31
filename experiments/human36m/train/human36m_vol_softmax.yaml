@@ -47,7 +47,7 @@ model:
     style: "simple"
 
     init_weights: true
-    checkpoint: "./data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
 
     num_joints: 17
     num_layers: 152
@@ -56,9 +56,9 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "./data/human36m/processed/"
-    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
+    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    pred_results_path: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: true
     undistort_images: true
@@ -72,9 +72,9 @@ dataset:
     num_workers: 5
 
   val:
-    h36m_root: "./data/human36m/processed/"
-    labels_path: "./data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "./data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
+    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    pred_results_path: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
 
     with_damaged_actions: true
     undistort_images: true

@@ -21,6 +21,17 @@ which python  # just to check
 cd /home/stfo194b/tesi/learnable-triangulation-pytorch
 pwd  # just to check
 
-python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs
+LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 
-# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs
+python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir ${LOGS_FOLDER}
+
+# see latest results
+last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)
+tree ${last_log}
+
+checkpoints_folder=${last_log}
+for f in $(find ${checkpoints_folder} -name "*.json" | sort);
+    do head -n4 ${f} | tail -n1;
+done
+
+# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}

@@ -174,7 +174,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
-        for iter_i, batch in iterator:
+        for iter_i, batch in iterator:  # todo 08.04 check # of training images per epoch, per batch
             with autograd.detect_anomaly():  # todo disable
                 data_time = time.time() - end  # measure data loading time
 
@@ -251,6 +251,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 keypoints_3d_gt[batch_i].detach().cpu().numpy()
                             )
                         )
+                        keypoints_2d_gt_proj = (keypoints_2d_gt_proj)
+
+                        # todo 08.04 check if they make sense
+
+                        current_view = images_batch[batch_i, view_i].detach().cpu().numpy()
+                        # todo opencv draw circles where GT keypoints are
+                        # todo save img to file e.g /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/wow/...*jpg
+
+                        # 1. get img, mark keypoints, save to disk
+                        # 2. compare by matrices
+
                         loss_2d += KeypointsMSELoss()(
                             keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_2d_gt_proj.detach().requires_grad_(True).cpu(),  # ~ 17, 2
@@ -261,8 +272,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     [loss_2d, loss_3d],
                     [1, 1]
                 )
-
-                print('--mona loss3D:', loss_3d, 'loss2D:', loss_2d, 'weighted:', weighted_loss)
 
                 total_loss += loss_2d
                 metric_dict[f'{config.opt.criterion}'].append(loss_2d.item())
@@ -375,7 +384,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     # dump to tensorboard per-iter loss/metric stats
                     if is_train:
                         for title, value in metric_dict.items():
-                            writer.add_scalar(f"{name}/{title}", value[-1], n_iters_total)
+                            writer.add_scalar(f"{name}/{title}", value[-1], n_iters_total)metric.
 
                     # measure elapsed time
                     batch_time = time.time() - end
@@ -393,12 +402,14 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
     # calculate evaluation metrics
     if master:
-        if not is_train:
+        if not is_train:  # todo 08.04 dump metric.json also when training
             results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
             results['indexes'] = np.concatenate(results['indexes'])
 
             try:
-                scalar_metric, full_metric = dataloader.dataset.evaluate(results['keypoints_3d'])
+                scalar_metric, full_metric = dataloader.dataset.evaluate(
+                    results['keypoints_3d']
+                )  # todo this error metric is valid for both 2d/3d loss
             except Exception as e:
                 print("Failed to evaluate. Reason: ", e)
                 scalar_metric, full_metric = 0.0, {}

@@ -171,11 +171,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         end = time.time()
 
         iterator = enumerate(dataloader)
+        print('-- iterator', len(iterator))
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
-        for iter_i, batch in iterator:  # todo 08.04 check # of training images per epoch, per batch
-            with autograd.detect_anomaly():  # todo disable
+        for iter_i, batch in iterator:
+            if True:  # todo disable with autograd.detect_anomaly():
                 data_time = time.time() - end  # measure data loading time
 
                 if batch is None:
@@ -184,7 +185,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
                     batch, device, config
-                )  # ~ 8, 4, 3, 4 (batch_size, n_views, 3, 4)
+                )  # proj_matricies_batch ~ (batch_size=8, n_views=4, 3, 4)
 
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
                 if model_type == "alg" or model_type == "ransac":
@@ -254,8 +255,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         print('keypoints_2d_gt_proj')
                         print(keypoints_2d_gt_proj)
                         print(keypoints_2d_gt_proj.shape)
-
-                        # todo 08.04 check if they make sense
 
                         current_view = images_batch[batch_i, view_i].detach().cpu().numpy()
 

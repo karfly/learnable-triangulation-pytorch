@@ -76,7 +76,7 @@ class Human36MMultiViewDataset(Dataset):
             for camera_idx in self.ignore_cameras
         )
 
-        train_subjects = ['S1', 'S6', 'S7', 'S8']  # 'S5'
+        train_subjects = ['S1', 'S6', 'S7', 'S8']  # todo solve missing images in 'S5'
         test_subjects = ['S9', 'S11']
 
         train_subjects = list(self.labels['subject_names'].index(x) for x in train_subjects)

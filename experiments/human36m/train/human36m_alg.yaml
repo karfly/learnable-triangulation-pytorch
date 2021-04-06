@@ -15,7 +15,7 @@ opt:
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.00001  # todo 03.12 lower *= 1e-2 if training on 2d loss
+  lr: 0.0000001
 
   scale_keypoints_3d: 0.1
 

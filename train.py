@@ -170,8 +170,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     with grad_context():
         end = time.time()
 
-        iterator = enumerate(dataloader)
-        print('-- iterator', len(iterator))
+        iterator = enumerate(dataloader)  # ~ 149
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
@@ -252,47 +251,16 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             )
                         )  # ~ 17, 2
 
-                        print('keypoints_2d_gt_proj')
-                        print(keypoints_2d_gt_proj)
-                        print(keypoints_2d_gt_proj.shape)
-
-                        current_view = images_batch[batch_i, view_i].detach().cpu().numpy()
-
-                        print('current_view')
-                        print(current_view.shape)
-
-                        print('drawing')
-                        canvas = current_view
-
-                        # draw circles where GT keypoints are
-                        for pt in keypoints_2d_gt_proj.detach().requires_grad_(True).cpu():
-                            cv2.circle(
-                                canvas, tuple(pt.astype(int)),
-                                2, color='red', thickness=5
-                            )
-                        
-                        # draw circles where predicted keypoints are
-                        for pt in keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu():
-                            cv2.circle(
-                                canvas, tuple(pt.astype(int)),
-                                2, color='green', thickness=5
-                            )
-
-                        # save img to file e.g ...*jpg
-                        cv2.imwrite('/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/wow/wow.jpg', canvas)
-
-                        1/0  # breakpoint
-
                         loss_2d += KeypointsMSELoss()(  # todo use smoothed loss
                             keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_2d_gt_proj.detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_3d_binary_validity_gt[batch_i].detach().requires_grad_(True).cpu()  # ~ 17, 1
                         )
 
-                weighted_loss = element_weighted_loss(
-                    [loss_2d, loss_3d],
-                    [1, 1]
-                )
+                # weighted_loss = element_weighted_loss(
+                #     [loss_2d, loss_3d],
+                #     [1, 1]
+                # )
 
                 total_loss += loss_2d
                 metric_dict[f'{config.opt.criterion}'].append(loss_2d.item())
@@ -340,8 +308,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
                     metric_dict['base_point_l2'].append(base_point_l2)
 
-                # save answers for evalulation
-                if not is_train:
+                # save answers for evaluation
+                if True:  # todo for all not is_train:
                     results['keypoints_3d'].append(keypoints_3d_pred.detach().cpu().numpy())
                     results['indexes'].append(batch['indexes'])
 
@@ -395,7 +363,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     # dump to tensorboard per-iter loss/metric stats
                     if is_train:
                         for title, value in metric_dict.items():
-                            writer.add_scalar(f"{name}/{title}", value[-1], n_iters_total)metric.
+                            writer.add_scalar(f"{name}/{title}", value[-1], n_iters_total)
 
                     # measure elapsed time
                     batch_time = time.time() - end

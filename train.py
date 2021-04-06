@@ -265,10 +265,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         canvas = current_view
 
                         # draw circles where GT keypoints are
-                        for pt in keypoints_2d_gt_proj:
+                        for pt in keypoints_2d_gt_proj.detach().requires_grad_(True).cpu():
                             cv2.circle(
                                 canvas, tuple(pt.astype(int)),
                                 2, color='red', thickness=5
+                            )
+                        
+                        # draw circles where predicted keypoints are
+                        for pt in keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu():
+                            cv2.circle(
+                                canvas, tuple(pt.astype(int)),
+                                2, color='green', thickness=5
                             )
 
                         # save img to file e.g ...*jpg

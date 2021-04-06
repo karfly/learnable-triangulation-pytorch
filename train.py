@@ -242,7 +242,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # ... 2D
                 loss_2d = 0.0
-                keypoints_2d_gt_proj = torch.zeros(17, 2)  # todo from params
                 for batch_i in range(batch_size):  # todo use Tensors, not for loops
                     for view_i in range(n_views):
                         keypoints_2d_gt_proj = torch.FloatTensor(
@@ -250,19 +249,35 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
                                 keypoints_3d_gt[batch_i].detach().cpu().numpy()
                             )
-                        )
-                        keypoints_2d_gt_proj = (keypoints_2d_gt_proj)
+                        )  # ~ 17, 2
+
+                        print('keypoints_2d_gt_proj')
+                        print(keypoints_2d_gt_proj)
+                        print(keypoints_2d_gt_proj.shape)
 
                         # todo 08.04 check if they make sense
 
                         current_view = images_batch[batch_i, view_i].detach().cpu().numpy()
-                        # todo opencv draw circles where GT keypoints are
-                        # todo save img to file e.g /scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/wow/...*jpg
 
-                        # 1. get img, mark keypoints, save to disk
-                        # 2. compare by matrices
+                        print('current_view')
+                        print(current_view.shape)
 
-                        loss_2d += KeypointsMSELoss()(
+                        print('drawing')
+                        canvas = current_view
+
+                        # draw circles where GT keypoints are
+                        for pt in keypoints_2d_gt_proj:
+                            cv2.circle(
+                                canvas, tuple(pt.astype(int)),
+                                2, color='red', thickness=5
+                            )
+
+                        # save img to file e.g ...*jpg
+                        cv2.imwrite('/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/wow/wow.jpg', canvas)
+
+                        1/0  # breakpoint
+
+                        loss_2d += KeypointsMSELoss()(  # todo use smoothed loss
                             keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_2d_gt_proj.detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_3d_binary_validity_gt[batch_i].detach().requires_grad_(True).cpu()  # ~ 17, 1

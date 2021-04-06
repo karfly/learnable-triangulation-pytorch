@@ -312,16 +312,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     if hasattr(config.opt, "grad_clip"):
                         torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
 
-                    # todo is it needed? I don't think so
-                    # metric_dict['grad_norm_times_lr'].append(
-                    #     config.opt.lr*misc.calc_gradient_norm(
-                    #         filter(
-                    #             lambda x: x[1].requires_grad,
-                    #             model.named_parameters()
-                    #         )
-                    #     )
-                    # )
-
                     opt.step()
 
                 # calculate metrics
@@ -417,34 +407,34 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
     # calculate evaluation metrics
     if master:
-        if not is_train:  # todo 08.04 dump metric.json also when training
-            results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
-            results['indexes'] = np.concatenate(results['indexes'])
+        results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
+        results['indexes'] = np.concatenate(results['indexes'])
 
-            try:
-                scalar_metric, full_metric = dataloader.dataset.evaluate(
-                    results['keypoints_3d']
-                )  # todo this error metric is valid for both 2d/3d loss
-            except Exception as e:
-                print("Failed to evaluate. Reason: ", e)
-                scalar_metric, full_metric = 0.0, {}
+        try:
+            scalar_metric, full_metric = dataloader.dataset.evaluate(
+                results['keypoints_3d']
+            )  # todo this error metric is valid for both 2d/3d loss
+        except Exception as e:
+            print("Failed to evaluate. Reason: ", e)
+            scalar_metric, full_metric = 0.0, {}
 
+        if not is_train:
             metric_dict['dataset_metric'].append(scalar_metric)
 
-            checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
-            os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
+        os.makedirs(checkpoint_dir, exist_ok=True)
 
-            # dump results
+        if not is_train:  # dump results
             with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
                 pickle.dump(results, fout)
 
-            # dump full metric
-            with open(os.path.join(checkpoint_dir, "metric.json".format(epoch)), 'w') as fout:
-                json.dump(full_metric, fout, indent=4, sort_keys=True)
+        metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
+        with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
+            json.dump(full_metric, fout, indent=4, sort_keys=True)
 
-        # dump to tensorboard per-epoch stats
-        for title, value in metric_dict.items():
-            writer.add_scalar(f"{name}/{title}_epoch", np.mean(value), epoch)
+        if not is_train:  # dump to tensorboard per-epoch stats
+            for title, value in metric_dict.items():
+                writer.add_scalar(f"{name}/{title}_epoch", np.mean(value), epoch)
 
     return n_iters_total
 

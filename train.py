@@ -249,7 +249,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             )
                         )  # ~ 17, 2
 
-                        loss_2d += KeypointsMSELoss()(  # todo use smoothed loss
+                        loss_2d += KeypointsMSESmoothLoss()(
                             keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_2d_gt_proj.detach().requires_grad_(True).cpu(),  # ~ 17, 2
                             keypoints_3d_binary_validity_gt[batch_i].detach().requires_grad_(True).cpu()  # ~ 17, 1

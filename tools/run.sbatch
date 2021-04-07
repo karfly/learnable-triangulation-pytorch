@@ -10,6 +10,7 @@
 #SBATCH --error=%j.err
 
 source ./requirements.sh
+source ./utils.sh
 
 source /sw/installed/Anaconda3/2019.03/etc/profile.d/conda.sh
 conda deactivate
@@ -27,18 +28,7 @@ python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir 
 
 # see latest results
 last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)
-tree ${last_log}
-
 checkpoints_folder=${last_log}
-
-echo "metrics on EVALuation sets"
-for f in $(find ${checkpoints_folder} -name "metric_eval.json" | sort);
-    do head -n4 ${f} | tail -n1;
-done
-
-echo "metrics on TRAINing sets"
-for f in $(find ${checkpoints_folder} -name "metric_train.json" | sort);
-    do head -n4 ${f} | tail -n1;
-done
+seeMetrics ${checkpoints_folder}
 
 # eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}

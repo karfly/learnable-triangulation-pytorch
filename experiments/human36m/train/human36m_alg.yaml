@@ -15,7 +15,7 @@ opt:
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.0000001
+  lr: 0.0000005
 
   scale_keypoints_3d: 0.1
 

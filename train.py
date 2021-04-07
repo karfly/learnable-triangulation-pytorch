@@ -255,11 +255,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             keypoints_3d_binary_validity_gt[batch_i].detach().requires_grad_(True).cpu()  # ~ 17, 1
                         )
 
-                # weighted_loss = element_weighted_loss(
-                #     [loss_2d, loss_3d],
-                #     [1, 1]
-                # )
-
                 total_loss += loss_2d
                 metric_dict[f'{config.opt.criterion}'].append(loss_2d.item())
 
@@ -308,7 +303,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # save answers for evaluation
                 if True:  # todo for all! not is_train:
-                    results['keypoints_3d'].append(keypoints_3d_pred.detach().cpu().numpy())
+                    results['keypoints_3d'].append(
+                        keypoints_3d_pred.detach().cpu().numpy()
+                    )
                     results['indexes'].append(batch['indexes'])
 
     # calculate evaluation metrics
@@ -419,11 +416,13 @@ def main(args):
                 lr=config.opt.lr
             )
         else:
-            opt = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=config.opt.lr)
+            opt = optim.Adam(
+                filter(lambda p: p.requires_grad, model.parameters()),
+                lr=config.opt.lr
+            )
 
 
     # datasets
-    print("Loading data...")
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)
 
     # experiment

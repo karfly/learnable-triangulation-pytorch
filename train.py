@@ -251,8 +251,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                         loss_2d += KeypointsMSESmoothLoss()(
                             keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
-                            keypoints_2d_gt_proj.detach().requires_grad_(True).cpu(),  # ~ 17, 2
-                            keypoints_3d_binary_validity_gt[batch_i].detach().requires_grad_(True).cpu()  # ~ 17, 1
+                            keypoints_2d_gt_proj.detach().cpu(),
+                            keypoints_3d_binary_validity_gt[batch_i].detach().cpu()  # ~ 17, 1
                         )
 
                 total_loss += loss_2d
@@ -449,7 +449,7 @@ def main(args):
 
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
 
-            print(f"{n_iters_total_train} training iters done, {n_iters_total_val} val iters done")
+            print("epoch done")
     else:
         if args.eval_dataset == 'train':
             one_epoch(model, criterion, opt, config, train_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir, writer=writer)

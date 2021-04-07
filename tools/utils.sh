@@ -20,3 +20,15 @@ function seeMetrics () {
     done
     echo
 }
+
+function getLastJob () {
+    squeue -u ${USER} | tail -n 1 | awk "{print \$1}"
+}
+
+function showLastOut () {
+    cat $(getLastJob).out
+}
+
+function showLastErr () {
+    cat $(getLastJob).err
+}

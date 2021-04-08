@@ -226,32 +226,33 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # calculate loss
                 total_loss = 0.0
+                loss_2d = None  # todo tweak here 2D/3D loss
+                if loss_2d is None:
+                    print('... computing loss on 3D keypoints')
+                    total_loss += criterion(
+                        keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
+                    )  # 3D loss
+                else:
+                    print('... computing loss on 2D projection of keypoints')
+                    for batch_i in range(batch_size):  # todo use Tensors, not for loops
+                        for view_i in range(n_views):
+                            keypoints_2d_gt_proj = torch.FloatTensor(
+                                project_3d_points_to_image_plane_without_distortion(
+                                    proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
+                                    keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                                )
+                            )  # ~ 17, 2
 
-                # ... 3D
-                loss_3d = criterion(
-                    keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
-                    keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-                    keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
-                )
-
-                # ... 2D
-                loss_2d = 0.0
-                for batch_i in range(batch_size):  # todo use Tensors, not for loops
-                    for view_i in range(n_views):
-                        keypoints_2d_gt_proj = torch.FloatTensor(
-                            project_3d_points_to_image_plane_without_distortion(
-                                proj_matricies_batch[batch_i, view_i].detach().cpu().numpy(),
-                                keypoints_3d_gt[batch_i].detach().cpu().numpy()
+                            loss_2d += KeypointsMSESmoothLoss()(
+                                keypoints_2d_pred[batch_i, view_i, ...].cpu(),  # ~ 17, 2
+                                keypoints_2d_gt_proj.cpu(),
+                                keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
                             )
-                        )  # ~ 17, 2
 
-                        loss_2d += KeypointsMSESmoothLoss()(
-                            keypoints_2d_pred[batch_i, view_i, ...].cpu(),  # ~ 17, 2
-                            keypoints_2d_gt_proj.cpu(),
-                            keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
-                        )
+                    total_loss += loss_2d
 
-                total_loss += loss_3d
                 metric_dict[f'{config.opt.criterion}'].append(total_loss.item())
 
                 # volumetric ce loss

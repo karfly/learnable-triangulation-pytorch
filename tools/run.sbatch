@@ -25,9 +25,9 @@ LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/
 python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir ${LOGS_FOLDER}
 
 # see latest results ...
-last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)
-checkpoints_folder=${last_log}
-seeMetrics ${checkpoints_folder}
+# last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)
+# checkpoints_folder=${last_log}
+# seeMetrics ${checkpoints_folder}
 
 # ... interactively
 # watch -n5 "tree ${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)/checkpoints"

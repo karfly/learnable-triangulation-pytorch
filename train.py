@@ -257,7 +257,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 )
                             )  # ~ 17, 2
 
-                            total_loss += KeypointsMSESmoothLoss()(
+                            total_loss += KeypointsMSELoss()(
                                 keypoints_2d_pred[batch_i, view_i, ...].cpu(),  # ~ 17, 2
                                 keypoints_2d_gt_proj.cpu(),
                                 keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
@@ -436,7 +436,6 @@ def main(args):
 
     minimon.enter()
 
-    # datasets
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)
 
     minimon.leave('setup_dataloaders')

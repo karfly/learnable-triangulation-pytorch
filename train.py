@@ -28,6 +28,10 @@ from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
+from mvn.utils.minimon import MiniMon
+
+minimon = MiniMon()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -172,6 +176,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
         tot_batches = 0
 
+        minimon.enter()
+
         for iter_i, batch in iterator:
             tot_batches += 1
 
@@ -182,11 +188,18 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     print("Found None batch")
                     continue
 
+                minimon.enter()
+
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
                     batch, device, config
                 )  # proj_matricies_batch ~ (batch_size=8, n_views=4, 3, 4)
 
+                minimon.leave('prepare batch')
+
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
+
+                minimon.enter()
+
                 if model_type == "alg" or model_type == "ransac":
                     keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                         images_batch,
@@ -199,6 +212,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         proj_matricies_batch,
                         batch
                     )
+                
+                minimon.leave('forward pass')
 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])  # 8, 4, (128, 128)
                 n_joints = keypoints_3d_pred.shape[1]
@@ -234,6 +249,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 if config.opt.loss_2d:
                     print('... computing loss on 2D projection of keypoints')
+                    
+                    minimon.enter()
+                    
                     for batch_i in range(batch_size):  # todo use Tensors, not for loops
                         for view_i in range(n_views):
                             keypoints_2d_gt_proj = torch.FloatTensor(
@@ -248,20 +266,28 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 keypoints_2d_gt_proj.cpu(),
                                 keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
                             )
-
+                    
+                    minimon.leave('calc loss 2D')
                 if config.opt.loss_3d:
                     print('... computing loss on 3D keypoints')
+
+                    minimon.enter()
+
                     total_loss += criterion(
                         keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
                         keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
                         keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
                     )  # 3D loss
+                    
+                    minimon.leave('calc loss 2D')
 
                 metric_dict[f'{config.opt.criterion}'].append(total_loss.item())
 
                 # volumetric ce loss
                 use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
                 if use_volumetric_ce_loss:
+                    minimon.enter()
+                    
                     volumetric_ce_criterion = VolumetricCELoss()
 
                     loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
@@ -269,11 +295,15 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                     weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
                     total_loss += weight * loss
+                    
+                    minimon.leave('calc vol loss')
 
                 # keep track of total loss
                 metric_dict['total_loss'].append(total_loss.item())
 
                 if is_train:
+                    minimon.enter()
+                    
                     opt.zero_grad()
                     total_loss.backward()
 
@@ -281,29 +311,32 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
 
                     opt.step()
+                    
+                    minimon.leave('backward pass')
+
+                #todo minimon from here
 
                 # calculate metrics
-                l2 = KeypointsL2Loss()(
-                    keypoints_3d_pred * scale_keypoints_3d,
-                    keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt
-                )
-                metric_dict['l2'].append(l2.item())
+                # l2 = KeypointsL2Loss()(
+                #     keypoints_3d_pred * scale_keypoints_3d,
+                #     keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt
+                # )
+                # metric_dict['l2'].append(l2.item())
 
-                # base point l2
-                if base_points_pred is not None:
-                    base_point_l2_list = []
-                    for batch_i in range(batch_size):
-                        base_point_pred = base_points_pred[batch_i]
+                # if base_points_pred is not None:  # base point l2
+                #     base_point_l2_list = []
+                #     for batch_i in range(batch_size):
+                #         base_point_pred = base_points_pred[batch_i]
 
-                        if config.model.kind == "coco":
-                            base_point_gt = (keypoints_3d_gt[batch_i, 11, :3] + keypoints_3d[batch_i, 12, :3]) / 2
-                        elif config.model.kind == "mpii":
-                            base_point_gt = keypoints_3d_gt[batch_i, 6, :3]
+                #         if config.model.kind == "coco":
+                #             base_point_gt = (keypoints_3d_gt[batch_i, 11, :3] + keypoints_3d[batch_i, 12, :3]) / 2
+                #         elif config.model.kind == "mpii":
+                #             base_point_gt = keypoints_3d_gt[batch_i, 6, :3]
 
-                        base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred * scale_keypoints_3d - base_point_gt * scale_keypoints_3d) ** 2)).item())
+                #         base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred * scale_keypoints_3d - base_point_gt * scale_keypoints_3d) ** 2)).item())
 
-                    base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
-                    metric_dict['base_point_l2'].append(base_point_l2)
+                #     base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
+                #     metric_dict['base_point_l2'].append(base_point_l2)
 
                 # save answers for evaluation
                 results['keypoints_3d'].append(
@@ -311,12 +344,16 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )
                 results['indexes'].append(batch['indexes'])
 
+        minimon.leave('iter all batches')
+
         print('epoch #{:4d} done ({} batches)'.format(
             epoch + 1, tot_batches
         ))
 
     # calculate evaluation metrics
     if master:
+        minimon.enter()
+
         results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
         results['indexes'] = np.concatenate(results['indexes'])
 
@@ -342,6 +379,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
             json.dump(full_metric, fout, indent=4, sort_keys=True)
 
+        minimon.leave('evaluate results')
+
     return n_iters_total
 
 
@@ -361,6 +400,8 @@ def init_distributed(args):
 
 
 def main(args):
+    minimon.enter()
+
     print("Number of available GPUs: {}".format(torch.cuda.device_count()))
 
     is_distributed = init_distributed(args)
@@ -423,9 +464,12 @@ def main(args):
                 lr=config.opt.lr
             )
 
+    minimon.enter()
 
     # datasets
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)
+
+    minimon.leave('setup_dataloaders')
 
     if master:
         experiment_dir = setup_experiment(config, type(model).__name__, is_train=not args.eval)
@@ -435,13 +479,25 @@ def main(args):
         model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:  # train loop
+        minimon.enter()
+
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
+
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
 
+            minimon.enter()
+
             n_iters_total_train = one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, n_iters_total=n_iters_total_train, is_train=True, master=master, experiment_dir=experiment_dir)
+
+            minimon.leave('train epoch')
+
+            minimon.enter()
+
             n_iters_total_val = one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, n_iters_total=n_iters_total_val, is_train=False, master=master, experiment_dir=experiment_dir)
+            
+            minimon.leave('eval epoch')
 
             if master:
                 checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
@@ -449,14 +505,18 @@ def main(args):
 
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
 
-            print("epoch done")
+        minimon.leave('train loop')
     else:
+        minimon.enter()
+
         if args.eval_dataset == 'train':
             one_epoch(model, criterion, opt, config, train_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
         else:
             one_epoch(model, criterion, opt, config, val_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
 
-    print("Done.")
+        minimon.leave('test loop')
+
+    minimon.leave('main')
 
 if __name__ == '__main__':
     args = parse_args()

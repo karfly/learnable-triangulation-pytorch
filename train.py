@@ -314,29 +314,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     
                     minimon.leave('backward pass')
 
-                #todo necessary?
-                # calculate metrics
-                # l2 = KeypointsL2Loss()(
-                #     keypoints_3d_pred * scale_keypoints_3d,
-                #     keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt
-                # )
-                # metric_dict['l2'].append(l2.item())
-
-                # if base_points_pred is not None:  # base point l2
-                #     base_point_l2_list = []
-                #     for batch_i in range(batch_size):
-                #         base_point_pred = base_points_pred[batch_i]
-
-                #         if config.model.kind == "coco":
-                #             base_point_gt = (keypoints_3d_gt[batch_i, 11, :3] + keypoints_3d[batch_i, 12, :3]) / 2
-                #         elif config.model.kind == "mpii":
-                #             base_point_gt = keypoints_3d_gt[batch_i, 6, :3]
-
-                #         base_point_l2_list.append(torch.sqrt(torch.sum((base_point_pred * scale_keypoints_3d - base_point_gt * scale_keypoints_3d) ** 2)).item())
-
-                #     base_point_l2 = 0.0 if len(base_point_l2_list) == 0 else np.mean(base_point_l2_list)
-                #     metric_dict['base_point_l2'].append(base_point_l2)
-
                 # save answers for evaluation
                 results['keypoints_3d'].append(
                     keypoints_3d_pred.detach().cpu().numpy()
@@ -522,4 +499,4 @@ if __name__ == '__main__':
     print("args: {}".format(args))
     main(args)
 
-    minimon.print_stats(as_minutes=True)
+    minimon.print_stats(as_minutes=False)

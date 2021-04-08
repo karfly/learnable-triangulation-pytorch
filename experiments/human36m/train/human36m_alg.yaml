@@ -21,6 +21,8 @@ opt:
 
   scale_keypoints_3d: 0.1
 
+  alternative_disk: "/lustre/ssd/ws"
+
 model:
   name: "alg"
 
@@ -36,7 +38,7 @@ model:
     style: "simple"
 
     init_weights: true
-    checkpoint: "/lustre/ssd/ws/stfo194b-p_humanpose/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
 
     num_joints: 17
     num_layers: 152
@@ -45,8 +47,8 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "/lustre/ssd/ws/stfo194b-p_humanpose/data/human36m/processed/"
-    labels_path: "/lustre/ssd/ws/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
+    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
     undistort_images: false
 
@@ -61,8 +63,8 @@ dataset:
     retain_every_n_frames_in_train: 6000
 
   val:
-    h36m_root: "/lustre/ssd/ws/stfo194b-p_humanpose/data/human36m/processed/"
-    labels_path: "/lustre/ssd/ws/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
+    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     with_damaged_actions: true
     undistort_images: false
 

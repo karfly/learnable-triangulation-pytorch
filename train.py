@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, help="Local rank of the process on the node")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
-    parser.add_argument("--logdir", type=str, default="/Vol1/dbstore/datasets/k.iskakov/logs/multi-view-net-repr", help="Path, where logs will be stored")
+    parser.add_argument("--logdir", type=str, required=True, help="Path, where logs will be stored")
 
     args = parser.parse_args()
     return args

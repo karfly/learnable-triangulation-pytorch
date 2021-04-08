@@ -156,10 +156,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     model_type = config.model.name
 
     if is_train:
-        print('I AM TRAINING')
         model.train()
     else:
-        print('I AM EVALUATING')
         model.eval()
 
     metric_dict = defaultdict(list)
@@ -248,8 +246,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 total_loss = 0.0
 
                 if config.opt.loss_2d:
-                    print('... computing loss on 2D projection of keypoints')
-                    
                     minimon.enter()
                     
                     for batch_i in range(batch_size):  # todo use Tensors, not for loops
@@ -269,8 +265,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     
                     minimon.leave('calc loss 2D')
                 if config.opt.loss_3d:
-                    print('... computing loss on 3D keypoints')
-
                     minimon.enter()
 
                     total_loss += criterion(
@@ -500,3 +494,6 @@ if __name__ == '__main__':
     main(args)
 
     minimon.print_stats(as_minutes=False)
+
+# todo try vol VS alg (SVD in cpu)
+# todo train longer on lr=1e-5

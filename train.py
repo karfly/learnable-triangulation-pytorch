@@ -161,11 +161,15 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     with grad_context():
         end = time.time()
 
-        iterator = enumerate(dataloader)  # ~ 149
+        iterator = enumerate(dataloader)
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
+        tot_batches = 0
+
         for iter_i, batch in iterator:
+            tot_batches += 1
+
             with autograd.detect_anomaly():
                 data_time = time.time() - end  # measure data loading time
 
@@ -274,7 +278,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     opt.step()
 
                 # calculate metrics
-                l2 = KeypointsL2Loss()(keypoints_3d_pred * scale_keypoints_3d, keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt)
+                l2 = KeypointsL2Loss()(
+                    keypoints_3d_pred * scale_keypoints_3d,
+                    keypoints_3d_gt * scale_keypoints_3d, keypoints_3d_binary_validity_gt
+                )
                 metric_dict['l2'].append(l2.item())
 
                 # base point l2
@@ -298,6 +305,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred.detach().cpu().numpy()
                 )
                 results['indexes'].append(batch['indexes'])
+
+        print('epoch #{:4d} done ({:4d} batches)'.format(
+            epoch + 1, tot_batches
+        ))
 
     # calculate evaluation metrics
     if master:

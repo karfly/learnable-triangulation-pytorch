@@ -20,8 +20,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
-from tensorboardX import SummaryWriter
-
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss
 
@@ -143,16 +141,10 @@ def setup_experiment(config, model_name, is_train=True):
 
     shutil.copy(args.config, os.path.join(experiment_dir, "config.yaml"))
 
-    # tensorboard
-    writer = SummaryWriter(os.path.join(experiment_dir, "tb"))
-
-    # dump config to tensorboard
-    writer.add_text(misc.config_to_str(config), "config", 0)
-
-    return experiment_dir, writer
+    return experiment_dir
 
 
-def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_total=0, is_train=True, caption='', master=False, experiment_dir=None, writer=None):
+def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_total=0, is_train=True, caption='', master=False, experiment_dir=None):
     name = "train" if is_train else "val"
     model_type = config.model.name
 
@@ -174,7 +166,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
         for iter_i, batch in iterator:
-            if True:  # todo disable with autograd.detect_anomaly():
+            with autograd.detect_anomaly():
                 data_time = time.time() - end  # measure data loading time
 
                 if batch is None:
@@ -250,13 +242,13 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         )  # ~ 17, 2
 
                         loss_2d += KeypointsMSESmoothLoss()(
-                            keypoints_2d_pred[batch_i, view_i, ...].detach().requires_grad_(True).cpu(),  # ~ 17, 2
-                            keypoints_2d_gt_proj.detach().cpu(),
-                            keypoints_3d_binary_validity_gt[batch_i].detach().cpu()  # ~ 17, 1
+                            keypoints_2d_pred[batch_i, view_i, ...].cpu(),  # ~ 17, 2
+                            keypoints_2d_gt_proj.cpu(),
+                            keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
                         )
 
-                total_loss += loss_2d
-                metric_dict[f'{config.opt.criterion}'].append(loss_2d.item())
+                total_loss += loss_3d
+                metric_dict[f'{config.opt.criterion}'].append(total_loss.item())
 
                 # volumetric ce loss
                 use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
@@ -302,11 +294,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     metric_dict['base_point_l2'].append(base_point_l2)
 
                 # save answers for evaluation
-                if True:  # todo for all! not is_train:
-                    results['keypoints_3d'].append(
-                        keypoints_3d_pred.detach().cpu().numpy()
-                    )
-                    results['indexes'].append(batch['indexes'])
+                results['keypoints_3d'].append(
+                    keypoints_3d_pred.detach().cpu().numpy()
+                )
+                results['indexes'].append(batch['indexes'])
 
     # calculate evaluation metrics
     if master:
@@ -316,7 +307,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         try:
             scalar_metric, full_metric = dataloader.dataset.evaluate(
                 results['keypoints_3d']
-            )  # todo this error metric is valid for both 2d/3d loss
+            )  # 3D MPJPE
         except Exception as e:
             print("Failed to evaluate. Reason: ", e)
             scalar_metric, full_metric = 0.0, {}
@@ -334,10 +325,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
         with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
             json.dump(full_metric, fout, indent=4, sort_keys=True)
-
-        if not is_train:  # dump to tensorboard per-epoch stats
-            for title, value in metric_dict.items():
-                writer.add_scalar(f"{name}/{title}_epoch", np.mean(value), epoch)
 
     return n_iters_total
 
@@ -425,10 +412,8 @@ def main(args):
     # datasets
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)
 
-    # experiment
-    experiment_dir, writer = None, None
     if master:
-        experiment_dir, writer = setup_experiment(config, type(model).__name__, is_train=not args.eval)
+        experiment_dir = setup_experiment(config, type(model).__name__, is_train=not args.eval)
 
     # multi-gpu
     if is_distributed:
@@ -440,8 +425,8 @@ def main(args):
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
 
-            n_iters_total_train = one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, n_iters_total=n_iters_total_train, is_train=True, master=master, experiment_dir=experiment_dir, writer=writer)
-            n_iters_total_val = one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, n_iters_total=n_iters_total_val, is_train=False, master=master, experiment_dir=experiment_dir, writer=writer)
+            n_iters_total_train = one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, n_iters_total=n_iters_total_train, is_train=True, master=master, experiment_dir=experiment_dir)
+            n_iters_total_val = one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, n_iters_total=n_iters_total_val, is_train=False, master=master, experiment_dir=experiment_dir)
 
             if master:
                 checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
@@ -452,9 +437,9 @@ def main(args):
             print("epoch done")
     else:
         if args.eval_dataset == 'train':
-            one_epoch(model, criterion, opt, config, train_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir, writer=writer)
+            one_epoch(model, criterion, opt, config, train_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
         else:
-            one_epoch(model, criterion, opt, config, val_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir, writer=writer)
+            one_epoch(model, criterion, opt, config, val_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
 
     print("Done.")
 

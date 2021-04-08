@@ -9,8 +9,6 @@ conda deactivate
 conda activate ${KERNELS_DIR}/${KERNEL_NAME}  # or source
 which python  # just to check
 
-# todo use /lustre/ssd/ws/stfo194b-p_humanpose
-
 cd /home/stfo194b/tesi/learnable-triangulation-pytorch
 pwd  # just to check
 

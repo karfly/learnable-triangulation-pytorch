@@ -48,7 +48,6 @@ def load_bboxes(data_path, subject, action, camera):
         except KeyError:
             corrected_action = action.replace('-', ' ')
 
-        # TODO use pathlib
         bboxes_path = os.path.join(
             data_path,
             subject,

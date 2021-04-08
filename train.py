@@ -314,8 +314,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     
                     minimon.leave('backward pass')
 
-                #todo minimon from here
-
+                #todo necessary?
                 # calculate metrics
                 # l2 = KeypointsL2Loss()(
                 #     keypoints_3d_pred * scale_keypoints_3d,
@@ -522,3 +521,5 @@ if __name__ == '__main__':
     args = parse_args()
     print("args: {}".format(args))
     main(args)
+
+    minimon.print_stats(as_minutes=True)

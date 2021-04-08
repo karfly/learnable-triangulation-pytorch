@@ -10,7 +10,7 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs: 20
+  n_epochs: 100
 
   batch_size: 8
   val_batch_size: 16
@@ -58,7 +58,7 @@ dataset:
     max_n_views: null
     num_workers: 8
 
-    retain_every_n_frames_in_train: 1000
+    retain_every_n_frames_in_train: 6000
 
   val:
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"

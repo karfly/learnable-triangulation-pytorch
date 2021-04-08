@@ -15,7 +15,9 @@ opt:
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.0000005
+  lr: 0.00001
+  loss_3d: false
+  loss_2d: true
 
   scale_keypoints_3d: 0.1
 
@@ -56,7 +58,7 @@ dataset:
     max_n_views: null
     num_workers: 8
 
-    retain_every_n_frames_in_train: 10
+    retain_every_n_frames_in_train: 1000
 
   val:
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
@@ -66,10 +68,10 @@ dataset:
 
     scale_bbox: 1.0
 
-    shuffle: false
+    shuffle: true
     randomize_n_views: false
     min_n_views: null
     max_n_views: null
     num_workers: 8
 
-    retain_every_n_frames_in_test: 1
+    retain_every_n_frames_in_test: 1000

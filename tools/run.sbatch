@@ -9,6 +9,8 @@
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
 
+date +"%Y-%m-%d %H:%M:%S"
+
 source ./requirements.sh
 source ./utils.sh
 
@@ -33,3 +35,5 @@ python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir 
 # watch -n5 "tree ${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)/checkpoints"
 
 # eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}
+
+date +"%Y-%m-%d %H:%M:%S"

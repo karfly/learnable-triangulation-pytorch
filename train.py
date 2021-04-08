@@ -149,8 +149,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     model_type = config.model.name
 
     if is_train:
+        print('I AM TRAINING')
         model.train()
     else:
+        print('I AM EVALUATING')
         model.eval()
 
     metric_dict = defaultdict(list)
@@ -226,15 +228,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 # calculate loss
                 total_loss = 0.0
-                loss_2d = None  # todo tweak here 2D/3D loss
-                if loss_2d is None:
-                    print('... computing loss on 3D keypoints')
-                    total_loss += criterion(
-                        keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
-                    )  # 3D loss
-                else:
+
+                if config.opt.loss_2d:
                     print('... computing loss on 2D projection of keypoints')
                     for batch_i in range(batch_size):  # todo use Tensors, not for loops
                         for view_i in range(n_views):
@@ -245,13 +240,19 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 )
                             )  # ~ 17, 2
 
-                            loss_2d += KeypointsMSESmoothLoss()(
+                            total_loss += KeypointsMSESmoothLoss()(
                                 keypoints_2d_pred[batch_i, view_i, ...].cpu(),  # ~ 17, 2
                                 keypoints_2d_gt_proj.cpu(),
                                 keypoints_3d_binary_validity_gt[batch_i].cpu()  # ~ 17, 1
                             )
 
-                    total_loss += loss_2d
+                if config.opt.loss_3d:
+                    print('... computing loss on 3D keypoints')
+                    total_loss += criterion(
+                        keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
+                    )  # 3D loss
 
                 metric_dict[f'{config.opt.criterion}'].append(total_loss.item())
 
@@ -307,7 +308,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )
                 results['indexes'].append(batch['indexes'])
 
-        print('epoch #{:4d} done ({:4d} batches)'.format(
+        print('epoch #{:4d} done ({} batches)'.format(
             epoch + 1, tot_batches
         ))
 
@@ -372,7 +373,6 @@ def main(args):
     if not torch.cuda.is_available():
         device = 'cpu'  # warning this blows CPU
 
-    # config
     config = cfg.load_config(args.config)
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 

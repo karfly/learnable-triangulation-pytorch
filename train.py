@@ -154,6 +154,7 @@ def setup_experiment(config, model_name, is_train=True):
 def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_total=0, is_train=True, caption='', master=False, experiment_dir=None):
     name = "train" if is_train else "val"
     model_type = config.model.name
+    use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
 
     if is_train:
         model.train()
@@ -197,7 +198,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         images_batch,
                         proj_matricies_batch,
                         batch,
-                        minimon
+                        minimon  # todo refactor
                     )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
@@ -237,75 +238,72 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 #     - syntethic occlusions (look for references)
                 # - todo use GPU friendly SVD implementation (first on CPU)
 
-                if is_train:  # calculate loss
-                    total_loss = 0.0
+                total_loss = 0.0
 
-                    if config.opt.loss_2d:
-                        minimon.enter()
-                        
-                        for batch_i in range(batch_size):  # todo use Tensors, not for loops
-                            for view_i in range(n_views):
-                                keypoints_2d_gt_proj = torch.FloatTensor(
-                                    project_3d_points_to_image_plane_without_distortion(
-                                        proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_gt[batch_i].cpu()
-                                    )
-                                )  # ~ 17, 2
-
-                                keypoints_2d_true_pred = torch.FloatTensor(
-                                    project_3d_points_to_image_plane_without_distortion(
-                                        proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_pred[batch_i].cpu()
-                                    )
-                                )  # ~ 17, 2
-
-                                pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                                gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                                only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
-
-                                total_loss += criterion()(
-                                    pred, gt, only_valid
-                                )
-                        
-                        minimon.leave('calc loss 2D proj')
-
-                    if config.opt.loss_3d:
-                        minimon.enter()
-
-                        total_loss += criterion(
-                            keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
-                        )  # 3D loss
-                        
-                        minimon.leave('calc loss 3D')
-
-                    # volumetric ce loss
-                    use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
-                    if use_volumetric_ce_loss:
-                        minimon.enter()
-                        
-                        volumetric_ce_criterion = VolumetricCELoss()
-
-                        loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
-                        metric_dict['volumetric_ce_loss'].append(loss.item())
-
-                        weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
-                        total_loss += weight * loss
-                        
-                        minimon.leave('calc VOL loss')
-
+                if config.opt.loss_2d:
                     minimon.enter()
                     
-                    opt.zero_grad()
-                    total_loss.backward()
+                    for batch_i in range(batch_size):  # todo use Tensors, not for loops
+                        for view_i in range(n_views):
+                            keypoints_2d_gt_proj = torch.FloatTensor(
+                                project_3d_points_to_image_plane_without_distortion(
+                                    proj_matricies_batch[batch_i, view_i].cpu(),
+                                    keypoints_3d_gt[batch_i].cpu() * scale_keypoints_3d
+                                )
+                            )  # ~ 17, 2
 
-                    if hasattr(config.opt, "grad_clip"):
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
+                            keypoints_2d_true_pred = torch.FloatTensor(
+                                project_3d_points_to_image_plane_without_distortion(
+                                    proj_matricies_batch[batch_i, view_i].cpu(),
+                                    keypoints_3d_pred[batch_i].cpu() * scale_keypoints_3d
+                                )
+                            )  # ~ 17, 2
 
-                    opt.step()
+                            pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
+                            gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
+                            only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
+
+                            total_loss += criterion(
+                                pred, gt, only_valid
+                            )
                     
-                    minimon.leave('backward pass')
+                    minimon.leave('calc loss 2D proj')
+
+                if config.opt.loss_3d:
+                    minimon.enter()
+
+                    total_loss += criterion(
+                        keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
+                    )  # 3D loss
+                    
+                    minimon.leave('calc loss 3D')
+
+                if use_volumetric_ce_loss:
+                    minimon.enter()
+                    
+                    volumetric_ce_criterion = VolumetricCELoss()
+
+                    loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
+                    metric_dict['volumetric_ce_loss'].append(loss.item())
+
+                    weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+                    total_loss += weight * loss
+                    
+                    minimon.leave('calc VOL loss')
+
+                minimon.enter()
+                
+                opt.zero_grad()
+                total_loss.backward()
+
+                if hasattr(config.opt, "grad_clip"):
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
+
+                opt.step()
+                
+                minimon.leave('backward pass')
 
                 # save answers for evaluation
                 results['keypoints_3d'].append(

@@ -9,7 +9,7 @@ function seeMetrics () {
     echo "... on TRAINing set\n"
     for f in $(find ${checkpoints_folder} -name "metric_train.json" | sort);
     do
-        getAverage ${f}
+        echo $f && getAverage ${f}
     done
     echo
 

@@ -260,9 +260,14 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
                                 only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
 
-                                total_loss += criterion(
+                                loss = criterion(
                                     pred, gt, only_valid
                                 )
+
+                                print('===', batch_i, view_i)
+                                print(pred, gt, loss)
+
+                                total_loss += loss
                         
                         minimon.leave('calc loss 2D proj')
 
@@ -282,10 +287,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         
                         volumetric_ce_criterion = VolumetricCELoss()
 
-                        loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
-                        metric_dict['volumetric_ce_loss'].append(loss.item())
+                        loss = volumetric_ce_criterion(
+                            coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
+                        )
 
                         weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+                        
                         total_loss += weight * loss
                         
                         minimon.leave('calc VOL loss')
@@ -440,6 +447,8 @@ def main(args):
 
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
+            if master:
+                print('=== starting epoch', epoch + 1)
 
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
@@ -464,6 +473,7 @@ def main(args):
 
                 print('=== epoch', epoch + 1, 'complete!')
                 minimon.print_stats(as_minutes=False)
+                print('==================')
 
         minimon.leave('main loop')
     else:

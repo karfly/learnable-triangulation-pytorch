@@ -293,17 +293,18 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     
                     minimon.leave('calc VOL loss')
 
-                minimon.enter()
-                
-                opt.zero_grad()
-                total_loss.backward()
+                if is_train:
+                    minimon.enter()
+                    
+                    opt.zero_grad()
+                    total_loss.backward()
 
-                if hasattr(config.opt, "grad_clip"):
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
+                    if hasattr(config.opt, "grad_clip"):
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
 
-                opt.step()
-                
-                minimon.leave('backward pass')
+                    opt.step()
+                    
+                    minimon.leave('backward pass')
 
                 # save answers for evaluation
                 results['keypoints_3d'].append(

@@ -173,12 +173,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
-        tot_batches = 0
-
         for iter_i, batch in iterator:
-            tot_batches += 1
-
-            with autograd.detect_anomaly():
+             with autograd.detect_anomaly():
                 data_time = time.time() - end  # measure data loading time
 
                 if batch is None:
@@ -238,62 +234,62 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 #     - syntethic occlusions (look for references)
                 # - todo use GPU friendly SVD implementation (first on CPU)
 
-                total_loss = 0.0
-
-                if config.opt.loss_2d:
-                    minimon.enter()
-                    
-                    for batch_i in range(batch_size):  # todo use Tensors, not for loops
-                        for view_i in range(n_views):
-                            keypoints_2d_gt_proj = torch.FloatTensor(
-                                project_3d_points_to_image_plane_without_distortion(
-                                    proj_matricies_batch[batch_i, view_i].cpu(),
-                                    keypoints_3d_gt[batch_i].cpu() * scale_keypoints_3d
-                                )
-                            )  # ~ 17, 2
-
-                            keypoints_2d_true_pred = torch.FloatTensor(
-                                project_3d_points_to_image_plane_without_distortion(
-                                    proj_matricies_batch[batch_i, view_i].cpu(),
-                                    keypoints_3d_pred[batch_i].cpu() * scale_keypoints_3d
-                                )
-                            )  # ~ 17, 2
-
-                            pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                            gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                            only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
-
-                            total_loss += criterion(
-                                pred, gt, only_valid
-                            )
-                    
-                    minimon.leave('calc loss 2D proj')
-
-                if config.opt.loss_3d:
-                    minimon.enter()
-
-                    total_loss += criterion(
-                        keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
-                    )  # 3D loss
-                    
-                    minimon.leave('calc loss 3D')
-
-                if use_volumetric_ce_loss:
-                    minimon.enter()
-                    
-                    volumetric_ce_criterion = VolumetricCELoss()
-
-                    loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
-                    metric_dict['volumetric_ce_loss'].append(loss.item())
-
-                    weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
-                    total_loss += weight * loss
-                    
-                    minimon.leave('calc VOL loss')
-
                 if is_train:
+                    total_loss = 0.0
+
+                    if config.opt.loss_2d:
+                        minimon.enter()
+                        
+                        for batch_i in range(batch_size):  # todo use Tensors, not for loops
+                            for view_i in range(n_views):
+                                keypoints_2d_gt_proj = torch.FloatTensor(
+                                    project_3d_points_to_image_plane_without_distortion(
+                                        proj_matricies_batch[batch_i, view_i].cpu(),
+                                        keypoints_3d_gt[batch_i].cpu() * scale_keypoints_3d
+                                    )
+                                )  # ~ 17, 2
+
+                                keypoints_2d_true_pred = torch.FloatTensor(
+                                    project_3d_points_to_image_plane_without_distortion(
+                                        proj_matricies_batch[batch_i, view_i].cpu(),
+                                        keypoints_3d_pred[batch_i].cpu() * scale_keypoints_3d
+                                    )
+                                )  # ~ 17, 2
+
+                                pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
+                                gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
+                                only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
+
+                                total_loss += criterion(
+                                    pred, gt, only_valid
+                                )
+                        
+                        minimon.leave('calc loss 2D proj')
+
+                    if config.opt.loss_3d:
+                        minimon.enter()
+
+                        total_loss += criterion(
+                            keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
+                            keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                            keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
+                        )  # 3D loss
+                        
+                        minimon.leave('calc loss 3D')
+
+                    if use_volumetric_ce_loss:
+                        minimon.enter()
+                        
+                        volumetric_ce_criterion = VolumetricCELoss()
+
+                        loss = volumetric_ce_criterion(coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt)
+                        metric_dict['volumetric_ce_loss'].append(loss.item())
+
+                        weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+                        total_loss += weight * loss
+                        
+                        minimon.leave('calc VOL loss')
+
                     minimon.enter()
                     
                     opt.zero_grad()
@@ -311,10 +307,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred.detach().cpu().numpy()
                 )
                 results['indexes'].append(batch['indexes'])
-
-        print('epoch #{:4d} done ({} batches)'.format(
-            epoch + 1, tot_batches
-        ))
 
     # calculate evaluation metrics
     if master:
@@ -469,6 +461,9 @@ def main(args):
                 os.makedirs(checkpoint_dir, exist_ok=True)
 
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
+
+                print('=== epoch', epoch + 1, 'complete!')
+                minimon.print_stats(as_minutes=False)
 
         minimon.leave('main loop')
     else:

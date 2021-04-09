@@ -22,10 +22,13 @@ which python  # just to check
 cd /home/stfo194b/tesi/learnable-triangulation-pytorch
 pwd  # just to check
 
-LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
+# LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 # LOGS_FOLDER="/lustre/ssd/ws/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
+LOGS_FOLDER="/home/stfo194b/tesi/logs"
 
-python3 train.py --config experiments/human36m/train/human36m_alg.yaml --logdir ${LOGS_FOLDER}
+EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
+
+python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
 
 # see latest results ...
 # last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)

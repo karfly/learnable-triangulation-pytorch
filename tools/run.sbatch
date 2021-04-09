@@ -22,9 +22,9 @@ which python  # just to check
 cd /home/stfo194b/tesi/learnable-triangulation-pytorch
 pwd  # just to check
 
-# LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
+LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 # LOGS_FOLDER="/lustre/ssd/ws/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-LOGS_FOLDER="/home/stfo194b/tesi/logs"
+# LOGS_FOLDER="/home/stfo194b/tesi/logs"
 
 EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
 

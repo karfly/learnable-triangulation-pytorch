@@ -130,7 +130,7 @@ def triangulate_point_from_multiple_views_linear(proj_matricies, points):
         A[j * 2 + 0] = points[j][0] * proj_matricies[j][2, :] - proj_matricies[j][0, :]
         A[j * 2 + 1] = points[j][1] * proj_matricies[j][2, :] - proj_matricies[j][1, :]
 
-    u, s, vh = np.linalg.svd(A, full_matrices=False)
+    u, s, vh = np.linalg.svd(A, full_matrices=False)  # todo test on CPU
     point_3d_homo = vh[3, :]
 
     point_3d = homogeneous_to_euclidean(point_3d_homo)

@@ -6,14 +6,14 @@ function getAverage() {
 function seeMetrics () {
     checkpoints_folder=$1
 
-    echo "metrics on TRAINing sets"
+    echo "... on TRAINing set\n"
     for f in $(find ${checkpoints_folder} -name "metric_train.json" | sort);
     do
         getAverage ${f}
     done
     echo
 
-    echo "metrics on EVALuation sets"
+    echo "... on EVALuation set\n"
     for f in $(find ${checkpoints_folder} -name "metric_eval.json" | sort);
     do
         getAverage ${f}

@@ -146,12 +146,14 @@ class AlgebraicTriangulationNet(nn.Module):
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
 
-    def forward(self, images, proj_matricies, batch):
+    def forward(self, images, proj_matricies, batch, minimon=None):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
         # reshape n_views dimension to batch dimension
         images = images.view(-1, *images.shape[2:])
+
+        minimon.enter()
 
         # forward backbone and integral
         if self.use_confidences:
@@ -159,6 +161,8 @@ class AlgebraicTriangulationNet(nn.Module):
         else:
             heatmaps, _, _, _ = self.backbone(images)
             alg_confidences = torch.ones(batch_size * n_views, heatmaps.shape[1]).type(torch.float).to(device)
+
+        minimon.leave('forward backbone and integral')
 
         heatmaps_before_softmax = heatmaps.view(batch_size, n_views, *heatmaps.shape[1:])
         keypoints_2d, heatmaps = op.integrate_tensor_2d(heatmaps * self.heatmap_multiplier, self.heatmap_softmax)
@@ -184,11 +188,13 @@ class AlgebraicTriangulationNet(nn.Module):
         keypoints_2d = keypoints_2d_transformed
 
         # triangulate
+        minimon.enter()
+
         try:
             keypoints_3d = multiview.triangulate_batch_of_points(
                 proj_matricies, keypoints_2d,
                 confidences_batch=alg_confidences
-            )
+            )  # todo faster
         except RuntimeError as e:
             print("Error: ", e)
 
@@ -196,6 +202,8 @@ class AlgebraicTriangulationNet(nn.Module):
             print("proj_matricies = ", proj_matricies)
             print("keypoints_2d_batch_pred =", keypoints_2d_batch_pred)
             exit()
+
+        minimon.leave('triangulate')
 
         return keypoints_3d, keypoints_2d, heatmaps, alg_confidences  # predictions + confidence
 

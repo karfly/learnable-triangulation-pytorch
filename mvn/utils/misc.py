@@ -38,3 +38,18 @@ def calc_gradient_norm(named_parameters):
     total_norm = total_norm ** (1. / 2)
 
     return total_norm
+
+
+def normalize_transformation(feature_range):
+    def _f(x):
+        shape = x.shape
+        
+        m = x.min()
+        M = x.max()
+        
+        x = (x - m) / (M - m) * (feature_range[1] - feature_range[0]) + feature_range[0]
+        
+        x = x.reshape(shape)  # original size
+        return x
+
+    return _f

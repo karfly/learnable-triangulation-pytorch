@@ -15,7 +15,7 @@ opt:
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.000001
+  lr: 0.00001
   loss_3d: false
   loss_2d: true
 
@@ -24,8 +24,8 @@ opt:
 model:
   name: "alg"
 
-  init_weights: false
-  checkpoint: ""
+  init_weights: true
+  checkpoint: "/projects/p_humanpose/learnable-triangulation/weights_alg.pth"
 
   use_confidences: true
   heatmap_multiplier: 100.0
@@ -52,10 +52,10 @@ dataset:
 
     scale_bbox: 1.0
 
-    shuffle: false
-    randomize_n_views: false
-    min_n_views: null
-    max_n_views: null
+    shuffle: true
+    randomize_n_views: true
+    min_n_views: 3
+    max_n_views: 31
     num_workers: 8
 
     retain_every_n_frames_in_train: 10000
@@ -68,7 +68,7 @@ dataset:
 
     scale_bbox: 1.0
 
-    shuffle: true
+    shuffle: false
     randomize_n_views: false
     min_n_views: null
     max_n_views: null

@@ -29,6 +29,7 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
+from mvn.utils.misc import normalize_transformation
 
 minimon = MiniMon()
 
@@ -77,9 +78,11 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             batch_size=config.opt.batch_size,
             shuffle=config.dataset.train.shuffle and (train_sampler is None), # debatable
             sampler=train_sampler,
-            collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.train.randomize_n_views,
-                                                     min_n_views=config.dataset.train.min_n_views,
-                                                     max_n_views=config.dataset.train.max_n_views),
+            collate_fn=dataset_utils.make_collate_fn(
+                randomize_n_views=config.dataset.train.randomize_n_views,
+                min_n_views=config.dataset.train.min_n_views,
+                max_n_views=config.dataset.train.max_n_views
+            ),
             num_workers=config.dataset.train.num_workers,
             worker_init_fn=dataset_utils.worker_init_fn,
             pin_memory=True
@@ -248,6 +251,31 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                         keypoints_3d_pred[batch_i].cpu()
                                     )
                                 )  # ~ 17, 2
+
+                                if True:# todo debug only
+                                    current_view = images_batch[0, 0, 0].detach().cpu().numpy()  # grayscale only
+                                    canvas = normalize_transformation((0, 255))(current_view)
+                                    canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
+
+                                    # draw circles where GT keypoints are
+                                    for pt in keypoints_2d_gt_proj.detach().cpu():
+                                        cv2.circle(
+                                            canvas, tuple(pt.astype(int)),
+                                            2, color=(255, 0, 0), thickness=3
+                                        )
+                                    
+                                    # draw circles where predicted keypoints are
+                                    for pt in keypoints_2d_true_pred.detach().cpu():
+                                        cv2.circle(
+                                            canvas, tuple(pt.astype(int)),
+                                            2, color=(0, 0, 255), thickness=3
+                                        )
+
+                                    # save img to file e.g ...*jpg
+                                    cv2.imwrite('/projects/p_humanpose/wow.jpg', canvas)
+
+                                    1/0  # breakpoint
+
 
                                 pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
                                 gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2

@@ -167,24 +167,20 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
     # used to turn on/off gradients
     grad_context = torch.autograd.enable_grad if is_train else torch.no_grad
     with grad_context():
-        end = time.time()
-
         iterator = enumerate(dataloader)
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
         for iter_i, batch in iterator:
-             with autograd.detect_anomaly():
-                data_time = time.time() - end  # measure data loading time
-
+            with autograd.detect_anomaly():
                 if batch is None:
-                    print("Found None batch")
+                    print('iter #{:d}: found None batch'.format(iter_i))
                     continue
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
                     batch, device, config
                 )  # proj_matricies_batch ~ (batch_size=8, n_views=4, 3, 4)
-
+                keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
                 minimon.enter()
@@ -202,14 +198,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         proj_matricies_batch,
                         batch
                     )
-                
+
                 minimon.leave('forward pass')
 
                 batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])  # 8, 4, (128, 128)
                 n_joints = keypoints_3d_pred.shape[1]
-
-                keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
-
                 scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
                 # 1-view case
@@ -239,20 +232,20 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                     if config.opt.loss_2d:
                         minimon.enter()
-                        
+
                         for batch_i in range(batch_size):  # todo use Tensors, not for loops
                             for view_i in range(n_views):
                                 keypoints_2d_gt_proj = torch.FloatTensor(
                                     project_3d_points_to_image_plane_without_distortion(
                                         proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_gt[batch_i].cpu() * scale_keypoints_3d
+                                        keypoints_3d_gt[batch_i].cpu()
                                     )
                                 )  # ~ 17, 2
 
                                 keypoints_2d_true_pred = torch.FloatTensor(
                                     project_3d_points_to_image_plane_without_distortion(
                                         proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_pred[batch_i].cpu() * scale_keypoints_3d
+                                        keypoints_3d_pred[batch_i].cpu()
                                     )
                                 )  # ~ 17, 2
 
@@ -260,15 +253,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
                                 only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
 
-                                loss = criterion(
+                                total_loss += criterion(
                                     pred, gt, only_valid
                                 )
 
-                                print('===', batch_i, view_i)
-                                print(pred, gt, loss)
-
-                                total_loss += loss
-                        
                         minimon.leave('calc loss 2D proj')
 
                     if config.opt.loss_3d:
@@ -279,12 +267,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                             keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
                             keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
                         )  # 3D loss
-                        
+
                         minimon.leave('calc loss 3D')
 
                     if use_volumetric_ce_loss:
                         minimon.enter()
-                        
+
                         volumetric_ce_criterion = VolumetricCELoss()
 
                         loss = volumetric_ce_criterion(
@@ -292,13 +280,13 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         )
 
                         weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
-                        
+
                         total_loss += weight * loss
-                        
+
                         minimon.leave('calc VOL loss')
 
                     minimon.enter()
-                    
+
                     opt.zero_grad()
                     total_loss.backward()
 
@@ -306,13 +294,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
 
                     opt.step()
-                    
+
                     minimon.leave('backward pass')
 
-                # save answers for evaluation
                 results['keypoints_3d'].append(
                     keypoints_3d_pred.detach().cpu().numpy()
-                )
+                )  # save answers for evaluation
                 results['indexes'].append(batch['indexes'])
 
     # calculate evaluation metrics
@@ -327,13 +314,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 results['keypoints_3d']
             )  # 3D MPJPE
         except Exception as e:
-            print("Failed to evaluate. Reason: ", e)
+            print("Failed to evaluate: ", e)
             scalar_metric, full_metric = 0.0, {}
 
-        if not is_train:
-            metric_dict['dataset_metric'].append(scalar_metric)
-
-        checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
+        checkpoint_dir = os.path.join(
+            experiment_dir, "checkpoints", "{:04}".format(epoch)
+        )
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         if not is_train:  # dump results
@@ -462,7 +448,7 @@ def main(args):
             minimon.enter()
 
             n_iters_total_val = one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, n_iters_total=n_iters_total_val, is_train=False, master=master, experiment_dir=experiment_dir)
-            
+
             minimon.leave('eval epoch')
 
             if master:

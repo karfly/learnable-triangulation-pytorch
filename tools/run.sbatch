@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=4096
-#SBATCH --time=01:30:00
+#SBATCH --time=02:30:00
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
@@ -24,7 +24,6 @@ pwd  # just to check
 
 LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 # LOGS_FOLDER="/lustre/ssd/ws/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-# LOGS_FOLDER="/home/stfo194b/tesi/logs"
 
 EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
 

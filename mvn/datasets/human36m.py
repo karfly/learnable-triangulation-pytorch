@@ -123,12 +123,12 @@ class Human36MMultiViewDataset(Dataset):
                 f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
-        self.meshgrids = None  # to undistort (optional), call 'make_undistort' before!
+        self.meshgrids = None
 
     def __len__(self):
         return len(self.labels['table'])
 
-    def __getitem__(self, idx, force_undistort=True):
+    def __getitem__(self, idx, meshgrids=None):
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
 
@@ -157,6 +157,7 @@ class Human36MMultiViewDataset(Dataset):
             image_path = os.path.join(
                 self.h36m_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
                 camera_name, 'img_%06d.jpg' % (frame_idx + 1))
+            print('getting', image_path)
 
             if not os.path.isfile(image_path):
                 print('%s doesn\'t exist' % image_path)  # find them!
@@ -189,11 +190,11 @@ class Human36MMultiViewDataset(Dataset):
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
-        if force_undistort and self.meshgrids:
+        if self.meshgrids:
             print('getting undistorted image...')
             available_cameras = list(range(len(self.labels['action_names'])))
             for camera_idx, bbox in enumerate(shot['bbox_by_camera_tlbr']):
-                if bbox[2] == bbox[0]: # bbox is empty, which means that this camera is missing
+                if bbox[2] == bbox[0]:  # bbox is empty, which means that this camera is missing
                     available_cameras.remove(camera_idx)
 
             for i, (camera_idx, image) in enumerate(zip(available_cameras, sample['images'])):
@@ -222,9 +223,9 @@ class Human36MMultiViewDataset(Dataset):
         sample.default_factory = None
         return sample
 
-    def make_undistort(self):
-        print("... computing distorted meshgrids")
-        
+    def make_meshgrids(self):
+        print("  computing distorted meshgrids")
+
         n_subjects = len(self.labels['subject_names'])
         n_cameras = len(self.labels['camera_names'])
         meshgrids = np.empty((n_subjects, n_cameras), dtype=object)
@@ -236,7 +237,8 @@ class Human36MMultiViewDataset(Dataset):
                 bboxes = self.labels['table']['bbox_by_camera_tlbr'][sample_idx]
             
                 if (bboxes[:, 2] - bboxes[:, 0]).min() > 0:  # if == 0, then some camera is missing
-                    sample = self.__getitem__(sample_idx, force_undistort=False)
+                    print('getting sample')
+                    sample = self.__getitem__(sample_idx)
                     assert len(sample['images']) == n_cameras
             
                     for camera_idx, (camera, image) in enumerate(zip(sample['cameras'], sample['images'])):
@@ -267,7 +269,8 @@ class Human36MMultiViewDataset(Dataset):
                         # cache (save) distortion maps
                         meshgrids[subject_idx, camera_idx] = cv2.convertMaps(meshgrid.reshape((h, w, 2)), None, cv2.CV_16SC2)
 
-        self.meshgrids = meshgrids
+        print('done meshgrids')
+        return meshgrids
 
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):
         def evaluate_by_actions(self, per_pose_error, mask=None):

@@ -20,7 +20,7 @@ conda activate ${KERNELS_DIR}/${KERNEL_NAME}  # or source
 which python  # just to check
 
 CODE_FOLDER="/home/stfo194b/tesi/learnable-triangulation-pytorch"
-LOGS_FOLDER="/projects/p_humanpose/learnable-triangulation/logs"
+LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
 
 cd ${CODE_FOLDER}

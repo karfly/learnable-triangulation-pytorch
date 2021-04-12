@@ -69,7 +69,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
         )
-        train_dataset.make_undistort()
+        train_dataset.meshgrids = train_dataset.make_meshgrids()
         print("  training dataset length:", len(train_dataset))
 
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
@@ -106,8 +106,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
     )
-    val_dataset.make_undistort()
-    print("  validation dataset length:", len(train_dataset))
+    val_dataset.meshgrids = val_dataset.make_meshgrids()
+    print("  validation dataset length:", len(val_dataset))
 
     val_dataloader = DataLoader(
         val_dataset,

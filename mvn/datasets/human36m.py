@@ -76,11 +76,14 @@ class Human36MMultiViewDataset(Dataset):
             for camera_idx in self.ignore_cameras
         )
 
-        train_subjects = ['S1', 'S6', 'S7', 'S8']  # todo solve missing images in 'S5'
-        test_subjects = ['S9', 'S11']
-
-        train_subjects = list(self.labels['subject_names'].index(x) for x in train_subjects)
-        test_subjects  = list(self.labels['subject_names'].index(x) for x in test_subjects)
+        train_subjects = [
+            self.labels['subject_names'].index(x)
+            for x in ['S1', 'S6', 'S7', 'S8']  # todo solve missing images in 'S5'
+        ]
+        test_subjects = [
+            self.labels['subject_names'].index(x)
+            for x in ['S9', 'S11']
+        ]
 
         indices = []
 
@@ -109,6 +112,7 @@ class Human36MMultiViewDataset(Dataset):
             indices.append(np.nonzero(mask)[0][::retain_every_n_frames_in_test])
 
         self.labels['table'] = self.labels['table'][np.concatenate(indices)]
+        self.indices = indices
 
         self.num_keypoints = 16 if kind == "mpii" else 17
         assert self.labels['table']['keypoints'].shape[1] == 17, "Use a newer 'labels' file"
@@ -128,7 +132,7 @@ class Human36MMultiViewDataset(Dataset):
     def __len__(self):
         return len(self.labels['table'])
 
-    def __getitem__(self, idx, meshgrids=None):
+    def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
 
@@ -157,7 +161,6 @@ class Human36MMultiViewDataset(Dataset):
             image_path = os.path.join(
                 self.h36m_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
                 camera_name, 'img_%06d.jpg' % (frame_idx + 1))
-            print('getting', image_path)
 
             if not os.path.isfile(image_path):
                 print('%s doesn\'t exist' % image_path)  # find them!
@@ -191,7 +194,6 @@ class Human36MMultiViewDataset(Dataset):
             sample['proj_matrices'].append(retval_camera.projection)
 
         if self.meshgrids:
-            print('getting undistorted image...')
             available_cameras = list(range(len(self.labels['action_names'])))
             for camera_idx, bbox in enumerate(shot['bbox_by_camera_tlbr']):
                 if bbox[2] == bbox[0]:  # bbox is empty, which means that this camera is missing
@@ -237,7 +239,6 @@ class Human36MMultiViewDataset(Dataset):
                 bboxes = self.labels['table']['bbox_by_camera_tlbr'][sample_idx]
             
                 if (bboxes[:, 2] - bboxes[:, 0]).min() > 0:  # if == 0, then some camera is missing
-                    print('getting sample')
                     sample = self.__getitem__(sample_idx)
                     assert len(sample['images']) == n_cameras
             
@@ -269,7 +270,6 @@ class Human36MMultiViewDataset(Dataset):
                         # cache (save) distortion maps
                         meshgrids[subject_idx, camera_idx] = cv2.convertMaps(meshgrid.reshape((h, w, 2)), None, cv2.CV_16SC2)
 
-        print('done meshgrids')
         return meshgrids
 
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):
@@ -318,8 +318,12 @@ class Human36MMultiViewDataset(Dataset):
 
         return subject_scores
 
-    def evaluate(self, keypoints_3d_predicted, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
-        keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
+    def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
+        keypoints_gt = self.labels['table']['keypoints'][:,:self.num_keypoints]
+        
+        if indices_predicted:
+            keypoints_gt = keypoints_gt[indices_predicted]
+
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(
                 '`keypoints_3d_predicted` shape should be %s, got %s' % \

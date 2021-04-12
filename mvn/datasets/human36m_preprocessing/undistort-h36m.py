@@ -3,7 +3,6 @@
 
     Usage: `python3 undistort-h36m.py <path/to/Human3.6M-root> <path/to/human36m-multiview-labels.npy> <num-processes>`
 """
-import torch
 import numpy as np
 import cv2
 from tqdm import tqdm

@@ -198,9 +198,7 @@ class AlgebraicTriangulationNet(nn.Module):
         except RuntimeError as e:
             print("Error: ", e)
 
-            print("confidences =", confidences_batch_pred)
             print("proj_matricies = ", proj_matricies)
-            print("keypoints_2d_batch_pred =", keypoints_2d_batch_pred)
             exit()
 
         minimon.leave('triangulate')

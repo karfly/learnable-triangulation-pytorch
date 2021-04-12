@@ -69,7 +69,6 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
         )
-        train_dataset.meshgrids = train_dataset.make_meshgrids()
         print("  training dataset length:", len(train_dataset))
 
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
@@ -106,7 +105,6 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
     )
-    val_dataset.meshgrids = val_dataset.make_meshgrids()
     print("  validation dataset length:", len(val_dataset))
 
     val_dataloader = DataLoader(
@@ -256,19 +254,19 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                 )  # ~ 17, 2
 
                                 if False:  # todo debug only
-                                    current_view = images_batch[0, 0, 0].detach().cpu().numpy()  # grayscale only
+                                    current_view = images_batch[batch_i, view_i, 0].detach().cpu().numpy()  # grayscale only
                                     canvas = normalize_transformation((0, 255))(current_view)
                                     canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
 
                                     # draw circles where GT keypoints are
-                                    for pt in keypoints_2d_gt_proj.detach().cpu():
+                                    for pt in keypoints_2d_gt_proj.detach().cpu().numpy():
                                         cv2.circle(
                                             canvas, tuple(pt.astype(int)),
                                             2, color=(0, 255, 0), thickness=3
                                         )  # green
                                     
                                     # draw circles where predicted keypoints are
-                                    for pt in keypoints_2d_true_pred.detach().cpu():
+                                    for pt in keypoints_2d_true_pred.detach().cpu().numpy():
                                         cv2.circle(
                                             canvas, tuple(pt.astype(int)),
                                             2, color=(0, 0, 255), thickness=3
@@ -341,8 +339,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
         try:
             scalar_metric, full_metric = dataloader.dataset.evaluate(
-                results['keypoints_3d']
-            )  # 3D MPJPE (relative to pelvis), all MPJPEs
+                results['keypoints_3d'],
+                indices_predicted=results['indexes']
+            )  # average 3D MPJPE (relative to pelvis), all MPJPEs
         except Exception as e:
             print("Failed to evaluate: ", e)
             scalar_metric, full_metric = 0.0, {}

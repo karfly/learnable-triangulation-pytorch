@@ -37,7 +37,7 @@ n_cameras = len(dataset.labels['camera_names'])
 print("Computing distorted meshgrids")
 meshgrids = np.empty((n_subjects, n_cameras), dtype=object)
 
-for sample_idx in tqdm(range(len(dataset))):
+for sample_idx in range(len(dataset))):
     subject_idx = dataset.labels['table']['subject_idx'][sample_idx]
     
     if not meshgrids[subject_idx].any():
@@ -81,8 +81,8 @@ def undistort_and_save(idx):
     
     shot = dataset.labels['table'][idx]
     subject_idx = shot['subject_idx']
-    action_idx  = shot['action_idx']
-    frame_idx   = shot['frame_idx']
+    action_idx = shot['action_idx']
+    frame_idx = shot['frame_idx']
 
     subject = dataset.labels['subject_names'][subject_idx]
     action = dataset.labels['action_names'][action_idx]

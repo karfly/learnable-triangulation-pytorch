@@ -3,14 +3,14 @@ kind: "human36m"
 vis_freq: 1000
 vis_n_elements: 10
 
-image_shape: [128, 128]
+image_shape: [384, 384]
 
 opt:
   criterion: "MSESmooth"
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs: 1000
+  n_epochs: 50
 
   batch_size: 8
   val_batch_size: 16
@@ -25,7 +25,7 @@ model:
   name: "alg"
 
   init_weights: true
-  checkpoint: "/projects/p_humanpose/learnable-triangulation/weights_alg.pth"
+  checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/weights.pth"
 
   use_confidences: true
   heatmap_multiplier: 100.0
@@ -47,31 +47,31 @@ dataset:
   train:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    with_damaged_actions: true
+    with_damaged_actions: false
     undistort_images: false
 
     scale_bbox: 1.0
 
     shuffle: true
-    randomize_n_views: true
+    randomize_n_views: false
     min_n_views: 3
     max_n_views: 31
     num_workers: 8
 
-    retain_every_n_frames_in_train: 10000
+    retain_every_n_frames_in_train: 4000
 
   val:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    with_damaged_actions: true
+    with_damaged_actions: false
     undistort_images: false
 
     scale_bbox: 1.0
 
     shuffle: false
     randomize_n_views: false
-    min_n_views: null
-    max_n_views: null
+    min_n_views: 3
+    max_n_views: 31
     num_workers: 8
 
     retain_every_n_frames_in_test: 1000

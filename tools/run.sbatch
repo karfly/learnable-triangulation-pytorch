@@ -19,24 +19,14 @@ conda deactivate
 conda activate ${KERNELS_DIR}/${KERNEL_NAME}  # or source
 which python  # just to check
 
-cd /home/stfo194b/tesi/learnable-triangulation-pytorch
-pwd  # just to check
-
-LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-# LOGS_FOLDER="/lustre/ssd/ws/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-
+CODE_FOLDER="/home/stfo194b/tesi/learnable-triangulation-pytorch"
+LOGS_FOLDER="/projects/p_humanpose/learnable-triangulation/logs"
 EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
 
+cd ${CODE_FOLDER}
+pwd  # just to check
+
 python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
-
-# see latest results ...
-# last_log=${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)
-# checkpoints_folder=${last_log}
-# seeMetrics ${checkpoints_folder}
-
-# ... interactively
-# watch -n5 "tree ${LOGS_FOLDER}/$(ls ${LOGS_FOLDER} | tail -n1)/checkpoints"
-
-# eval: python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}
+# python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}
 
 date +"%Y-%m-%d %H:%M:%S"

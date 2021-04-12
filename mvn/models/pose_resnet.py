@@ -351,7 +351,7 @@ def get_pose_net(config, device='cuda:0'):
             if k.replace(prefix, "") in model_state_dict and v.shape == model_state_dict[k.replace(prefix, "")].shape:
                 new_pretrained_state_dict[k.replace(prefix, "")] = v
             elif k.replace(prefix, "") == "final_layer.weight":  # TODO
-                print("Reiniting final layer filters:", k)
+                print("  reiniting final layer filters:", k)
 
                 o = torch.zeros_like(model_state_dict[k.replace(prefix, "")][:, :, :, :])
                 nn.init.xavier_uniform_(o)
@@ -360,7 +360,7 @@ def get_pose_net(config, device='cuda:0'):
 
                 new_pretrained_state_dict[k.replace(prefix, "")] = o
             elif k.replace(prefix, "") == "final_layer.bias":
-                print("Reiniting final layer biases:", k)
+                print("  reiniting final layer biases:", k)
                 o = torch.zeros_like(model_state_dict[k.replace(prefix, "")][:])
                 nn.init.zeros_(o)
                 n_filters = min(o.shape[0], v.shape[0])

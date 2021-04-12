@@ -123,15 +123,20 @@ class Human36MMultiViewDataset(Dataset):
                 f"[train={train}, test={test}] {labels_path} has {len(self)} samples, but '{pred_results_path}' " + \
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
+        self.meshgrids = None  # to undistort (optional), call 'make_undistort' before!
+
     def __len__(self):
         return len(self.labels['table'])
 
-    def __getitem__(self, idx):
-        sample = defaultdict(list) # return value
+    def __getitem__(self, idx, force_undistort=True):
+        sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
 
-        subject = self.labels['subject_names'][shot['subject_idx']]
-        action = self.labels['action_names'][shot['action_idx']]
+        subject_idx = shot['subject_idx']
+        action_idx = shot['action_idx']
+
+        subject = self.labels['subject_names'][subject_idx]
+        action = self.labels['action_names'][action_idx]
         frame_idx = shot['frame_idx']
 
         for camera_idx, camera_name in enumerate(self.labels['camera_names']):
@@ -184,6 +189,18 @@ class Human36MMultiViewDataset(Dataset):
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
+        if force_undistort and self.meshgrids:
+            print('getting undistorted image...')
+            available_cameras = list(range(len(self.labels['action_names'])))
+            for camera_idx, bbox in enumerate(shot['bbox_by_camera_tlbr']):
+                if bbox[2] == bbox[0]: # bbox is empty, which means that this camera is missing
+                    available_cameras.remove(camera_idx)
+
+            for i, (camera_idx, image) in enumerate(zip(available_cameras, sample['images'])):
+                meshgrid_int16 = self.meshgrids[subject_idx, camera_idx]
+                image_undistorted = cv2.remap(image, *meshgrid_int16, cv2.INTER_CUBIC)
+                sample['images'][i] = image_undistorted
+
         # 3D keypoints
         # add dummy confidences
         sample['keypoints_3d'] = np.pad(
@@ -204,6 +221,53 @@ class Human36MMultiViewDataset(Dataset):
 
         sample.default_factory = None
         return sample
+
+    def make_undistort(self):
+        print("... computing distorted meshgrids")
+        
+        n_subjects = len(self.labels['subject_names'])
+        n_cameras = len(self.labels['camera_names'])
+        meshgrids = np.empty((n_subjects, n_cameras), dtype=object)
+
+        for sample_idx in range(len(self.labels['table'])):
+            subject_idx = self.labels['table']['subject_idx'][sample_idx]
+            
+            if not meshgrids[subject_idx].any():
+                bboxes = self.labels['table']['bbox_by_camera_tlbr'][sample_idx]
+            
+                if (bboxes[:, 2] - bboxes[:, 0]).min() > 0:  # if == 0, then some camera is missing
+                    sample = self.__getitem__(sample_idx, force_undistort=False)
+                    assert len(sample['images']) == n_cameras
+            
+                    for camera_idx, (camera, image) in enumerate(zip(sample['cameras'], sample['images'])):
+                        h, w = image.shape[:2]
+                        
+                        fx, fy = camera.K[0, 0], camera.K[1, 1]
+                        cx, cy = camera.K[0, 2], camera.K[1, 2]
+                        
+                        grid_x = (np.arange(w, dtype=np.float32) - cx) / fx
+                        grid_y = (np.arange(h, dtype=np.float32) - cy) / fy
+                        meshgrid = np.stack(np.meshgrid(grid_x, grid_y), axis=2).reshape(-1, 2)
+
+                        # distort meshgrid points
+                        k = camera.dist[:3].copy(); k[2] = camera.dist[-1]
+                        p = camera.dist[2:4].copy()
+                        
+                        r2 = meshgrid[:, 0] ** 2 + meshgrid[:, 1] ** 2
+                        radial = meshgrid * (1 + k[0] * r2 + k[1] * r2**2 + k[2] * r2**3).reshape(-1, 1)
+                        tangential_1 = p.reshape(1, 2) * np.broadcast_to(meshgrid[:, 0:1] * meshgrid[:, 1:2], (len(meshgrid), 2))
+                        tangential_2 = p[::-1].reshape(1, 2) * (meshgrid**2 + np.broadcast_to(r2.reshape(-1, 1), (len(meshgrid), 2)))
+
+                        meshgrid = radial + tangential_1 + tangential_2
+
+                        # move back to screen coordinates
+                        meshgrid *= np.array([fx, fy]).reshape(1, 2)
+                        meshgrid += np.array([cx, cy]).reshape(1, 2)
+
+                        # cache (save) distortion maps
+                        meshgrids[subject_idx, camera_idx] = cv2.convertMaps(meshgrid.reshape((h, w, 2)), None, cv2.CV_16SC2)
+
+        self.meshgrids = meshgrids
 
     def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):
         def evaluate_by_actions(self, per_pose_error, mask=None):
@@ -271,16 +335,16 @@ class Human36MMultiViewDataset(Dataset):
         # mean error per 16/17 joints in mm, for each pose
         per_pose_error = np.sqrt(((keypoints_gt - keypoints_3d_predicted) ** 2).sum(2)).mean(1)
 
-        # relative mean error per 16/17 joints in mm, for each pose
+        # relative (to the pelvis) mean error per 16/17 joints in mm, for each pose
         if not (transfer_cmu_to_human36m or transfer_human36m_to_human36m):
-            root_index = 6 if self.kind == "mpii" else 6
+            root_index = 6 if self.kind == "mpii" else 6  # the pelvis
         else:
-            root_index = 0
+            root_index = 0  # the pelvis
 
         keypoints_gt_relative = keypoints_gt - keypoints_gt[:, root_index:root_index + 1, :]
         keypoints_3d_predicted_relative = keypoints_3d_predicted - keypoints_3d_predicted[:, root_index:root_index + 1, :]
 
-        per_pose_error_relative = np.sqrt(((keypoints_gt_relative - keypoints_3d_predicted_relative) ** 2).sum(2)).mean(1)
+        per_pose_error_relative = np.sqrt(((keypoints_gt_relative - keypoints_3d_predicted_relative) ** 2).sum(2)).mean(1)  # should be (alg, vol) = (22.6, 20.8), excluding 'with_damaged_actions' frames
 
         result = {
             'per_pose_error': self.evaluate_using_per_pose_error(per_pose_error, split_by_subject),

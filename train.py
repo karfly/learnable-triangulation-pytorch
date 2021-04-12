@@ -53,7 +53,6 @@ def parse_args():
 def setup_human36m_dataloaders(config, is_train, distributed_train):
     train_dataloader = None
     if is_train:
-        # train
         train_dataset = human36m.Human36MMultiViewDataset(
             h36m_root=config.dataset.train.h36m_root,
             pred_results_path=config.dataset.train.pred_results_path if hasattr(config.dataset.train, "pred_results_path") else None,
@@ -70,6 +69,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
         )
+        train_dataset.make_undistort()
+        print("  training dataset length:", len(train_dataset))
 
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if distributed_train else None
 
@@ -105,6 +106,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
     )
+    val_dataset.make_undistort()
+    print("  validation dataset length:", len(train_dataset))
 
     val_dataloader = DataLoader(
         val_dataset,
@@ -252,7 +255,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                     )
                                 )  # ~ 17, 2
 
-                                if True:# todo debug only
+                                if False:  # todo debug only
                                     current_view = images_batch[0, 0, 0].detach().cpu().numpy()  # grayscale only
                                     canvas = normalize_transformation((0, 255))(current_view)
                                     canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
@@ -261,21 +264,18 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                     for pt in keypoints_2d_gt_proj.detach().cpu():
                                         cv2.circle(
                                             canvas, tuple(pt.astype(int)),
-                                            2, color=(255, 0, 0), thickness=3
-                                        )
+                                            2, color=(0, 255, 0), thickness=3
+                                        )  # green
                                     
                                     # draw circles where predicted keypoints are
                                     for pt in keypoints_2d_true_pred.detach().cpu():
                                         cv2.circle(
                                             canvas, tuple(pt.astype(int)),
                                             2, color=(0, 0, 255), thickness=3
-                                        )
+                                        )  # red
 
-                                    # save img to file e.g ...*jpg
-                                    cv2.imwrite('/projects/p_humanpose/wow.jpg', canvas)
-
-                                    1/0  # breakpoint
-
+                                    f_out = '/home/stfo194b/wow_{}_{}.jpg'.format(batch_i, view_i)
+                                    cv2.imwrite(f_out, canvas)
 
                                 pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
                                 gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
@@ -325,6 +325,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                     minimon.leave('backward pass')
 
+                # breakpoint 1/0
+
                 results['keypoints_3d'].append(
                     keypoints_3d_pred.detach().cpu().numpy()
                 )  # save answers for evaluation
@@ -340,7 +342,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         try:
             scalar_metric, full_metric = dataloader.dataset.evaluate(
                 results['keypoints_3d']
-            )  # 3D MPJPE
+            )  # 3D MPJPE (relative to pelvis), all MPJPEs
         except Exception as e:
             print("Failed to evaluate: ", e)
             scalar_metric, full_metric = 0.0, {}

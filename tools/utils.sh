@@ -26,14 +26,18 @@ function seeMetrics () {
     echo
 }
 
-function getLastJob () {
-    squeue -u ${USER} | tail -n 1 | awk "{print \$1}"
-}
+# e.g backupLog '/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@12.04.2021-17:01:07' '/projects/p_humanpose/learnable-triangulation/good_logs'
+function backupLog () {
+    src_folder=$1
+    backup_folder=$2
+    dest_folder=${backup_folder}/$(basename ${src_folder})
 
-function showLastOut () {
-    cat $(getLastJob).out
-}
+    # copy all metrics = everything except checkpoints and results
+    rsync -vrtlS --size-only --exclude '*.pth' --exclude '*.pkl' --exclude 'tb' ${src_folder} ${backup_folder}
 
-function showLastErr () {
-    cat $(getLastJob).err
+    # copy everything from last checkpoint (useful for continuing training)
+    last_ckp=$(find ${src_folder}/checkpoints -maxdepth 1 -type d | sort | tail -n1)
+    cp -r ${last_ckp} ${dest_folder}/checkpoints
+
+    du -sh ${dest_folder}
 }

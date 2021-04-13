@@ -8,6 +8,7 @@ from collections import defaultdict
 from itertools import islice
 import pickle
 import copy
+import traceback
 
 import numpy as np
 import cv2
@@ -194,13 +195,15 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         images_batch,
                         proj_matricies_batch,
                         batch,
-                        minimon  # todo refactor
+                        minimon,
+                        in_cpu=True
                     )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
                         images_batch,
                         proj_matricies_batch,
-                        batch
+                        batch,
+                        minimon
                     )
 
                 minimon.leave('forward pass')
@@ -342,8 +345,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 results['keypoints_3d'],
                 indices_predicted=results['indexes']
             )  # average 3D MPJPE (relative to pelvis), all MPJPEs
-        except Exception as e:
-            print("Failed to evaluate: ", e)
+        except:
+            print("Failed to evaluate")
+            traceback.print_exc()  # more info
+
             scalar_metric, full_metric = 0.0, {}
 
         checkpoint_dir = os.path.join(

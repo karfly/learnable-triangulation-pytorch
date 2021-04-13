@@ -153,7 +153,8 @@ class AlgebraicTriangulationNet(nn.Module):
         # reshape n_views dimension to batch dimension
         images = images.view(-1, *images.shape[2:])
 
-        minimon.enter()
+        if minimon:
+            minimon.enter()
 
         # forward backbone and integral
         if self.use_confidences:
@@ -162,7 +163,8 @@ class AlgebraicTriangulationNet(nn.Module):
             heatmaps, _, _, _ = self.backbone(images)
             alg_confidences = torch.ones(batch_size * n_views, heatmaps.shape[1]).type(torch.float).to(device)
 
-        minimon.leave('forward backbone and integral')
+        if minimon:
+            minimon.leave('alg: backbone')
 
         heatmaps_before_softmax = heatmaps.view(batch_size, n_views, *heatmaps.shape[1:])
         keypoints_2d, heatmaps = op.integrate_tensor_2d(heatmaps * self.heatmap_multiplier, self.heatmap_softmax)
@@ -188,36 +190,40 @@ class AlgebraicTriangulationNet(nn.Module):
         keypoints_2d = keypoints_2d_transformed
 
         # triangulate
-        minimon.enter()
+        if minimon:
+            minimon.enter()
 
         try:
-            # current_device = torch.cuda.current_device()
-
             if in_cpu:
-                minimon.enter()
+                if minimon:
+                    minimon.enter()
 
                 keypoints_3d = multiview.triangulate_batch_of_points(
                     proj_matricies.cpu(), keypoints_2d.cpu(),
                     confidences_batch=alg_confidences.cpu()
                 )
                 
-                minimon.leave('triangulate using CPU')
+                if minimon:
+                    minimon.leave('alg: tri in CPU')  # 0.3 seconds VS ...
             else:
-                minimon.enter()
+                if minimon:
+                    minimon.enter()
                 
                 keypoints_3d = multiview.triangulate_batch_of_points(
                     proj_matricies, keypoints_2d,
                     confidences_batch=alg_confidences
                 )
 
-                minimon.leave('triangulate using GPU')
+                if minimon:
+                    minimon.leave('alg: tri in GPU')  # ... 1.0 seconds
         except RuntimeError as e:
             print("Error: ", e)
 
             print("proj_matricies = ", proj_matricies)
             exit()
 
-        minimon.leave('triangulate')
+        if minimon:
+            minimon.leave('alg: triangulate')
 
         return keypoints_3d, keypoints_2d, heatmaps, alg_confidences  # predictions + confidence
 
@@ -264,15 +270,23 @@ class VolumetricTriangulationNet(nn.Module):
         self.volume_net = V2VModel(32, self.num_joints)
 
 
-    def forward(self, images, proj_matricies, batch):
+    def forward(self, images, proj_matricies, batch, minimon=None):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
         # reshape for backbone forward
         images = images.view(-1, *images.shape[2:])
 
-        # forward backbone
+        if minimon:
+            minimon.enter()
+
+        if minimon:
+            minimon.enter()
+
         heatmaps, features, _, vol_confidences = self.backbone(images)
+
+        if minimon:
+            minimon.leave('vol: backbone')
 
         # reshape back
         images = images.view(batch_size, n_views, *images.shape[1:])
@@ -282,7 +296,7 @@ class VolumetricTriangulationNet(nn.Module):
         if vol_confidences is not None:
             vol_confidences = vol_confidences.view(batch_size, n_views, *vol_confidences.shape[1:])
 
-        # calcualte shapes
+        # calculate shapes
         image_shape, heatmap_shape = tuple(images.shape[3:]), tuple(heatmaps.shape[3:])
         n_joints = heatmaps.shape[2]
 
@@ -300,6 +314,9 @@ class VolumetricTriangulationNet(nn.Module):
         proj_matricies = proj_matricies.float().to(device)
 
         # build coord volumes
+        if minimon:
+            minimon.enter()
+
         cuboids = []
         base_points = torch.zeros(batch_size, 3, device=device)
         coord_volumes = torch.zeros(batch_size, self.volume_size, self.volume_size, self.volume_size, 3, device=device)
@@ -362,16 +379,34 @@ class VolumetricTriangulationNet(nn.Module):
 
             coord_volumes[batch_i] = coord_volume
 
+        if minimon:
+            minimon.leave('vol: build coord vol')
+
         # process features before unprojecting
         features = features.view(-1, *features.shape[2:])
         features = self.process_features(features)
         features = features.view(batch_size, n_views, *features.shape[1:])
 
         # lift to volume
+        if minimon:
+            minimon.enter()
+
         volumes = op.unproject_heatmaps(features, proj_matricies, coord_volumes, volume_aggregation_method=self.volume_aggregation_method, vol_confidences=vol_confidences)
 
+        if minimon:
+            minimon.leave('vol: unproject')
+
         # integral 3d (V2V)
+        if minimon:
+            minimon.enter()
+
         volumes = self.volume_net(volumes)
-        vol_keypoints_3d, volumes = op.integrate_tensor_3d_with_coordinates(volumes * self.volume_multiplier, coord_volumes, softmax=self.volume_softmax)
+        vol_keypoints_3d, volumes = op.integrate_tensor_3d_with_coordinates(volumes * self.volume_multiplier, coord_volumes, softmax=self.volume_softmax)  # soft-argmax
+
+        if minimon:
+            minimon.leave('vol: V2V')
+
+        if minimon:
+            minimon.leave('vol: triangulate')
 
         return vol_keypoints_3d, features, volumes, vol_confidences, cuboids, coord_volumes, base_points

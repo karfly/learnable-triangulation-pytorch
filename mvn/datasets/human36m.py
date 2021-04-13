@@ -320,8 +320,8 @@ class Human36MMultiViewDataset(Dataset):
 
     def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
         keypoints_gt = self.labels['table']['keypoints'][:,:self.num_keypoints]
-        
-        if indices_predicted:
+
+        if not (indices_predicted is None):
             keypoints_gt = keypoints_gt[indices_predicted]
 
         if keypoints_3d_predicted.shape != keypoints_gt.shape:

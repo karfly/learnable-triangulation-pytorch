@@ -146,7 +146,7 @@ class AlgebraicTriangulationNet(nn.Module):
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
 
-    def forward(self, images, proj_matricies, batch, minimon=None):
+    def forward(self, images, proj_matricies, batch, minimon=None, in_cpu=False):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
@@ -191,10 +191,26 @@ class AlgebraicTriangulationNet(nn.Module):
         minimon.enter()
 
         try:
-            keypoints_3d = multiview.triangulate_batch_of_points(
-                proj_matricies, keypoints_2d,
-                confidences_batch=alg_confidences
-            )  # todo faster
+            # current_device = torch.cuda.current_device()
+
+            if in_cpu:
+                minimon.enter()
+
+                keypoints_3d = multiview.triangulate_batch_of_points(
+                    proj_matricies.cpu(), keypoints_2d.cpu(),
+                    confidences_batch=alg_confidences.cpu()
+                )
+                
+                minimon.leave('triangulate using CPU')
+            else:
+                minimon.enter()
+                
+                keypoints_3d = multiview.triangulate_batch_of_points(
+                    proj_matricies, keypoints_2d,
+                    confidences_batch=alg_confidences
+                )
+
+                minimon.leave('triangulate using GPU')
         except RuntimeError as e:
             print("Error: ", e)
 

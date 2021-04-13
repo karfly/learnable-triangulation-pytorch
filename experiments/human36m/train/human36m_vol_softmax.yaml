@@ -61,6 +61,7 @@ dataset:
   train:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    pred_results_path: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
 
     with_damaged_actions: false
     undistort_images: false
@@ -78,7 +79,8 @@ dataset:
   val:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    
+    pred_results_path: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
+
     with_damaged_actions: false
     undistort_images: false
 

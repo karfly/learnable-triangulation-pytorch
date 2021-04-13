@@ -321,7 +321,6 @@ class VolumetricTriangulationNet(nn.Module):
         base_points = torch.zeros(batch_size, 3, device=device)
         coord_volumes = torch.zeros(batch_size, self.volume_size, self.volume_size, self.volume_size, 3, device=device)
         for batch_i in range(batch_size):
-            # if self.use_precalculated_pelvis:
             if self.use_gt_pelvis:
                 keypoints_3d = batch['keypoints_3d'][batch_i]
             else:
@@ -335,7 +334,9 @@ class VolumetricTriangulationNet(nn.Module):
             base_points[batch_i] = torch.from_numpy(base_point).to(device)
 
             # build cuboid L x L x L
-            sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
+            sides = np.array([
+                self.cuboid_side, self.cuboid_side, self.cuboid_side
+            ])
             position = base_point - sides / 2
             cuboid = volumetric.Cuboid3D(position, sides)
 

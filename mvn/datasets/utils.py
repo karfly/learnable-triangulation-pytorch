@@ -20,8 +20,21 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
         else:
             indexes = np.arange(total_n_views)
 
-        batch['images'] = np.stack([np.stack([item['images'][i] for item in items], axis=0) for i in indexes], axis=0).swapaxes(0, 1)
-        batch['detections'] = np.array([[item['detections'][i] for item in items] for i in indexes]).swapaxes(0, 1)
+        batch['images'] = np.stack([
+            np.stack([
+                item['images'][i]
+                for item in items
+            ], axis=0)
+            for i in indexes
+        ], axis=0).swapaxes(0, 1)
+        batch['detections'] = np.array(
+            [
+                [
+                    item['detections'][i] for item in items
+                ]
+                for i in indexes
+            ]
+        ).swapaxes(0, 1)
         batch['cameras'] = [[item['cameras'][i] for item in items] for i in indexes]
 
         batch['keypoints_3d'] = [item['keypoints_3d'] for item in items]
@@ -29,7 +42,10 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
         batch['indexes'] = [item['indexes'] for item in items]
 
         try:
-            batch['pred_keypoints_3d'] = np.array([item['pred_keypoints_3d'] for item in items])
+            batch['pred_keypoints_3d'] = np.array([
+                item['pred_keypoints_3d']
+                for item in items
+            ])
         except:
             pass
 

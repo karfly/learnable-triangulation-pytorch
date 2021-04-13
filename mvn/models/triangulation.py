@@ -314,9 +314,6 @@ class VolumetricTriangulationNet(nn.Module):
         proj_matricies = proj_matricies.float().to(device)
 
         # build coord volumes
-        if minimon:
-            minimon.enter()
-
         cuboids = []
         base_points = torch.zeros(batch_size, 3, device=device)
         coord_volumes = torch.zeros(batch_size, self.volume_size, self.volume_size, self.volume_size, 3, device=device)
@@ -380,28 +377,19 @@ class VolumetricTriangulationNet(nn.Module):
 
             coord_volumes[batch_i] = coord_volume
 
-        if minimon:
-            minimon.leave('vol: build coord vol')
-
         # process features before unprojecting
         features = features.view(-1, *features.shape[2:])
         features = self.process_features(features)
         features = features.view(batch_size, n_views, *features.shape[1:])
 
         # lift to volume
-        if minimon:
-            minimon.enter()
-
         volumes = op.unproject_heatmaps(
             features,
             proj_matricies,
             coord_volumes,
             volume_aggregation_method=self.volume_aggregation_method,
             vol_confidences=vol_confidences
-        )
-
-        if minimon:
-            minimon.leave('vol: unproject')
+        )  # ~ 0 seconds
 
         # integral 3d (V2V)
         if minimon:

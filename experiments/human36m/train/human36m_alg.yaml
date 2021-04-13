@@ -71,7 +71,7 @@ dataset:
 
     scale_bbox: 1.0
 
-    shuffle: false
+    shuffle: true
     randomize_n_views: false
     min_n_views: 3
     max_n_views: 31

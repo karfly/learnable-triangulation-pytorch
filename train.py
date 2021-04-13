@@ -437,9 +437,18 @@ def main(args):
     if not args.eval:
         if config.model.name == "vol":
             opt = torch.optim.Adam(
-                [{'params': model.backbone.parameters()},
-                 {'params': model.process_features.parameters(), 'lr': config.opt.process_features_lr if hasattr(config.opt, "process_features_lr") else config.opt.lr},
-                 {'params': model.volume_net.parameters(), 'lr': config.opt.volume_net_lr if hasattr(config.opt, "volume_net_lr") else config.opt.lr}
+                [
+                    {
+                        'params': model.backbone.parameters()
+                    },
+                    {
+                        'params': model.process_features.parameters(),
+                        'lr': config.opt.process_features_lr if hasattr(config.opt, "process_features_lr") else config.opt.lr
+                    },
+                    {
+                        'params': model.volume_net.parameters(),
+                        'lr': config.opt.volume_net_lr if hasattr(config.opt, "volume_net_lr") else config.opt.lr
+                    }
                 ],
                 lr=config.opt.lr
             )
@@ -449,11 +458,7 @@ def main(args):
                 lr=config.opt.lr
             )
 
-    minimon.enter()
-
-    train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)
-
-    minimon.leave('setup_dataloaders')
+    train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)  # ~ 0 seconds
 
     if master:
         experiment_dir = setup_experiment(config, type(model).__name__, is_train=not args.eval)

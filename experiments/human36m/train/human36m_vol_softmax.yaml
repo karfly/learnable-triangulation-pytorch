@@ -12,12 +12,15 @@ opt:
   volumetric_ce_loss_weight: 0.01
 
   n_objects_per_epoch: 15000
-  n_epochs: 9999
+  n_epochs: 200
+  n_epochs_long: 1000
 
-  batch_size: 5
-  val_batch_size: 10
+  batch_size: 8
+  val_batch_size: 16
 
   lr: 0.0001
+  loss_3d: false
+  loss_2d: true
   process_features_lr: 0.001
   volume_net_lr: 0.001
 
@@ -29,7 +32,7 @@ model:
   volume_aggregation_method: "softmax"
 
   init_weights: false
-  checkpoint: ""
+  checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_vol_softmax_10-08-2019/checkpoints/0040/weights.pth"
 
   use_gt_pelvis: false
 
@@ -47,7 +50,7 @@ model:
     style: "simple"
 
     init_weights: true
-    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+    checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
 
     num_joints: 17
     num_layers: 152
@@ -56,35 +59,35 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
-    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
+    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+    labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
 
-    with_damaged_actions: true
-    undistort_images: true
+    with_damaged_actions: false
+    undistort_images: false
 
     scale_bbox: 1.0
 
     shuffle: true
     randomize_n_views: false
-    min_n_views: null
-    max_n_views: null
+    min_n_views: 3
+    max_n_views: 31
     num_workers: 5
 
-  val:
-    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/processed/"
-    labels_path: "/scratch/ws/0/stfo194b-p_humanpose/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
-    pred_results_path: "/scratch/ws/0/stfo194b-p_humanpose/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
+    retain_every_n_frames_in_train: 4000
 
-    with_damaged_actions: true
-    undistort_images: true
+  val:
+    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+    labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
+    
+    with_damaged_actions: false
+    undistort_images: false
 
     scale_bbox: 1.0
 
     shuffle: false
     randomize_n_views: false
-    min_n_views: null
-    max_n_views: null
+    min_n_views: 3
+    max_n_views: 31
     num_workers: 10
 
-    retain_every_n_frames_in_test: 1
+    retain_every_n_frames_in_test: 500

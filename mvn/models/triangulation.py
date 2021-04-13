@@ -391,7 +391,13 @@ class VolumetricTriangulationNet(nn.Module):
         if minimon:
             minimon.enter()
 
-        volumes = op.unproject_heatmaps(features, proj_matricies, coord_volumes, volume_aggregation_method=self.volume_aggregation_method, vol_confidences=vol_confidences)
+        volumes = op.unproject_heatmaps(
+            features,
+            proj_matricies,
+            coord_volumes,
+            volume_aggregation_method=self.volume_aggregation_method,
+            vol_confidences=vol_confidences
+        )
 
         if minimon:
             minimon.leave('vol: unproject')

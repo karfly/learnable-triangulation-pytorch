@@ -178,12 +178,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
         minimon.enter()
 
-        for iter_i, batch in iterator:  # batch ~ 
-            print(iter_i, get_size(batch), 'kb')
-
+        for iter_i, batch in iterator:  # batch 8 images ~ 384 x 384 => 27.36 KB = 0.0267 MB
             if iter_i == 0:
                 if is_train:
-                    minimon.leave('load 1 training batch')
+                    minimon.leave('load 1 train batch')
                 else:
                     minimon.leave('load 1 eval batch')
 
@@ -468,6 +466,8 @@ def main(args):
         model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:
+        print('sizes train ~', get_size(train_dataloader), 'eval ~', get_size(val_dataloader))
+
         minimon.enter()
 
         n_iters_total_train, n_iters_total_val = 0, 0
@@ -503,6 +503,7 @@ def main(args):
                 print('=' * 71)
 
         minimon.leave('main loop')
+        print('sizes train ~', get_size(train_dataloader), 'eval ~', get_size(val_dataloader))
     else:
         minimon.enter()
 

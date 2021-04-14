@@ -128,6 +128,7 @@ class Human36MMultiViewDataset(Dataset):
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
         self.meshgrids = None
+        self.cached_images = {}
 
     def __len__(self):
         return len(self.labels['table'])
@@ -166,7 +167,13 @@ class Human36MMultiViewDataset(Dataset):
                 print('%s doesn\'t exist' % image_path)  # find them!
                 continue
 
-            image = cv2.imread(image_path)
+            if image_path in self.cached_images:
+                print('using pre-cached image')
+                image = self.cached_images[image_path]
+            else:
+                print('caching image', image_path)
+                image = cv2.imread(image_path)
+                self.cached_images[image_path] = image
 
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]

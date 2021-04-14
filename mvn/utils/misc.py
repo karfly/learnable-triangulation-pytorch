@@ -2,6 +2,7 @@ import os
 import yaml
 import json
 import re
+from sys import getsizeof
 
 import torch
 
@@ -53,3 +54,12 @@ def normalize_transformation(feature_range):
         return x
 
     return _f
+
+
+def get_size(x, mb=True):
+    kb = getsizeof(x) / 1024.0
+    
+    if mb:
+        return kb / 1024.0
+    
+    return kb

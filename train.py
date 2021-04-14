@@ -30,7 +30,7 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.utils.misc import normalize_transformation
+from mvn.utils.misc import normalize_transformation, get_size
 
 minimon = MiniMon()
 
@@ -176,7 +176,17 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
+        minimon.enter()
+
         for iter_i, batch in iterator:
+            print(iter_i, get_size(batch), 'mb')
+
+            if iter_i == 0:
+                if is_train:
+                    minimon.leave('load 1 training batch')
+                else:
+                    minimon.leave('load 1 eval batch')
+
             with autograd.detect_anomaly():
                 if batch is None:
                     print('iter #{:d}: found None batch'.format(iter_i))
@@ -463,7 +473,7 @@ def main(args):
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
             if master:
-                f_out = '=' * 50 + ' starting epoch {:4d}'
+                f_out = '=' * 51 + ' starting epoch {:4d}'
                 print(f_out.format(epoch + 1))
 
             if train_sampler is not None:

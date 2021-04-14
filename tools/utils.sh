@@ -14,6 +14,7 @@ function seeMetrics () {
     echo "... on TRAINing set\n"
     for f in $(find ${checkpoints_folder} -name "metric_train.json" | sort);
     do
+        # getErrorAbsolute ${f}
         getErrorRelativeToPelvis ${f}
     done
     echo
@@ -21,6 +22,7 @@ function seeMetrics () {
     echo "... on EVALuation set\n"
     for f in $(find ${checkpoints_folder} -name "metric_eval.json" | sort);
     do
+        # getErrorAbsolute ${f}
         getErrorRelativeToPelvis ${f}
     done
     echo

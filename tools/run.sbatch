@@ -21,8 +21,8 @@ which python  # just to check
 
 CODE_FOLDER="/home/stfo194b/tesi/learnable-triangulation-pytorch"
 LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-# EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
-EXP_CONFIG="experiments/human36m/train/human36m_vol_softmax.yaml"
+EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
+# EXP_CONFIG="experiments/human36m/train/human36m_vol_softmax.yaml"
 
 cd ${CODE_FOLDER}
 pwd  # just to check

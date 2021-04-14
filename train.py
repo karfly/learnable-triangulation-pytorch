@@ -237,10 +237,10 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 if is_train:
                     total_loss = 0.0
 
-                    if config.opt.loss_2d:
-                        minimon.enter()
+                    minimon.enter()
 
-                        for batch_i in range(batch_size):  # todo use Tensors, not for loops
+                    if config.opt.loss_2d:  # ~ 0 seconds
+                        for batch_i in range(batch_size):
                             for view_i in range(n_views):
                                 keypoints_2d_gt_proj = torch.FloatTensor(
                                     project_3d_points_to_image_plane_without_distortion(
@@ -256,7 +256,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                     )
                                 )  # ~ 17, 2
 
-                                if False:  # todo debug only
+                                if False:  # debug only
                                     current_view = images_batch[batch_i, view_i, 0].detach().cpu().numpy()  # grayscale only
                                     canvas = normalize_transformation((0, 255))(current_view)
                                     canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
@@ -278,29 +278,22 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                     f_out = '/home/stfo194b/wow_{}_{}.jpg'.format(batch_i, view_i)
                                     cv2.imwrite(f_out, canvas)
 
-                                pred = keypoints_2d_true_pred.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                                gt = keypoints_2d_gt_proj.unsqueeze(0).cpu()  # ~ 1, 17, 2
-                                only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cpu()  # ~ 1, 17, 1
+                                pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
+                                gt = keypoints_2d_gt_proj.unsqueeze(0)  # ~ 1, 17, 2
+                                only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0)  # ~ 1, 17, 1
 
                                 total_loss += criterion(
-                                    pred, gt, only_valid
+                                    pred.cuda(), gt.cuda(), only_valid.cuda()
                                 )
 
-                        minimon.leave('calc loss 2D proj')
-
-                    if config.opt.loss_3d:
-                        minimon.enter()
-
+                    if config.opt.loss_3d:  # ~ 0 seconds
                         total_loss += criterion(
-                            keypoints_3d_pred * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_binary_validity_gt  # ~ 8, 17, 1
+                            keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                            keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                            keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
                         )  # 3D loss
 
-                        minimon.leave('calc loss 3D')
-
                     if use_volumetric_ce_loss:
-                        minimon.enter()
 
                         volumetric_ce_criterion = VolumetricCELoss()
 
@@ -312,7 +305,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                         total_loss += weight * loss
 
-                        minimon.leave('calc VOL loss')
+                    minimon.leave('calc loss')
 
                     minimon.enter()
 
@@ -326,15 +319,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                     minimon.leave('backward pass')
 
-                # breakpoint 1/0
-
                 results['keypoints_3d'].append(
                     keypoints_3d_pred.detach().cpu().numpy()
                 )  # save answers for evaluation
                 results['indexes'].append(batch['indexes'])
 
-    # calculate evaluation metrics
-    if master:
+    if master:  # calculate evaluation metrics
         minimon.enter()
 
         results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
@@ -473,7 +463,8 @@ def main(args):
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
             if master:
-                print('=== starting epoch', epoch + 1)
+                f_out = '=' * 50 + ' starting epoch {:4d}'
+                print(f_out.format(epoch + 1))
 
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
@@ -496,9 +487,10 @@ def main(args):
 
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
 
-                print('=== epoch', epoch + 1, 'complete!')
+                f_out = '=' * 50 + ' epoch {:4d} complete!'
+                print(f_out.format(epoch + 1))
                 minimon.print_stats(as_minutes=False)
-                print('==================')
+                print('=' * 71)
 
         minimon.leave('main loop')
     else:

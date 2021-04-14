@@ -30,7 +30,7 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.utils.misc import normalize_transformation, get_size
+from mvn.utils.misc import normalize_transformation
 
 minimon = MiniMon()
 
@@ -466,8 +466,6 @@ def main(args):
         model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:
-        print('sizes cache ~', get_size(train_dataloader))
-
         minimon.enter()
 
         n_iters_total_train, n_iters_total_val = 0, 0
@@ -499,7 +497,6 @@ def main(args):
                 print('=' * 71)
 
         minimon.leave('main loop')
-        print('sizes cache ~', get_size(train_dataloader))
     else:
         minimon.enter()
 

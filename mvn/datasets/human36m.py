@@ -13,9 +13,6 @@ from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_i
 from mvn.utils import volumetric
 
 
-CACHED_VIEWS = {}
-
-
 class Human36MMultiViewDataset(Dataset):
     """
         Human3.6M for multiview tasks.
@@ -131,13 +128,12 @@ class Human36MMultiViewDataset(Dataset):
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
         self.meshgrids = None
+        self.cached_images = {}
 
     def __len__(self):
         return len(self.labels['table'])
 
     def __getitem__(self, idx):
-        print('getting', idx, ' ... cache has', list(CACHED_VIEWS.keys()))
-
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
 
@@ -153,7 +149,7 @@ class Human36MMultiViewDataset(Dataset):
                 continue
 
             # load bounding box
-            bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1,0,3,2]] # TLBR to LTRB
+            bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1, 0, 3, 2]]  # TLBR to LTRB
             bbox_height = bbox[2] - bbox[0]
             if bbox_height == 0:
                 # convention: if the bbox is empty, then this view is missing
@@ -171,26 +167,21 @@ class Human36MMultiViewDataset(Dataset):
                 print('%s doesn\'t exist' % image_path)  # find them!
                 continue
 
-            if image_path in CACHED_VIEWS:
-                print('using pre-cached image')
-                image = CACHED_VIEWS[image_path]
+            if image_path in self.cached_images:
+                image = self.cached_images[image_path]
             else:
-                print('caching image', image_path)
                 image = cv2.imread(image_path)
-                CACHED_VIEWS[image_path] = image
-                print('... now cache contains', list(CACHED_VIEWS.keys()))
+                self.cached_images[image_path] = image
 
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
             retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
 
-            if self.crop:
-                # crop image
+            if self.crop:  # crop image
                 image = crop_image(image, bbox)
                 retval_camera.update_after_crop(bbox)
 
-            if self.image_shape is not None:
-                # resize
+            if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
                 image = resize_image(image, self.image_shape)
                 retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)

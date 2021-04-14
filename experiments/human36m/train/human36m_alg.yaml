@@ -58,7 +58,7 @@ dataset:
     randomize_n_views: false
     min_n_views: 3
     max_n_views: 31
-    num_workers: 8
+    num_workers: 0
 
     retain_every_n_frames_in_train: 4000
 
@@ -75,6 +75,6 @@ dataset:
     randomize_n_views: false
     min_n_views: 3
     max_n_views: 31
-    num_workers: 8
+    num_workers: 0
 
     retain_every_n_frames_in_test: 500

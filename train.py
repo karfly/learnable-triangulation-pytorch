@@ -472,10 +472,6 @@ def main(args):
 
         n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
-            if master:
-                f_out = '=' * 51 + ' starting epoch {:4d}'
-                print(f_out.format(epoch + 1))
-
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
 

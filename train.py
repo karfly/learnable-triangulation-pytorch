@@ -178,8 +178,8 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
         minimon.enter()
 
-        for iter_i, batch in iterator:
-            print(iter_i, get_size(batch), 'mb')
+        for iter_i, batch in iterator:  # batch ~ 
+            print(iter_i, get_size(batch), 'kb')
 
             if iter_i == 0:
                 if is_train:

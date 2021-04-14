@@ -13,6 +13,9 @@ from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_i
 from mvn.utils import volumetric
 
 
+CACHED_VIEWS = {}
+
+
 class Human36MMultiViewDataset(Dataset):
     """
         Human3.6M for multiview tasks.
@@ -128,12 +131,13 @@ class Human36MMultiViewDataset(Dataset):
                 f"has {len(self.keypoints_3d_pred)}. Did you follow all preprocessing instructions carefully?"
 
         self.meshgrids = None
-        self.cached_images = {}
 
     def __len__(self):
         return len(self.labels['table'])
 
     def __getitem__(self, idx):
+        print('getting', idx, ' ... cache has', list(CACHED_VIEWS.keys()))
+
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
 
@@ -167,13 +171,14 @@ class Human36MMultiViewDataset(Dataset):
                 print('%s doesn\'t exist' % image_path)  # find them!
                 continue
 
-            if image_path in self.cached_images:
+            if image_path in CACHED_VIEWS:
                 print('using pre-cached image')
-                image = self.cached_images[image_path]
+                image = CACHED_VIEWS[image_path]
             else:
                 print('caching image', image_path)
                 image = cv2.imread(image_path)
-                self.cached_images[image_path] = image
+                CACHED_VIEWS[image_path] = image
+                print('... now cache contains', list(CACHED_VIEWS.keys()))
 
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]

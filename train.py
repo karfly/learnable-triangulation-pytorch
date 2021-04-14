@@ -25,7 +25,7 @@ from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulat
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
-from mvn.datasets import human36m
+from mvn.datasets import human36m, CACHED_VIEWS
 from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
@@ -466,7 +466,7 @@ def main(args):
         model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:
-        print('sizes train ~', get_size(train_dataloader), 'eval ~', get_size(val_dataloader))
+        print('sizes cache ~', get_size(CACHED_VIEWS))
 
         minimon.enter()
 
@@ -503,7 +503,7 @@ def main(args):
                 print('=' * 71)
 
         minimon.leave('main loop')
-        print('sizes train ~', get_size(train_dataloader), 'eval ~', get_size(val_dataloader))
+        print('sizes cache ~', get_size(CACHED_VIEWS))
     else:
         minimon.enter()
 

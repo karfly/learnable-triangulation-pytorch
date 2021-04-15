@@ -70,7 +70,7 @@ dataset:
 
     shuffle: true
     randomize_n_views: false
-    min_n_views: 3
+    min_n_views: 4
     max_n_views: 31
     num_workers: 1
 
@@ -88,7 +88,7 @@ dataset:
 
     shuffle: true
     randomize_n_views: false
-    min_n_views: 3
+    min_n_views: 4
     max_n_views: 31
     num_workers: 1
 

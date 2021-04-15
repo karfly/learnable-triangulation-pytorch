@@ -199,8 +199,9 @@ class AlgebraicTriangulationNet(nn.Module):
                     minimon.enter()
 
                 keypoints_3d = multiview.triangulate_batch_of_points(
-                    proj_matricies.cpu(), keypoints_2d.cpu(),
-                    confidences_batch=alg_confidences.cpu()
+                    proj_matricies.cpu(),  # ~ (batch_size=8, n_views=4, 3, 4)
+                    keypoints_2d.cpu(),  # ~ (batch_size=8, n_views=4, 17, 2)
+                    confidences_batch=alg_confidences.cpu()  # ~ (batch_size=8, n_views=4, 17
                 )
                 
                 if minimon:
@@ -208,11 +209,18 @@ class AlgebraicTriangulationNet(nn.Module):
             else:
                 if minimon:
                     minimon.enter()
-                
-                keypoints_3d = multiview.triangulate_batch_of_points(
-                    proj_matricies, keypoints_2d,
-                    confidences_batch=alg_confidences
-                )
+
+                if True:
+                    keypoints_3d = multiview.triangulate_from_multiple_views_sii(
+                        proj_matricies.unsqueeze(0),
+                        keypoints_2d.unsqueeze(0)
+                    )  # GPU-friendly version from "Lightweight Multi-View 3D Pose Estimation through Camera-Disentangled Representation"
+                else:
+                    keypoints_3d = multiview.triangulate_batch_of_points(
+                        proj_matricies,
+                        keypoints_2d,
+                        confidences_batch=alg_confidences
+                    )
 
                 if minimon:
                     minimon.leave('alg: tri in GPU')  # ... 1.0 seconds

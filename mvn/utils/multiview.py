@@ -92,7 +92,7 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
         proj_matrix numpy array or torch tensor of shape (3, 4): projection matrix
         points_3d numpy array or torch tensor of shape (N, 3): 3D points
         convert_back_to_euclidean bool: if True, then resulting points will be converted to euclidean coordinates
-                                        NOTE: division by zero can be here if z = 0
+    NOTE: division by zero can be here if z = 0
     Returns:
         numpy array or torch tensor of shape (N, 2): 3D points projected to image plane
     """
@@ -110,10 +110,12 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
         raise TypeError("Works only with numpy arrays and PyTorch tensors.")
 
 
+def triangulate_point_from_multiple_views_in_master_space(proj_matricies, points):
+    pass  # todo
+
+
 def triangulate_point_from_multiple_views_linear(proj_matricies, points):
-    """Triangulates one point from multiple (N) views using direct linear transformation (DLT).
-    For more information look at "Multiple view geometry in computer vision",
-    Richard Hartley and Andrew Zisserman, 12.2 (p. 312).
+    """Triangulates one point from multiple (N) views using direct linear transformation (DLT). For more information look at "Multiple view geometry in computer vision", Richard Hartley and Andrew Zisserman, 12.2 (p. 312).
 
     Args:
         proj_matricies numpy array of shape (N, 3, 4): sequence of projection matricies (3x4)
@@ -130,7 +132,7 @@ def triangulate_point_from_multiple_views_linear(proj_matricies, points):
         A[j * 2 + 0] = points[j][0] * proj_matricies[j][2, :] - proj_matricies[j][0, :]
         A[j * 2 + 1] = points[j][1] * proj_matricies[j][2, :] - proj_matricies[j][1, :]
 
-    u, s, vh = np.linalg.svd(A, full_matrices=False)  # todo test on CPU
+    u, s, vh = np.linalg.svd(A, full_matrices=False)
     point_3d_homo = vh[3, :]
 
     point_3d = homogeneous_to_euclidean(point_3d_homo)
@@ -139,8 +141,7 @@ def triangulate_point_from_multiple_views_linear(proj_matricies, points):
 
 
 def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, confidences=None):
-    """Similar as triangulate_point_from_multiple_views_linear() but for PyTorch.
-    For more information see its documentation.
+    """ = triangulate_point_from_multiple_views_linear for PyTorch.
     Args:
         proj_matricies torch tensor of shape (N, 3, 4): sequence of projection matricies (3x4), where N is the number of views
         points torch tensor of of shape (N, 2): sequence of points' coordinates
@@ -168,18 +169,67 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
     return point_3d
 
 
+def triangulate_from_multiple_views_sii(proj_matricies, points, n_iter=2):
+    """ This module lifts batch_size 2d detections obtained from n_views viewpoints to 3D using the DLT method. It computes the eigenvector associated to the smallest eigenvalue using the Shifted Inverse Iterations algorithm.
+    Args:
+        proj_matricies torch tensor of shape (batch_size, n_views, 3, 4): sequence of projection matricies (3x4)
+        points torch tensor of of shape (batch_size, n_views, 2): sequence of points' coordinates
+    Returns:
+        point_3d torch tensor of shape (batch_size, 3): triangulated points
+    """
+
+    batch_size = proj_matricies.shape[0]
+    n_views = proj_matricies.shape[1]
+
+    # assemble linear system
+    A = proj_matricies[:, :, 2:3].expand(batch_size, n_views, 2, 4) * points.view(-1, n_views, 2, 1)
+    A -= proj_matricies[:, :, :2]
+    A = A.view(batch_size, -1, 4)
+
+    AtA = A.permute(0, 2, 1).matmul(A).float()
+    I = torch.eye(4).reshape(1, 4, 4).repeat(batch_size, 1, 1).to(A.device)
+    B = AtA + 0.001 * I  # avoid numerical errors
+
+    # initialize normalized random vector
+    bk = torch.rand(batch_size, 4, 1).float().to(AtA.device)
+    norm_bk = torch.sqrt(bk.permute(0, 2, 1).matmul(bk))
+    bk = bk / norm_bk
+    
+    for k in range(n_iter):
+        bk, _ = torch.solve(bk, B)
+        norm_bk = torch.sqrt(bk.permute(0, 2, 1).matmul(bk))
+        bk = bk / norm_bk
+
+    point_3d_homo = -bk.squeeze(-1)
+    point_3d = homogeneous_to_euclidean(point_3d_homo)
+
+    return point_3d
+
+
 def triangulate_batch_of_points(proj_matricies_batch, points_batch, confidences_batch=None):
     """ proj matrices, keypoints 2D (pred), confidences """
 
     batch_size, n_views, n_joints = points_batch.shape[:3]
-    point_3d_batch = torch.zeros(batch_size, n_joints, 3, dtype=torch.float32, device=points_batch.device)
+    point_3d_batch = torch.zeros(
+        batch_size,
+        n_joints,
+        3,
+        dtype=torch.float32,
+        device=points_batch.device
+    )  # ~ (batch_size=8, n_joints=17, 3)
 
-    for batch_i in range(batch_size):
-        for joint_i in range(n_joints):
+    # todo use https://github.com/edoRemelli/DiffDLT/blob/master/dlt.py#L42
+
+    for batch_i in range(batch_size):  # 8
+        for joint_i in range(n_joints):  # 17
             points = points_batch[batch_i, :, joint_i, :]
 
             confidences = confidences_batch[batch_i, :, joint_i] if confidences_batch is not None else None
-            point_3d = triangulate_point_from_multiple_views_linear_torch(proj_matricies_batch[batch_i], points, confidences=confidences)
+            point_3d = triangulate_point_from_multiple_views_linear_torch(
+                proj_matricies_batch[batch_i],  # ~ (n_views=4, 3, 4)
+                points,  # ~ (n_views=4, 2)
+                confidences=confidences  # ~ (n_views=4, )
+            )  # ~ (3, )
             point_3d_batch[batch_i, joint_i] = point_3d
 
     return point_3d_batch

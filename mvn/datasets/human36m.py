@@ -100,10 +100,9 @@ class Human36MMultiViewDataset(Dataset):
             if not with_damaged_actions:
                 mask_S9 = self.labels['table']['subject_idx'] == self.labels['subject_names'].index('S9')
 
-                damaged_actions = 'Greeting-2', 'SittingDown-2', 'Waiting-1'
                 damaged_actions = [
                     self.labels['action_names'].index(x)
-                    for x in damaged_actions
+                    for x in ['Greeting-2', 'SittingDown-2', 'Waiting-1']
                 ]
                 mask_damaged_actions = np.isin(self.labels['table']['action_idx'], damaged_actions)
 
@@ -166,9 +165,13 @@ class Human36MMultiViewDataset(Dataset):
                 print('%s doesn\'t exist' % image_path)  # find them!
                 continue
 
+            image = cv2.imread(image_path)
+
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
-            retval_camera = Camera(shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name)
+            retval_camera = Camera(
+                shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name
+            )
 
             if self.crop:  # crop image
                 image = crop_image(image, bbox)
@@ -189,7 +192,7 @@ class Human36MMultiViewDataset(Dataset):
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
-        if self.meshgrids:
+        if self.meshgrids:  # undistort, call `self.make_meshgrids` beforehand
             available_cameras = list(range(len(self.labels['action_names'])))
             for camera_idx, bbox in enumerate(shot['bbox_by_camera_tlbr']):
                 if bbox[2] == bbox[0]:  # bbox is empty, which means that this camera is missing
@@ -222,8 +225,6 @@ class Human36MMultiViewDataset(Dataset):
         return sample
 
     def make_meshgrids(self):
-        print("  computing distorted meshgrids")
-
         n_subjects = len(self.labels['subject_names'])
         n_cameras = len(self.labels['camera_names'])
         meshgrids = np.empty((n_subjects, n_cameras), dtype=object)

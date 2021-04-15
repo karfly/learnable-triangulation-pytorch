@@ -181,9 +181,9 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
         for iter_i, batch in iterator:  # batch 8 images ~ 384 x 384 => 27.36 KB = 0.0267 MB
             if iter_i == 0:
                 if is_train:
-                    minimon.leave('load 1 train batch')
+                    minimon.leave('load first train batch')
                 else:
-                    minimon.leave('load 1 eval batch')
+                    minimon.leave('load first eval batch')
 
             with autograd.detect_anomaly():
                 if batch is None:
@@ -192,7 +192,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
 
                 images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
                     batch, device, config
-                )  # proj_matricies_batch ~ (batch_size=8, n_views=4, 3, 4)
+                )
                 keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
                 keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
@@ -201,7 +201,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 if model_type == "alg" or model_type == "ransac":
                     keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                         images_batch,
-                        proj_matricies_batch,
+                        proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
                         batch,
                         minimon,
                         in_cpu=True
@@ -240,7 +240,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 #     - HSV
                 #     - crops (look for references)
                 #     - syntethic occlusions (look for references)
-                # - todo use GPU friendly SVD implementation (first on CPU)
 
                 if is_train:
                     total_loss = 0.0
@@ -515,6 +514,3 @@ if __name__ == '__main__':
     main(args)
 
     minimon.print_stats(as_minutes=False)
-
-# todo try vol VS alg (SVD in cpu)
-# todo train longer on lr=1e-5

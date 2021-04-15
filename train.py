@@ -203,8 +203,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                         images_batch,
                         proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
                         batch,
-                        minimon,
-                        in_cpu=True
+                        minimon
                     )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
                 elif model_type == "vol":
                     keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(

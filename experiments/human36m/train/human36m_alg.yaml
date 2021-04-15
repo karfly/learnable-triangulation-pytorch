@@ -10,6 +10,7 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
+  n_epochs_fast: 10
   n_epochs: 200
   n_epochs_long: 1000
 
@@ -21,6 +22,10 @@ opt:
   loss_2d: true
 
   scale_keypoints_3d: 0.1
+
+svd:
+  in_cpu: false
+  gpu_friendly: true
 
 model:
   name: "alg"
@@ -47,6 +52,7 @@ dataset:
 
   train:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+    h36m_root.scratch: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed.scratch/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
 
     with_damaged_actions: false
@@ -61,9 +67,11 @@ dataset:
     num_workers: 1
 
     retain_every_n_frames_in_train: 4000
+    retain_every_n_frames_in_train_fast: 10000
 
   val:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+    h36m_root.scratch: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed.scratch/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     
     with_damaged_actions: false

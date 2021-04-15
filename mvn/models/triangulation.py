@@ -145,8 +145,10 @@ class AlgebraicTriangulationNet(nn.Module):
         self.heatmap_softmax = config.model.heatmap_softmax
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
+        self.svd_cpu = config.svd.in_cpu
+        self.svd_gpu_friendly = config.svd.gpu_friendly
 
-    def forward(self, images, proj_matricies, batch, minimon=None, in_cpu=False):
+    def forward(self, images, proj_matricies, batch, minimon=None):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
@@ -194,7 +196,7 @@ class AlgebraicTriangulationNet(nn.Module):
             minimon.enter()
 
         try:
-            if in_cpu:
+            if self.svd_cpu:
                 if minimon:
                     minimon.enter()
 
@@ -206,24 +208,25 @@ class AlgebraicTriangulationNet(nn.Module):
                 
                 if minimon:
                     minimon.leave('alg: tri in CPU')  # 0.3 seconds VS ...
-            else:
+            else:  # doing it in GPU
                 if minimon:
                     minimon.enter()
 
-                if True:
+                if self.svd_gpu_friendly:
+                    print('doing it in GPU friendly')
                     keypoints_3d = multiview.triangulate_from_multiple_views_sii(
-                        proj_matricies.unsqueeze(0),
+                        proj_matricies.unsqueeze(0),  # expecting a batch
                         keypoints_2d.unsqueeze(0)
-                    )  # GPU-friendly version from "Lightweight Multi-View 3D Pose Estimation through Camera-Disentangled Representation"
+                    )  # ... 0. seconds, faster with many batches
                 else:
                     keypoints_3d = multiview.triangulate_batch_of_points(
                         proj_matricies,
                         keypoints_2d,
                         confidences_batch=alg_confidences
-                    )
+                    )  # ... 1.0 seconds
 
                 if minimon:
-                    minimon.leave('alg: tri in GPU')  # ... 1.0 seconds
+                    minimon.leave('alg: tri in GPU')
         except RuntimeError as e:
             print("Error: ", e)
 

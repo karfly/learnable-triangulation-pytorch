@@ -43,3 +43,21 @@ function backupLog () {
 
     du -sh ${dest_folder}
 }
+
+# e.g `backupH36Data S11`
+function backupScratchData () {
+    subject=$1
+    src_folder=/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/${subject}
+    target_folder=/projects/p_humanpose/learnable-triangulation/data/human36m/processed/${subject}
+
+    echo "now target ~ $(du -sh ${target_folder})"
+
+    for action in $(ls ${src_folder});
+    do
+        src_action=${src_folder}/${action}
+        cp -rv ${src_action} ${target_folder}
+    done
+    
+    echo "now target ~ $(du -sh ${target_folder})"
+    echo "src ~ $(du -sh ${src_folder})"
+}

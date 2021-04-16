@@ -94,7 +94,7 @@ class Human36MMultiViewDataset(Dataset):
             indices.append(
                 np.nonzero(mask)[0][::retain_every_n_frames_in_train]
             )
-        if test:
+        else:  # test
             mask = np.isin(self.labels['table']['subject_idx'], test_subjects, assume_unique=True)
 
             if not with_damaged_actions:
@@ -130,6 +130,23 @@ class Human36MMultiViewDataset(Dataset):
 
     def __len__(self):
         return len(self.labels['table'])
+
+    def get_idx_info(self, idx):
+        shot = self.labels['table'][idx]
+
+        subject_idx = shot['subject_idx']
+        action_idx = shot['action_idx']
+
+        subject = self.labels['subject_names'][subject_idx]
+        action = self.labels['action_names'][action_idx]
+        frame_idx = shot['frame_idx']
+
+        return {
+            'shot': shot,
+            'subject': subject,
+            'action': action,
+            'frame idx': frame_idx
+        }
 
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
@@ -188,7 +205,7 @@ class Human36MMultiViewDataset(Dataset):
                 image = normalize_image(image)
 
             sample['images'].append(image)
-            sample['detections'].append(bbox + (1.0,)) # TODO add real confidences
+            sample['detections'].append(bbox + (1.0,))  # TODO add real confidences
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 
@@ -199,7 +216,7 @@ class Human36MMultiViewDataset(Dataset):
                     available_cameras.remove(camera_idx)
 
             for i, (camera_idx, image) in enumerate(zip(available_cameras, sample['images'])):
-                meshgrid_int16 = self.meshgrids[subject_idx, camera_idx]
+                meshgrid_int16 = self.meshgrids[shot['subject_idx'], camera_idx]
                 image_undistorted = cv2.remap(image, *meshgrid_int16, cv2.INTER_CUBIC)
                 sample['images'][i] = image_undistorted
 

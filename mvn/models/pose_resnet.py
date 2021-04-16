@@ -318,7 +318,7 @@ class PoseResNet(nn.Module):
         return heatmaps, features, alg_confidences, vol_confidences
 
 
-def get_pose_net(config, device='cuda:0'):
+def get_pose_net(config, num_deconv_filters=(256, 256, 256), device='cuda:0'):
     block_class, layers = resnet_spec[config.num_layers]
     if config.style == 'caffe':
         block_class = Bottleneck_CAFFE
@@ -328,7 +328,7 @@ def get_pose_net(config, device='cuda:0'):
         num_input_channels=3,
         deconv_with_bias=False,
         num_deconv_layers=3,
-        num_deconv_filters=(256, 256, 256),
+        num_deconv_filters=num_deconv_filters,
         num_deconv_kernels=(4, 4, 4),
         final_conv_kernel=1,
         alg_confidences=config.alg_confidences,

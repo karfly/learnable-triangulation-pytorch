@@ -1,4 +1,5 @@
 import os
+import gc
 import yaml
 import json
 import re
@@ -84,3 +85,13 @@ def get_size(obj):
         objects = get_referents(*need_referents)
 
     return size  # bytes
+
+
+def flush_cache(in_torch=True, with_garbage_collector=True):
+    if with_garbage_collector:
+        gc.collect()
+
+    if in_torch:
+        torch.cuda.empty_cache()
+
+    print(torch.cuda.memory_summary(device=None, abbreviated=False))

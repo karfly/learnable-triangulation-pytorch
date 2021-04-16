@@ -148,7 +148,7 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
         confidences None or torch tensor of shape (N,): confidences of points [0.0, 1.0].
                                                         If None, all confidences are supposed to be 1.0
     Returns:
-        point_3d numpy torch tensor of shape (3,): triangulated point
+        point_3d numpy torch tensor of shape (3, ): triangulated point
     """
     assert len(proj_matricies) == len(points)
 
@@ -170,10 +170,10 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
 
 
 def triangulate_from_multiple_views_sii(proj_matricies, points, n_iter=2):
-    """ This module lifts batch_size 2d detections obtained from n_views viewpoints to 3D using the DLT method. It computes the eigenvector associated to the smallest eigenvalue using the Shifted Inverse Iterations algorithm.
+    """ from https://github.com/edoRemelli/DiffDLT/blob/master/dlt.py#L42. This module lifts batch_size 2d detections obtained from n_views viewpoints to 3D using the DLT method. It computes the eigenvector associated to the smallest eigenvalue using the Shifted Inverse Iterations algorithm.
     Args:
         proj_matricies torch tensor of shape (batch_size, n_views, 3, 4): sequence of projection matricies (3x4)
-        points torch tensor of of shape (batch_size, n_views, 2): sequence of points' coordinates
+        points torch tensor of shape (batch_size, n_views, 2): sequence of points' coordinates
     Returns:
         point_3d torch tensor of shape (batch_size, 3): triangulated points
     """
@@ -206,6 +206,29 @@ def triangulate_from_multiple_views_sii(proj_matricies, points, n_iter=2):
     return point_3d
 
 
+def triangulate_batch_of_points_using_gpu_friendly_svd(proj_matricies_batch, points_batch):
+    batch_size, n_views, n_joints = points_batch.shape[:3]
+    point_3d_batch = torch.zeros(
+        batch_size,
+        n_joints,
+        3,  # because we're in 3D space
+        dtype=torch.float32,
+        device=points_batch.device
+    )  # ~ (batch_size=8, n_joints=17, 3)
+
+    for batch_i in range(batch_size):  # 8
+        for joint_i in range(n_joints):  # 17
+            points = points_batch[batch_i,:, joint_i,:]
+
+            point_3d = triangulate_from_multiple_views_sii(
+                proj_matricies_batch[batch_i].unsqueeze(0),  # ~ (n_views=4, 3, 4)
+                points.unsqueeze(0)  # ~ (n_views=4, 2)
+            )  # ~ (3, )
+            point_3d_batch[batch_i, joint_i] = point_3d
+
+    return point_3d_batch
+
+
 def triangulate_batch_of_points(proj_matricies_batch, points_batch, confidences_batch=None):
     """ proj matrices, keypoints 2D (pred), confidences """
 
@@ -217,8 +240,6 @@ def triangulate_batch_of_points(proj_matricies_batch, points_batch, confidences_
         dtype=torch.float32,
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
-
-    # todo use https://github.com/edoRemelli/DiffDLT/blob/master/dlt.py#L42
 
     for batch_i in range(batch_size):  # 8
         for joint_i in range(n_joints):  # 17

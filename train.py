@@ -32,8 +32,6 @@ from mvn.utils.multiview import project_3d_points_to_image_plane_without_distort
 from mvn.utils.minimon import MiniMon
 from mvn.utils.misc import normalize_transformation
 
-minimon = MiniMon()
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -132,7 +130,7 @@ def setup_dataloaders(config, is_train=True, distributed_train=False):
     return train_dataloader, val_dataloader, train_sampler
 
 
-def setup_experiment(config, model_name, is_train=True):
+def setup_experiment(args, config, model_name, is_train=True):
     prefix = "" if is_train else "eval_"
 
     if config.title:
@@ -146,6 +144,7 @@ def setup_experiment(config, model_name, is_train=True):
     print("Experiment name: {}".format(experiment_name))
 
     experiment_dir = os.path.join(args.logdir, experiment_name)
+
     os.makedirs(experiment_dir, exist_ok=True)
 
     checkpoints_dir = os.path.join(experiment_dir, "checkpoints")
@@ -156,7 +155,7 @@ def setup_experiment(config, model_name, is_train=True):
     return experiment_dir
 
 
-def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_total=0, is_train=True, caption='', master=False, experiment_dir=None):
+def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, caption='', master=False, experiment_dir=None):
     name = "train" if is_train else "val"
     model_type = config.model.name
     use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
@@ -202,7 +201,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                     keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                         images_batch,
                         proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
-                        batch,
                         minimon
                     )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
                 elif model_type == "vol":
@@ -262,7 +260,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                     )
                                 )  # ~ 17, 2
 
-                                if False:  # debug only
+                                if config.debug.write_imgs:  # debug only
                                     current_view = images_batch[batch_i, view_i, 0].detach().cpu().numpy()  # grayscale only
                                     canvas = normalize_transformation((0, 255))(current_view)
                                     canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
@@ -281,7 +279,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                                             2, color=(0, 0, 255), thickness=3
                                         )  # red
 
-                                    f_out = '/home/stfo194b/wow_{}_{}.jpg'.format(batch_i, view_i)
+                                    f_out = config.debug.img_out + '/wow_{}_{}.jpg'.format(batch_i, view_i)
                                     cv2.imwrite(f_out, canvas)
 
                                 pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
@@ -330,7 +328,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 )  # save answers for evaluation
                 results['indexes'].append(batch['indexes'])
 
-    if master:  # calculate evaluation metrics
+    if master and config.debug.dump_checkpoints:  # calculate evaluation metrics
         minimon.enter()
 
         results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
@@ -341,28 +339,31 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, n_iters_
                 results['keypoints_3d'],
                 indices_predicted=results['indexes']
             )  # average 3D MPJPE (relative to pelvis), all MPJPEs
+            print('  {} MPJPE relative to pelvis: {:.3f}'.format(
+                'training' if is_train else 'eval',
+                scalar_metric
+            ))
         except:
             print("Failed to evaluate")
             traceback.print_exc()  # more info
 
             scalar_metric, full_metric = 0.0, {}
 
-        checkpoint_dir = os.path.join(
-            experiment_dir, "checkpoints", "{:04}".format(epoch)
-        )
-        os.makedirs(checkpoint_dir, exist_ok=True)
+        if experiment_dir:
+            checkpoint_dir = os.path.join(
+                experiment_dir, "checkpoints", "{:04}".format(epoch)
+            )
+            os.makedirs(checkpoint_dir, exist_ok=True)
 
-        if not is_train:  # dump results
-            with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
-                pickle.dump(results, fout)
+            if not is_train:  # dump results
+                with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
+                    pickle.dump(results, fout)
 
-        metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
-        with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
-            json.dump(full_metric, fout, indent=4, sort_keys=True)
+            metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
+            with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
+                json.dump(full_metric, fout, indent=4, sort_keys=True)
 
         minimon.leave('evaluate results')
-
-    return n_iters_total
 
 
 def init_distributed(args):
@@ -381,9 +382,10 @@ def init_distributed(args):
 
 
 def main(args):
+    minimon = MiniMon()
     minimon.enter()
 
-    print("Number of available GPUs: {}".format(torch.cuda.device_count()))
+    print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
 
     is_distributed = init_distributed(args)
     master = True
@@ -414,9 +416,8 @@ def main(args):
             state_dict[new_key] = state_dict.pop(key)
 
         model.load_state_dict(state_dict, strict=True)
-        print("Successfully loaded pretrained weights for whole model")
+        print('Successfully loaded pretrained weights for whole model')
 
-    # criterion
     criterion_class = {
         "MSE": KeypointsMSELoss,
         "MSESmooth": KeypointsMSESmoothLoss,
@@ -428,7 +429,6 @@ def main(args):
     else:
         criterion = criterion_class()
 
-    # optimizer
     opt = None
     if not args.eval:
         if config.model.name == "vol":
@@ -457,30 +457,23 @@ def main(args):
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)  # ~ 0 seconds
 
     if master:
-        experiment_dir = setup_experiment(config, type(model).__name__, is_train=not args.eval)
+        experiment_dir = setup_experiment(args, config, type(model).__name__, is_train=not args.eval)
 
-    # multi-gpu
-    if is_distributed:
+    if is_distributed:  # multi-gpu
         model = DistributedDataParallel(model, device_ids=[device])
 
     if not args.eval:
         minimon.enter()
 
-        n_iters_total_train, n_iters_total_val = 0, 0
         for epoch in range(config.opt.n_epochs):
-            if train_sampler is not None:
-                train_sampler.set_epoch(epoch)
+            train_sampler.set_epoch(epoch)
 
             minimon.enter()
-
-            n_iters_total_train = one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, n_iters_total=n_iters_total_train, is_train=True, master=master, experiment_dir=experiment_dir)
-
+            one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, minimon, is_train=True, master=master, experiment_dir=experiment_dir)
             minimon.leave('train epoch')
 
             minimon.enter()
-
-            n_iters_total_val = one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, n_iters_total=n_iters_total_val, is_train=False, master=master, experiment_dir=experiment_dir)
-
+            one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, minimon, is_train=False, master=master, experiment_dir=experiment_dir)
             minimon.leave('eval epoch')
 
             if master:
@@ -499,17 +492,19 @@ def main(args):
         minimon.enter()
 
         if args.eval_dataset == 'train':
-            one_epoch(model, criterion, opt, config, train_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
+            one_epoch(model, criterion, opt, config, train_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
         else:
-            one_epoch(model, criterion, opt, config, val_dataloader, device, 0, n_iters_total=0, is_train=False, master=master, experiment_dir=experiment_dir)
+            one_epoch(model, criterion, opt, config, val_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
 
         minimon.leave('main loop')
 
     minimon.leave('main')
 
+    if master:
+        minimon.print_stats(as_minutes=False)
+
+
 if __name__ == '__main__':
     args = parse_args()
     print("args: {}".format(args))
     main(args)
-
-    minimon.print_stats(as_minutes=False)

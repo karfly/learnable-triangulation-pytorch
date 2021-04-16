@@ -1,7 +1,9 @@
+import traceback
 from copy import deepcopy
 import numpy as np
 import pickle
 import random
+import traceback
 
 from scipy.optimize import least_squares
 
@@ -140,7 +142,12 @@ class AlgebraicTriangulationNet(nn.Module):
         if self.use_confidences:
             config.model.backbone.alg_confidences = True
 
-        self.backbone = pose_resnet.get_pose_net(config.model.backbone, device=device)
+        num_deconv_filters = (config.model.backbone.num_deconv_filters,) * 3
+        self.backbone = pose_resnet.get_pose_net(
+            config.model.backbone,
+            num_deconv_filters=num_deconv_filters,
+            device=device
+        )
 
         self.heatmap_softmax = config.model.heatmap_softmax
         self.heatmap_multiplier = config.model.heatmap_multiplier
@@ -148,7 +155,7 @@ class AlgebraicTriangulationNet(nn.Module):
         self.svd_cpu = config.svd.in_cpu
         self.svd_gpu_friendly = config.svd.gpu_friendly
 
-    def forward(self, images, proj_matricies, batch, minimon=None):
+    def forward(self, images, proj_matricies, minimon=None):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
@@ -213,10 +220,9 @@ class AlgebraicTriangulationNet(nn.Module):
                     minimon.enter()
 
                 if self.svd_gpu_friendly:
-                    print('doing it in GPU friendly')
-                    keypoints_3d = multiview.triangulate_from_multiple_views_sii(
-                        proj_matricies.unsqueeze(0),  # expecting a batch
-                        keypoints_2d.unsqueeze(0)
+                    keypoints_3d = multiview.triangulate_batch_of_points_using_gpu_friendly_svd(
+                        proj_matricies.cuda(),  # ~ (batch_size=8, n_views=4, 3, 4)
+                        keypoints_2d.cuda()  # ~ (batch_size=8, n_views=4, 17, 2)
                     )  # ... 0. seconds, faster with many batches
                 else:
                     keypoints_3d = multiview.triangulate_batch_of_points(
@@ -227,11 +233,8 @@ class AlgebraicTriangulationNet(nn.Module):
 
                 if minimon:
                     minimon.leave('alg: tri in GPU')
-        except RuntimeError as e:
-            print("Error: ", e)
-
-            print("proj_matricies = ", proj_matricies)
-            exit()
+        except:
+            traceback.print_exc()  # more info
 
         if minimon:
             minimon.leave('alg: triangulate')

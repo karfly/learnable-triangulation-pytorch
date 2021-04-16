@@ -70,7 +70,7 @@ def prepare_batch(batch, device, config, is_train=True):
 
     # 3D keypoints
     keypoints_3d_batch_gt = torch.from_numpy(
-        np.stack(batch['keypoints_3d'], axis=0)[:,:,:3]
+        np.stack(batch['keypoints_3d'], axis=0)[:, :, :3]
     ).float().to(device)
 
     # 3D keypoints validity

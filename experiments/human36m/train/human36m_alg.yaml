@@ -4,6 +4,12 @@ vis_freq: 1000
 vis_n_elements: 10
 
 image_shape: [384, 384]
+image_shape_small: [128, 128]
+
+debug:
+  img_out: "/home/stefano/_tmp/logs/imgs"
+  write_imgs: false
+  dump_checkpoints: true
 
 opt:
   criterion: "MSESmooth"
@@ -46,13 +52,14 @@ model:
 
     num_joints: 17
     num_layers: 152
+    num_deconv_filters: 256
 
 dataset:
   kind: "human36m"
 
   train:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-    h36m_root.scratch: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed.scratch/"
+    h36m_root.scratch: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
 
     with_damaged_actions: false
@@ -71,7 +78,7 @@ dataset:
 
   val:
     h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-    h36m_root.scratch: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed.scratch/"
+    h36m_root.scratch: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     
     with_damaged_actions: false

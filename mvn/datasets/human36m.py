@@ -131,7 +131,7 @@ class Human36MMultiViewDataset(Dataset):
     def __len__(self):
         return len(self.labels['table'])
 
-    def get_idx_info(self, idx):
+    def _get_frame_info(self, idx):
         shot = self.labels['table'][idx]
 
         subject_idx = shot['subject_idx']
@@ -139,7 +139,7 @@ class Human36MMultiViewDataset(Dataset):
 
         subject = self.labels['subject_names'][subject_idx]
         action = self.labels['action_names'][action_idx]
-        frame_idx = shot['frame_idx']
+        frame_idx = shot['frame_idx']  # unique ID in all dataset
 
         return {
             'shot': shot,
@@ -147,6 +147,35 @@ class Human36MMultiViewDataset(Dataset):
             'action': action,
             'frame idx': frame_idx
         }
+
+    def _get_view_path(self, subject_name, action_name, camera_name, frame_idx):
+        return os.path.join(
+            self.h36m_root,
+            subject_name,
+            action_name,
+            'imageSequence' + '-undistorted' * self.undistort_images,
+            camera_name,
+            'img_%06d.jpg' % (frame_idx + 1)
+        )
+
+    def _get_view_path_from_shot(self, shot, camera_name):
+        subject_idx = shot['subject_idx']
+        action_idx = shot['action_idx']
+
+        subject_name = self.labels['subject_names'][subject_idx]
+        action_name = self.labels['action_names'][action_idx]
+        frame_idx = shot['frame_idx']
+
+        return self._get_view_path(
+            subject_name, action_name, camera_name, frame_idx
+        )
+
+    def _load_image(self, subject, action, camera_name, frame_idx):
+        image_path = self._get_view_path(
+            subject, action, camera_name, frame_idx
+        )
+        image = cv2.imread(image_path)
+        return image
 
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
@@ -173,16 +202,7 @@ class Human36MMultiViewDataset(Dataset):
             # scale the bounding box
             bbox = scale_bbox(bbox, self.scale_bbox)
 
-            # load image
-            image_path = os.path.join(
-                self.h36m_root, subject, action, 'imageSequence' + '-undistorted' * self.undistort_images,
-                camera_name, 'img_%06d.jpg' % (frame_idx + 1))
-
-            if not os.path.isfile(image_path):
-                print('%s doesn\'t exist' % image_path)  # find them!
-                continue
-
-            image = cv2.imread(image_path)
+            image = self._load_image(subject, action, camera_name, frame_idx)
 
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]

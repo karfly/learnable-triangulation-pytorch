@@ -30,7 +30,7 @@ opt:
   scale_keypoints_3d: 0.1
 
 svd:
-  in_cpu: false
+  in_cpu: true
   gpu_friendly: true
 
 model:

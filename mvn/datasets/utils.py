@@ -39,7 +39,10 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
 
         batch['keypoints_3d'] = [item['keypoints_3d'] for item in items]
         # batch['cuboids'] = [item['cuboids'] for item in items]
-        batch['indexes'] = [item['indexes'] for item in items]
+        batch['indexes'] = [
+            item['indexes']
+            for item in items
+        ]
 
         try:
             batch['pred_keypoints_3d'] = np.array([

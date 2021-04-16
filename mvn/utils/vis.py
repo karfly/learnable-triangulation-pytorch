@@ -2,6 +2,10 @@ import numpy as np
 import scipy.ndimage
 import skimage.transform
 import cv2
+import os
+import shutil
+from PIL import Image
+from mvn.utils.misc import normalize_transformation
 
 import torch
 
@@ -13,6 +17,7 @@ from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 from mvn.utils.img import image_batch_to_numpy, to_numpy, denormalize_image, resize_image
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
+
 
 CONNECTIVITY_DICT = {
     'cmu': [(0, 2), (0, 9), (1, 0), (1, 17), (2, 12), (3, 0), (4, 3), (5, 4), (6, 2), (7, 6), (8, 7), (9, 10), (10, 11), (12, 13), (13, 14), (15, 1), (16, 15), (17, 18)],
@@ -477,3 +482,80 @@ def draw_voxels(voxels, ax, shape=(8, 8, 8), norm=True, alpha=0.1):
 
     ax.set_xlabel("z"); ax.set_ylabel("x"); ax.set_zlabel("y")
     ax.invert_xaxis(); ax.invert_zaxis()
+
+
+def save_predictions(batch, images_batch, proj_matricies_batch, keypoints_3d_gt, keypoints_3d_pred, dataloader, config):
+    for batch_i in range(len(batch['indexes'])):  # foreach sample in batch
+        sample_i = batch['indexes'][batch_i]  # inside shuffled dataset
+        shot = dataloader.dataset.labels['table'][sample_i]
+
+        kp_3d_gt = keypoints_3d_gt[batch_i]
+        kp_3d_pred = keypoints_3d_pred[batch_i]
+
+        cameras = dataloader.dataset.labels['camera_names']
+        paths = [
+            dataloader.dataset._get_view_path_from_shot(
+                shot, camera
+            )
+            for camera in cameras
+        ]
+
+        frame_folder = os.path.join(config.debug.img_out, str(shot['frame_idx']))
+        os.makedirs(frame_folder, exist_ok=True)
+        
+        views_folder = os.path.join(frame_folder, 'views')
+        os.makedirs(views_folder, exist_ok=True)
+
+        pred_2d_folder = os.path.join(frame_folder, 'pred_2d')
+        os.makedirs(pred_2d_folder, exist_ok=True)
+
+        for view_i, (path, camera) in enumerate(zip(paths, cameras)):
+            keypoints_2d_gt_proj = torch.FloatTensor(
+                project_3d_points_to_image_plane_without_distortion(
+                    proj_matricies_batch[batch_i, view_i].cpu(),
+                    kp_3d_gt.cpu()
+                )
+            )  # ~ 17, 2
+
+            keypoints_2d_true_pred = torch.FloatTensor(
+                project_3d_points_to_image_plane_without_distortion(
+                    proj_matricies_batch[batch_i, view_i].cpu(),
+                    kp_3d_pred.cpu()
+                )
+            )  # ~ 17, 2
+
+            f_out = os.path.join(views_folder, camera + '.jpg')
+            shutil.copy(path, f_out)  # original input image (raw, not preprocessed)
+
+            current_batch_view = np.moveaxis(
+                images_batch[batch_i, view_i].detach().cpu().numpy(),
+                0, -1
+            )  # 128 x 128 x 3 channels
+            current_batch_view = np.uint8(
+                normalize_transformation((0, 255))(
+                    current_batch_view
+                )
+            )  # RGB
+
+            # do not ask me why we need to convert back and front like this
+            current_batch_view = Image.fromarray(current_batch_view)
+            canvas = np.asarray(current_batch_view)
+
+            # draw circles where GT keypoints are
+            for pt in keypoints_2d_gt_proj.detach().cpu().numpy():
+                cv2.circle(
+                    canvas, tuple(pt.astype(int)),
+                    1, color=(0, 255, 0), thickness=2
+                )  # green
+            
+            # # draw circles where predicted keypoints are
+            for pt in keypoints_2d_true_pred.detach().cpu().numpy():
+                cv2.circle(
+                    canvas, tuple(pt.astype(int)),
+                    1, color=(255, 255, 255), thickness=2
+                )  # red
+
+            f_out = os.path.join(pred_2d_folder, camera + '.jpg')
+            cv2.imwrite(f_out, canvas)  # 2D KP: GT VS pred
+
+        # todo 3D KP: GT VS pred

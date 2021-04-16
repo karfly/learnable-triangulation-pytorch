@@ -216,6 +216,7 @@ def triangulate_batch_of_points_using_gpu_friendly_svd(proj_matricies_batch, poi
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
 
+    # todo: faster loop (use Tensor)
     for batch_i in range(batch_size):  # 8
         for joint_i in range(n_joints):  # 17
             points = points_batch[batch_i,:, joint_i,:]

@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+import shutil
 import time
 import json
 from datetime import datetime
@@ -12,6 +13,7 @@ import traceback
 
 import numpy as np
 import cv2
+from PIL import Image
 
 import torch
 from torch import nn
@@ -30,7 +32,6 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.utils.misc import normalize_transformation
 
 
 def parse_args():
@@ -144,7 +145,6 @@ def setup_experiment(args, config, model_name, is_train=True):
     print("Experiment name: {}".format(experiment_name))
 
     experiment_dir = os.path.join(args.logdir, experiment_name)
-
     os.makedirs(experiment_dir, exist_ok=True)
 
     checkpoints_dir = os.path.join(experiment_dir, "checkpoints")
@@ -217,26 +217,16 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 n_joints = keypoints_3d_pred.shape[1]
                 scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
-                # 1-view case
-                if n_views == 1:
-                    if config.kind == "human36m":
-                        base_joint = 6
-                    elif config.kind == "coco":
-                        base_joint = 11
-
-                    keypoints_3d_gt_transformed = keypoints_3d_gt.clone()
-                    keypoints_3d_gt_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_gt_transformed[:, base_joint:base_joint + 1]
-                    keypoints_3d_gt = keypoints_3d_gt_transformed
-
-                    keypoints_3d_pred_transformed = keypoints_3d_pred.clone()
-                    keypoints_3d_pred_transformed[:, torch.arange(n_joints) != base_joint] -= keypoints_3d_pred_transformed[:, base_joint:base_joint + 1]
-                    keypoints_3d_pred = keypoints_3d_pred_transformed
-
-                # - todo data_augment by
-                #     - noise
-                #     - HSV
-                #     - crops (look for references)
-                #     - syntethic occlusions (look for references)
+                if config.debug.write_imgs:
+                    vis.save_predictions(
+                        batch,
+                        images_batch,
+                        proj_matricies_batch,
+                        keypoints_3d_gt,
+                        keypoints_3d_pred,
+                        dataloader,
+                        config
+                    )
 
                 if is_train:
                     total_loss = 0.0
@@ -259,28 +249,6 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                                         keypoints_3d_pred[batch_i].cpu()
                                     )
                                 )  # ~ 17, 2
-
-                                if config.debug.write_imgs:  # debug only
-                                    current_view = images_batch[batch_i, view_i, 0].detach().cpu().numpy()  # grayscale only
-                                    canvas = normalize_transformation((0, 255))(current_view)
-                                    canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2RGB)
-
-                                    # draw circles where GT keypoints are
-                                    for pt in keypoints_2d_gt_proj.detach().cpu().numpy():
-                                        cv2.circle(
-                                            canvas, tuple(pt.astype(int)),
-                                            2, color=(0, 255, 0), thickness=3
-                                        )  # green
-                                    
-                                    # draw circles where predicted keypoints are
-                                    for pt in keypoints_2d_true_pred.detach().cpu().numpy():
-                                        cv2.circle(
-                                            canvas, tuple(pt.astype(int)),
-                                            2, color=(0, 0, 255), thickness=3
-                                        )  # red
-
-                                    f_out = config.debug.img_out + '/wow_{}_{}.jpg'.format(batch_i, view_i)
-                                    cv2.imwrite(f_out, canvas)
 
                                 pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
                                 gt = keypoints_2d_gt_proj.unsqueeze(0)  # ~ 1, 17, 2
@@ -466,7 +434,8 @@ def main(args):
         minimon.enter()
 
         for epoch in range(config.opt.n_epochs):
-            train_sampler.set_epoch(epoch)
+            if train_sampler:  # None when NOT distributed
+                train_sampler.set_epoch(epoch)
 
             minimon.enter()
             one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, minimon, is_train=True, master=master, experiment_dir=experiment_dir)

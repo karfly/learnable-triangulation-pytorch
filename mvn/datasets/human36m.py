@@ -217,7 +217,9 @@ class Human36MMultiViewDataset(Dataset):
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
                 image = resize_image(image, self.image_shape)
-                retval_camera.update_after_resize(image_shape_before_resize, self.image_shape)
+                retval_camera.update_after_resize(
+                    image_shape_before_resize, self.image_shape
+                )
 
                 sample['image_shapes_before_resize'].append(image_shape_before_resize)
 

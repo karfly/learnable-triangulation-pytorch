@@ -8,8 +8,10 @@ class MiniMonValue:  # todo support multi-GPU
         self.runtime_min = np.float32('inf')
         self.runtime_max = -np.float32('inf')
         self.num = 0
+        self.runtime_last = -1
 
     def apply(self, value):
+        self.runtime_last = value
         self.runtime_sum += value
         self.runtime_min = min(self.runtime_min, value)
         self.runtime_max = max(self.runtime_max, value)
@@ -24,11 +26,15 @@ class MiniMonValue:  # todo support multi-GPU
     def get_max(self):
         return self.runtime_max
 
+    def get_last(self):
+        return self.runtime_last
+
     def get_stats(self):
         return {
             'min': self.get_min(),
             'max': self.get_max(),
             'avg': self.get_avg(),
+            'last': self.get_last(),
             'count': self.num
         }
 
@@ -59,7 +65,7 @@ class MiniMon:
         }
 
     def print_stats(self, as_minutes=False):
-        f_out = '{:>20} x {:10d} ~ {:10.1f} [{:10.1f}, {:10.1f}]'
+        f_out = '{:>20} x {:10d} ~ {:10.1f} [min: {:10.1f},    max: {:10.1f},    last: {:10.1f}]'
 
         for checkpoint, info in sorted(self.store.items(), key=lambda x: x[1].get_avg()):
             if info.num > 1:
@@ -68,7 +74,8 @@ class MiniMon:
                     info.num,
                     info.get_avg() / (60.0 if as_minutes else 1.0),
                     info.get_min() / (60.0 if as_minutes else 1.0),
-                    info.get_max() / (60.0 if as_minutes else 1.0)
+                    info.get_max() / (60.0 if as_minutes else 1.0),
+                    info.get_last() / (60.0 if as_minutes else 1.0),
                 ))
             else:  # single call
                 print('{:>20}   {:>10} ~ {:10.1f}'.format(

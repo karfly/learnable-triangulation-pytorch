@@ -484,13 +484,15 @@ def draw_voxels(voxels, ax, shape=(8, 8, 8), norm=True, alpha=0.1):
     ax.invert_xaxis(); ax.invert_zaxis()
 
 
-def save_predictions(batch, images_batch, proj_matricies_batch, keypoints_3d_gt, keypoints_3d_pred, dataloader, config):
-    for batch_i in range(len(batch['indexes'])):  # foreach sample in batch
-        sample_i = batch['indexes'][batch_i]  # inside shuffled dataset
-        shot = dataloader.dataset.labels['table'][sample_i]
+def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, config, batch_out='batch.png', with_originals=False):
+    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    fig, axis = plt.subplots(n_views, batch_size, figsize=(40, 20))
+    samples = []
 
-        kp_3d_gt = keypoints_3d_gt[batch_i]
-        kp_3d_pred = keypoints_3d_pred[batch_i]
+    for batch_i in range(batch_size):  # foreach sample in batch
+        sample_i = batch['indexes'][batch_i]
+        shot = dataloader.dataset.labels['table'][sample_i]  # inside shuffled dataset
+        samples.append(shot['frame_idx'])
 
         cameras = dataloader.dataset.labels['camera_names']
         paths = [
@@ -510,22 +512,9 @@ def save_predictions(batch, images_batch, proj_matricies_batch, keypoints_3d_gt,
         os.makedirs(pred_2d_folder, exist_ok=True)
 
         for view_i, (path, camera) in enumerate(zip(paths, cameras)):
-            keypoints_2d_gt_proj = torch.FloatTensor(
-                project_3d_points_to_image_plane_without_distortion(
-                    proj_matricies_batch[batch_i, view_i].cpu(),
-                    kp_3d_gt.cpu()
-                )
-            )  # ~ 17, 2
-
-            keypoints_2d_true_pred = torch.FloatTensor(
-                project_3d_points_to_image_plane_without_distortion(
-                    proj_matricies_batch[batch_i, view_i].cpu(),
-                    kp_3d_pred.cpu()
-                )
-            )  # ~ 17, 2
-
-            f_out = os.path.join(views_folder, camera + '.jpg')
-            shutil.copy(path, f_out)  # original input image (raw, not preprocessed)
+            if with_originals:
+                f_out = os.path.join(views_folder, camera + '.jpg')
+                shutil.copy(path, f_out)  # original input image (raw, not preprocessed)
 
             current_batch_view = np.moveaxis(
                 images_batch[batch_i, view_i].detach().cpu().numpy(),
@@ -541,21 +530,38 @@ def save_predictions(batch, images_batch, proj_matricies_batch, keypoints_3d_gt,
             current_batch_view = Image.fromarray(current_batch_view)
             canvas = np.asarray(current_batch_view)
 
+            radius = 2
+            thickness = 1
+
             # draw circles where GT keypoints are
-            for pt in keypoints_2d_gt_proj.detach().cpu().numpy():
+            for pt in proj_gts[batch_i][view_i].numpy():
                 cv2.circle(
                     canvas, tuple(pt.astype(int)),
-                    1, color=(0, 255, 0), thickness=2
+                    radius, color=(0, 255, 0), thickness=thickness
                 )  # green
-            
-            # # draw circles where predicted keypoints are
-            for pt in keypoints_2d_true_pred.detach().cpu().numpy():
-                cv2.circle(
-                    canvas, tuple(pt.astype(int)),
-                    1, color=(255, 255, 255), thickness=2
-                )  # red
+
+            # draw square where predicted keypoints are
+            for pt in proj_preds[batch_i][view_i].numpy():
+                center = tuple(pt.astype(int))
+                start_point = (center[0] - radius, center[1] - radius)
+                end_point = (center[0] + radius, center[1] + radius)
+                
+                cv2.rectangle(
+                    canvas, start_point, end_point,
+                    color=(0, 0, 255), thickness=thickness
+                )  # red (BGR)
 
             f_out = os.path.join(pred_2d_folder, camera + '.jpg')
             cv2.imwrite(f_out, canvas)  # 2D KP: GT VS pred
 
-        # todo 3D KP: GT VS pred
+            ax = axis[view_i, batch_i]
+            ax.axis('off')
+            ax.imshow(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+            ax.set_title('camera (view) #{}'.format(camera))
+
+    fig.suptitle('samples # {}'.format(', '.join(map(str, samples))))
+    f_out = os.path.join(config.debug.img_out, batch_out)
+    plt.savefig(
+        f_out, dpi=120, transparent=True, pad_inches=0, orientation='landscape', bbox_inches='tight'
+    )
+    plt.clf()  # todo remove this when from .ipynb

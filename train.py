@@ -155,17 +155,183 @@ def setup_experiment(args, config, model_name, is_train=True):
     return experiment_dir
 
 
-def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, caption='', master=False, experiment_dir=None):
-    name = "train" if is_train else "val"
+def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train):
+    images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
+        batch, device, config
+    )
+    if not config.model.triangulate_in_world_space:  # in cam space
+        proj_matricies_batch, master_cams = proj_matricies_batch  # unpack
+
+    keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
+    keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
+
+    minimon.enter()
+
+    if model_type == "alg" or model_type == "ransac":
+        keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+            images_batch,
+            proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
+            minimon
+        )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
+    elif model_type == "vol":
+        keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
+            images_batch,
+            proj_matricies_batch,
+            batch,
+            minimon
+        )
+
+    minimon.leave('forward pass')
+
+    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
+
+    proj_batch_gts = []  # for viz purposes only
+    proj_batch_preds = []
+
+    for batch_i in range(batch_size):
+        proj_gts = []  # for viz purposes only
+        proj_preds = []
+
+        for view_i in range(n_views):
+            cam = batch['cameras'][view_i][batch_i]
+            proj_gt = cam.world2proj()(keypoints_3d_gt[batch_i].detach().cpu())
+
+            if config.model.triangulate_in_world_space:
+                proj_pred = cam.world2proj()(
+                    keypoints_3d_pred[batch_i].detach().cpu()
+                )
+            else:  # in master cam space
+                master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
+
+                proj_pred = master_cam.cam2other(cam)(
+                    multiview.euclidean_to_homogeneous(
+                        keypoints_3d_pred[batch_i].detach().cpu()
+                    )
+                )
+
+            proj_gts.append(proj_gt)
+            proj_preds.append(proj_pred)
+
+        proj_batch_gts.append(proj_gts)
+        proj_batch_preds.append(proj_preds)
+
+    if config.debug.write_imgs:
+        f_out = 'training' if is_train else 'validation'
+        f_out += '_batch_{}.png'.format(iter_i)
+
+        vis.save_predictions(
+            batch,
+            images_batch,
+            proj_batch_gts,
+            proj_batch_preds,
+            dataloader,
+            config,
+            batch_out=f_out
+        )
+
+    if is_train:
+        total_loss = 0.0
+
+        minimon.enter()
+
+        if config.model.triangulate_in_world_space:
+            if config.opt.loss_2d:  # ~ 0 seconds
+                for batch_i in range(batch_size):
+                    for view_i in range(n_views):  # todo faster loop
+                        keypoints_2d_gt_proj = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
+                        keypoints_2d_true_pred = proj_batch_preds[batch_i][view_i]  # ~ 17, 2
+
+                        pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
+                        gt = keypoints_2d_gt_proj.unsqueeze(0)  # ~ 1, 17, 2
+                        only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0)  # ~ 1, 17, 1
+
+                        total_loss += criterion(
+                            pred.cuda(), gt.cuda(), only_valid.cuda()
+                        )
+
+            if config.opt.loss_3d:  # ~ 0 seconds
+                total_loss = criterion(
+                    keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                    keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                    keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+                )
+
+            use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
+            if use_volumetric_ce_loss:
+                volumetric_ce_criterion = VolumetricCELoss()
+
+                loss = volumetric_ce_criterion(
+                    coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
+                )
+
+                weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+
+                total_loss += weight * loss
+        else:  # in cam space
+            if True:  # variant I: 3D loss on cam KP
+                gt_in_cam = [
+                    batch['cameras'][master_cams[batch_i]][batch_i].world2cam()(
+                        keypoints_3d_gt[batch_i].cpu()
+                    ).numpy()
+                    for batch_i in range(batch_size)
+                ]
+
+                total_loss = criterion(
+                    keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                    torch.FloatTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                    keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+                )
+            else:  # variant II: 2D loss on each view
+                for batch_i in range(batch_size):
+                    master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
+
+                    for view_i in range(n_views):  # todo faster loop
+                        cam = batch['cameras'][view_i][batch_i]
+
+                        gt = proj_batch_gts[batch_i][view_i]
+                        pred = master_cam.cam2other(cam)(
+                            multiview.euclidean_to_homogeneous(
+                                keypoints_3d_pred[batch_i]
+                            )
+                        )  # ~ 17, 2
+
+                        total_loss += criterion(
+                            torch.FloatTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                            torch.FloatTensor(gt).unsqueeze(0).cuda(),
+                            keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
+                        )
+
+        print('  batch iter {:d} loss ~ {:.3f}'.format(
+            iter_i,
+            total_loss.item()
+        ))  # just a little bit of live debug
+
+        minimon.leave('calc loss')
+
+        minimon.enter()
+
+        opt.zero_grad()
+        total_loss.backward()
+
+        if hasattr(config.opt, "grad_clip"):
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
+
+        opt.step()
+
+        minimon.leave('backward pass')
+
+    return keypoints_3d_pred
+
+
+def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None):
     model_type = config.model.name
-    use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
 
     if is_train:
         model.train()
     else:
         model.eval()
 
-    metric_dict = defaultdict(list)
     results = defaultdict(list)
 
     # used to turn on/off gradients
@@ -184,117 +350,24 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 else:
                     minimon.leave('load first eval batch')
 
-            with autograd.detect_anomaly():
-                if batch is None:
-                    print('iter #{:d}: found None batch'.format(iter_i))
-                    continue
+            if batch is None:
+                print('iter #{:d}: found None batch'.format(iter_i))
+                continue
 
-                images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
-                    batch, device, config
+            if config.opt.torch_anomaly_detection:
+                with autograd.detect_anomaly():  # about x2 time
+                    keypoints_3d_pred = iter_batch(
+                        batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
+                    )
+            else:
+                keypoints_3d_pred = iter_batch(
+                    batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                 )
-                keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
-                keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
-                minimon.enter()
-
-                if model_type == "alg" or model_type == "ransac":
-                    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
-                        images_batch,
-                        proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
-                        minimon
-                    )  # keypoints_3d_pred, keypoints_2d_pred ~ (8, 17, 3), (~ 8, 4, 17, 2)
-                elif model_type == "vol":
-                    keypoints_3d_pred, heatmaps_pred, volumes_pred, confidences_pred, cuboids_pred, coord_volumes_pred, base_points_pred = model(
-                        images_batch,
-                        proj_matricies_batch,
-                        batch,
-                        minimon
-                    )
-
-                minimon.leave('forward pass')
-
-                batch_size, n_views, image_shape = images_batch.shape[0], images_batch.shape[1], tuple(images_batch.shape[3:])  # 8, 4, (128, 128)
-                n_joints = keypoints_3d_pred.shape[1]
-                scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
-
-                if config.debug.write_imgs:
-                    vis.save_predictions(
-                        batch,
-                        images_batch,
-                        proj_matricies_batch,
-                        keypoints_3d_gt,
-                        keypoints_3d_pred,
-                        dataloader,
-                        config
-                    )
-
-                if is_train:
-                    total_loss = 0.0
-
-                    minimon.enter()
-
-                    if config.opt.loss_2d:  # ~ 0 seconds
-                        for batch_i in range(batch_size):
-                            for view_i in range(n_views):
-                                keypoints_2d_gt_proj = torch.FloatTensor(
-                                    project_3d_points_to_image_plane_without_distortion(
-                                        proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_gt[batch_i].cpu()
-                                    )
-                                )  # ~ 17, 2
-
-                                keypoints_2d_true_pred = torch.FloatTensor(
-                                    project_3d_points_to_image_plane_without_distortion(
-                                        proj_matricies_batch[batch_i, view_i].cpu(),
-                                        keypoints_3d_pred[batch_i].cpu()
-                                    )
-                                )  # ~ 17, 2
-
-                                pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
-                                gt = keypoints_2d_gt_proj.unsqueeze(0)  # ~ 1, 17, 2
-                                only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0)  # ~ 1, 17, 1
-
-                                total_loss += criterion(
-                                    pred.cuda(), gt.cuda(), only_valid.cuda()
-                                )
-
-                    if config.opt.loss_3d:  # ~ 0 seconds
-                        total_loss += criterion(
-                            keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                            keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
-                        )  # 3D loss
-
-                    if use_volumetric_ce_loss:
-
-                        volumetric_ce_criterion = VolumetricCELoss()
-
-                        loss = volumetric_ce_criterion(
-                            coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
-                        )
-
-                        weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
-
-                        total_loss += weight * loss
-
-                    minimon.leave('calc loss')
-
-                    minimon.enter()
-
-                    opt.zero_grad()
-                    total_loss.backward()
-
-                    if hasattr(config.opt, "grad_clip"):
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
-
-                    opt.step()
-
-                    minimon.leave('backward pass')
-
-                results['keypoints_3d'].append(
-                    keypoints_3d_pred.detach().cpu().numpy()
-                )  # save answers for evaluation
-                results['indexes'].append(batch['indexes'])
+            results['keypoints_3d'].append(
+                keypoints_3d_pred.detach().cpu().numpy()
+            )  # save answers for evaluation
+            results['indexes'].append(batch['indexes'])
 
     if master and config.debug.dump_checkpoints:  # calculate evaluation metrics
         minimon.enter()
@@ -307,10 +380,11 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 results['keypoints_3d'],
                 indices_predicted=results['indexes']
             )  # average 3D MPJPE (relative to pelvis), all MPJPEs
+            
             print('  {} MPJPE relative to pelvis: {:.3f}'.format(
                 'training' if is_train else 'eval',
                 scalar_metric
-            ))
+            ))  # just a little bit of live debug
         except:
             print("Failed to evaluate")
             traceback.print_exc()  # more info
@@ -434,6 +508,10 @@ def main(args):
         minimon.enter()
 
         for epoch in range(config.opt.n_epochs):
+            if master:
+                f_out = 'epoch {:4d} has started!'
+                print(f_out.format(epoch))
+
             if train_sampler:  # None when NOT distributed
                 train_sampler.set_epoch(epoch)
 
@@ -451,8 +529,9 @@ def main(args):
 
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
 
-                f_out = '=' * 50 + ' epoch {:4d} complete!'
-                print(f_out.format(epoch + 1))
+                f_out = 'epoch {:4d} complete!'
+                print(f_out.format(epoch))
+                
                 minimon.print_stats(as_minutes=False)
                 print('=' * 71)
 

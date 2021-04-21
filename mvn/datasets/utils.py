@@ -35,7 +35,13 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
                 for i in indexes
             ]
         ).swapaxes(0, 1)
-        batch['cameras'] = [[item['cameras'][i] for item in items] for i in indexes]
+        batch['cameras'] = [
+            [
+                item['cameras'][i]
+                for item in items
+            ]
+            for i in indexes
+        ]
 
         batch['keypoints_3d'] = [item['keypoints_3d'] for item in items]
         # batch['cuboids'] = [item['cuboids'] for item in items]
@@ -61,6 +67,20 @@ def worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
+def cam2cam_batch(src, target, cameras_batch, batch_i):
+    if src == target:  # just apply intrinsics
+        cam = cameras_batch[src][batch_i]  # multiview.Camera
+        return cam.intrinsics_padded
+
+    src = cameras_batch[src][batch_i]
+    target = cameras_batch[target][batch_i]
+    return target.intrinsics_padded.dot(
+        target.extrinsics_padded
+    ).dot(
+        np.linalg.inv(src.extrinsics_padded)
+    )
+
+
 def prepare_batch(batch, device, config, is_train=True):
     # images
     images_batch = []
@@ -70,6 +90,7 @@ def prepare_batch(batch, device, config, is_train=True):
         images_batch.append(image_batch)
 
     images_batch = torch.stack(images_batch, dim=0)
+    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     # 3D keypoints
     keypoints_3d_batch_gt = torch.from_numpy(
@@ -80,13 +101,26 @@ def prepare_batch(batch, device, config, is_train=True):
     keypoints_3d_validity_batch_gt = torch.from_numpy(np.stack(batch['keypoints_3d'], axis=0)[:, :, 3:]).float().to(device)
 
     # projection matricies
-    proj_matricies_batch = torch.stack([
-        torch.stack([
-            torch.from_numpy(camera.projection)
-            for camera in camera_batch
-        ], dim=0)
-        for camera_batch in batch['cameras']
-    ], dim=0).transpose(1, 0)  # shape (batch_size=8, n_views=4, 3, 4)
-    proj_matricies_batch = proj_matricies_batch.float().to(device)
+    if config.model.triangulate_in_world_space:
+        proj_matricies_batch = torch.stack([
+            torch.stack([
+                torch.from_numpy(camera.projection)
+                for camera in camera_batch
+            ], dim=0)
+            for camera_batch in batch['cameras']
+        ], dim=0).transpose(1, 0)  # shape (batch_size=8, n_views=4, 3, 4)
+        proj_matricies_batch = proj_matricies_batch.float().to(device)
+    else:  # in cam space
+        master_cams = np.random.randint(0, n_views, size=batch_size)
+        proj_matricies_batch = torch.FloatTensor([
+            [
+                cam2cam_batch(
+                    master_cams[batch_i], view_i, batch['cameras'], batch_i
+                )
+                for view_i in range(n_views)
+            ]
+            for batch_i in range(batch_size)
+        ])
+        proj_matricies_batch = (proj_matricies_batch, master_cams)
 
     return images_batch, keypoints_3d_batch_gt, keypoints_3d_validity_batch_gt, proj_matricies_batch

@@ -152,8 +152,7 @@ class AlgebraicTriangulationNet(nn.Module):
         self.heatmap_softmax = config.model.heatmap_softmax
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
-        self.svd_cpu = config.svd.in_cpu
-        self.svd_gpu_friendly = config.svd.gpu_friendly
+        self.in_world_space = config.model.triangulate_in_world_space  # else it's in cam space
 
     def forward(self, images, proj_matricies, minimon=None):
         device = images.device
@@ -182,7 +181,7 @@ class AlgebraicTriangulationNet(nn.Module):
         images = images.view(batch_size, n_views, *images.shape[1:])
         heatmaps = heatmaps.view(batch_size, n_views, *heatmaps.shape[1:])
         keypoints_2d = keypoints_2d.view(batch_size, n_views, *keypoints_2d.shape[1:])
-        alg_confidences = alg_confidences.view(batch_size, n_views, *alg_confidences.shape[1:])
+        alg_confidences = alg_confidences.view(batch_size, n_views, *alg_confidences.shape[1:])  # ~ (batch_size=8, n_views=4, 17)
 
         # norm confidences
         alg_confidences = alg_confidences / alg_confidences.sum(dim=1, keepdim=True)
@@ -196,48 +195,43 @@ class AlgebraicTriangulationNet(nn.Module):
         keypoints_2d_transformed = torch.zeros_like(keypoints_2d)
         keypoints_2d_transformed[:, :, :, 0] = keypoints_2d[:, :, :, 0] * (image_shape[1] / heatmap_shape[1])
         keypoints_2d_transformed[:, :, :, 1] = keypoints_2d[:, :, :, 1] * (image_shape[0] / heatmap_shape[0])
-        keypoints_2d = keypoints_2d_transformed
+        keypoints_2d = keypoints_2d_transformed  # ~ (batch_size=8, n_views=4, n_joints=17, 2D)
 
         # triangulate
-        if minimon:
-            minimon.enter()
 
         try:
-            if self.svd_cpu:
+            # possible methods
+            # cpu: `triangulate_batch_of_points` with .cpu()
+            # gpu (classic): `triangulate_batch_of_points` with .cuda()
+            # gpu (friendly): `triangulate_batch_of_points_using_gpu_friendly_svd` with .cuda()
+
+            if self.in_world_space:
                 if minimon:
                     minimon.enter()
 
                 keypoints_3d = multiview.triangulate_batch_of_points(
-                    proj_matricies.cpu(),  # ~ (batch_size=8, n_views=4, 3, 4)
-                    keypoints_2d.cpu(),  # ~ (batch_size=8, n_views=4, 17, 2)
-                    confidences_batch=alg_confidences.cpu()  # ~ (batch_size=8, n_views=4, 17
+                    proj_matricies.cpu(),
+                    keypoints_2d.cpu(),
+                    triangulator=multiview.triangulate_point_from_multiple_views_linear_torch,
+                    confidences_batch=alg_confidences.cpu()
                 )
                 
                 if minimon:
-                    minimon.leave('alg: tri in CPU')  # 0.3 seconds VS ...
-            else:  # doing it in GPU
+                    minimon.leave('alg: tri in world')
+            else:  # doing it in cam space
                 if minimon:
                     minimon.enter()
 
-                if self.svd_gpu_friendly:
-                    keypoints_3d = multiview.triangulate_batch_of_points_using_gpu_friendly_svd(
-                        proj_matricies.cuda(),  # ~ (batch_size=8, n_views=4, 3, 4)
-                        keypoints_2d.cuda()  # ~ (batch_size=8, n_views=4, 17, 2)
-                    )  # ... 0. seconds, faster with many batches
-                else:
-                    keypoints_3d = multiview.triangulate_batch_of_points(
-                        proj_matricies,
-                        keypoints_2d,
-                        confidences_batch=alg_confidences
-                    )  # ... 1.0 seconds
+                keypoints_3d = multiview.triangulate_batch_of_points_in_cam_space(
+                    proj_matricies.cpu(),
+                    keypoints_2d.cpu(),
+                    confidences_batch=alg_confidences.cpu()
+                )
 
                 if minimon:
-                    minimon.leave('alg: tri in GPU')
+                    minimon.leave('alg: tri in cam space')
         except:
             traceback.print_exc()  # more info
-
-        if minimon:
-            minimon.leave('alg: triangulate')
 
         return keypoints_3d, keypoints_2d, heatmaps, alg_confidences  # predictions + confidence
 
@@ -322,7 +316,9 @@ class VolumetricTriangulationNet(nn.Module):
         new_cameras = deepcopy(batch['cameras'])
         for view_i in range(n_views):
             for batch_i in range(batch_size):
-                new_cameras[view_i][batch_i].update_after_resize(image_shape, heatmap_shape)
+                new_cameras[view_i][batch_i].update_after_resize(
+                    image_shape, heatmap_shape
+                )
 
         proj_matricies = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0) for camera_batch in new_cameras], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
         proj_matricies = proj_matricies.float().to(device)

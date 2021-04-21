@@ -21,7 +21,7 @@ opt:
   n_epochs_long: 1000
 
   batch_size: 8
-  val_batch_size: 8
+  val_batch_size: 16
 
   lr: 0.00001
   loss_3d: false

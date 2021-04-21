@@ -111,9 +111,11 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         val_dataset,
         batch_size=config.opt.val_batch_size if hasattr(config.opt, "val_batch_size") else config.opt.batch_size,
         shuffle=config.dataset.val.shuffle,
-        collate_fn=dataset_utils.make_collate_fn(randomize_n_views=config.dataset.val.randomize_n_views,
-                                                 min_n_views=config.dataset.val.min_n_views,
-                                                 max_n_views=config.dataset.val.max_n_views),
+        collate_fn=dataset_utils.make_collate_fn(
+            randomize_n_views=config.dataset.val.randomize_n_views,
+            min_n_views=config.dataset.val.min_n_views,
+            max_n_views=config.dataset.val.max_n_views
+        ),
         num_workers=config.dataset.val.num_workers,
         worker_init_fn=dataset_utils.worker_init_fn,
         pin_memory=True
@@ -216,7 +218,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
         proj_batch_gts.append(proj_gts)
         proj_batch_preds.append(proj_preds)
 
-    if config.debug.write_imgs:
+    if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
         f_out = 'training' if is_train else 'validation'
         f_out += '_batch_{}.png'.format(iter_i)
 
@@ -239,15 +241,17 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
             if config.opt.loss_2d:  # ~ 0 seconds
                 for batch_i in range(batch_size):
                     for view_i in range(n_views):  # todo faster loop
-                        keypoints_2d_gt_proj = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
-                        keypoints_2d_true_pred = proj_batch_preds[batch_i][view_i]  # ~ 17, 2
+                        cam = batch['cameras'][view_i][batch_i]
 
-                        pred = keypoints_2d_true_pred.unsqueeze(0)  # ~ 1, 17, 2
-                        gt = keypoints_2d_gt_proj.unsqueeze(0)  # ~ 1, 17, 2
-                        only_valid = keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0)  # ~ 1, 17, 1
+                        gt = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
+                        pred = cam.world2proj()(
+                            keypoints_3d_pred[batch_i]
+                        )  # ~ 17, 2
 
                         total_loss += criterion(
-                            pred.cuda(), gt.cuda(), only_valid.cuda()
+                            pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                            gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                            keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
                         )
 
             if config.opt.loss_3d:  # ~ 0 seconds
@@ -302,7 +306,8 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
                             keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
                         )
 
-        print('  batch iter {:d} loss ~ {:.3f}'.format(
+        print('  {} batch iter {:d} loss ~ {:.3f}'.format(
+            'training' if is_train else 'validation',
             iter_i,
             total_loss.item()
         ))  # just a little bit of live debug
@@ -321,7 +326,18 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
         minimon.leave('backward pass')
 
-    return keypoints_3d_pred
+    if config.model.triangulate_in_world_space:  # in world
+        results = keypoints_3d_pred.detach().cpu().numpy()
+    else:  # they're in cam space => cam2world
+        keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
+        results = np.float32([
+            batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
+                keypoints_3d_pred[batch_i]
+            )
+            for batch_i in range(batch_size)
+        ])
+
+    return results
 
 
 def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None):
@@ -355,7 +371,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 continue
 
             if config.opt.torch_anomaly_detection:
-                with autograd.detect_anomaly():  # about x2 time
+                with autograd.detect_anomaly():  # about x2s time
                     keypoints_3d_pred = iter_batch(
                         batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                     )
@@ -364,22 +380,19 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                     batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                 )
 
-            results['keypoints_3d'].append(
-                keypoints_3d_pred.detach().cpu().numpy()
-            )  # save answers for evaluation
-            results['indexes'].append(batch['indexes'])
+            results['keypoints_3d'].append(keypoints_3d_pred)  # save answers for evaluation
+            results['indexes'] += batch['indexes']
 
-    if master and config.debug.dump_checkpoints:  # calculate evaluation metrics
+    if master:  # calculate evaluation metrics
+        results['keypoints_3d'] = np.vstack(results['keypoints_3d'])
+
         minimon.enter()
-
-        results['keypoints_3d'] = np.concatenate(results['keypoints_3d'], axis=0)
-        results['indexes'] = np.concatenate(results['indexes'])
-
+        
         try:
             scalar_metric, full_metric = dataloader.dataset.evaluate(
                 results['keypoints_3d'],
                 indices_predicted=results['indexes']
-            )  # average 3D MPJPE (relative to pelvis), all MPJPEs
+            )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
             
             print('  {} MPJPE relative to pelvis: {:.3f}'.format(
                 'training' if is_train else 'eval',
@@ -390,22 +403,24 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
             traceback.print_exc()  # more info
 
             scalar_metric, full_metric = 0.0, {}
-
-        if experiment_dir:
-            checkpoint_dir = os.path.join(
-                experiment_dir, "checkpoints", "{:04}".format(epoch)
-            )
-            os.makedirs(checkpoint_dir, exist_ok=True)
-
-            if not is_train:  # dump results
-                with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
-                    pickle.dump(results, fout)
-
-            metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
-            with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
-                json.dump(full_metric, fout, indent=4, sort_keys=True)
-
+        
         minimon.leave('evaluate results')
+
+        if config.debug.dump_checkpoints:
+            if experiment_dir:
+                checkpoint_dir = os.path.join(
+                    experiment_dir, "checkpoints", "{:04}".format(epoch)
+                )
+                os.makedirs(checkpoint_dir, exist_ok=True)
+
+                if not is_train:  # dump results
+                    with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
+                        pickle.dump(results, fout)
+
+                metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
+                with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
+                    json.dump(full_metric, fout, indent=4, sort_keys=True)
+
 
 
 def init_distributed(args):

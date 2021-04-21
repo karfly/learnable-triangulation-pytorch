@@ -82,8 +82,7 @@ def cam2cam_batch(src, target, cameras_batch, batch_i):
 
 
 def prepare_batch(batch, device, config, is_train=True):
-    # images
-    images_batch = []
+    images_batch = []  # images
     for image_batch in batch['images']:
         image_batch = image_batch_to_torch(image_batch)
         image_batch = image_batch.to(device)

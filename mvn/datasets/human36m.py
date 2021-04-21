@@ -53,8 +53,7 @@ class Human36MMultiViewDataset(Dataset):
             ignore_cameras:
                 A list with indices of cameras to exclude (0 to 3 inclusive)
         """
-        assert train or test, '`Human36MMultiViewDataset` must be constructed with at least ' \
-                              'one of `test=True` / `train=True`'
+        assert train or test, '`Human36MMultiViewDataset` must be constructed with at least one of `test=True` / `train=True`'
         assert kind in ("mpii", "human36m")
 
         self.h36m_root = h36m_root
@@ -78,7 +77,7 @@ class Human36MMultiViewDataset(Dataset):
 
         train_subjects = [
             self.labels['subject_names'].index(x)
-            for x in ['S1', 'S6', 'S7', 'S8']  # todo solve missing images in 'S5'
+            for x in ['S1', 'S6', 'S7', 'S8']  # todo solve missings in 'S5'
         ]
         test_subjects = [
             self.labels['subject_names'].index(x)
@@ -355,7 +354,7 @@ class Human36MMultiViewDataset(Dataset):
         return subject_scores
 
     def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
-        keypoints_gt = self.labels['table']['keypoints'][:,:self.num_keypoints]
+        keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
 
         if not (indices_predicted is None):
             keypoints_gt = keypoints_gt[indices_predicted]

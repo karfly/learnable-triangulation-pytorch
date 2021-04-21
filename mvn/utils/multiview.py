@@ -103,12 +103,14 @@ class Camera:
         ])  # 4 x 3
 
     def cam2world(self):
-        """ 3D camera space (4D, x y z 1) -> 3D world (euclidean) """
+        """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """
 
         def _f(x):
-            return multiview.homogeneous_to_euclidean(
-                x @ np.linalg.inv(self.extrinsics_padded.T)  # N x 4
-            )  # N x 3
+            return homogeneous_to_euclidean(
+                euclidean_to_homogeneous(
+                    x  # [x y z] -> [x y z 1]
+                ) @ np.linalg.inv(self.extrinsics_padded.T)  # 4 x 4
+            )  # N x 4 -> N x 3
 
         return _f
 
@@ -127,7 +129,7 @@ class Camera:
 
         def _f(x):
             return homogeneous_to_euclidean(
-                euclidean_to_homogeneous(x) @ self.projection.T
+                euclidean_to_homogeneous(x) @ torch.FloatTensor(self.projection.T)
             )
 
         return _f
@@ -165,7 +167,7 @@ class Camera:
         """ 3D camera space (4D, x y z 1) -> 3D world (homo) -> 3D other camera space (4D, x y z 1) """
         
         def _f(x):
-            inv = torch.linalg.inv(torch.FloatTensor(self.extrinsics_padded.T))
+            inv = torch.inverse(torch.FloatTensor(self.extrinsics_padded.T))
             back2world = x @ inv  # N x 4
             return back2world @ torch.FloatTensor(other.extrinsics_padded.T)  # N x 4
 

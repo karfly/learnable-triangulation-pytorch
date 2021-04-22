@@ -186,37 +186,39 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
     minimon.leave('forward pass')
 
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
-    scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
-    proj_batch_gts = []  # for viz purposes only
-    proj_batch_preds = []
+    if config.model.cam2cam_estimation:
+        pass  # todo estimate cam2cam matrices foreach pair of view in each frame
+    else:
+        proj_batch_gts = []
+        proj_batch_preds = []
 
-    for batch_i in range(batch_size):
-        proj_gts = []  # for viz purposes only
-        proj_preds = []
+        for batch_i in range(batch_size):
+            proj_gts = []
+            proj_preds = []
 
-        for view_i in range(n_views):
-            cam = batch['cameras'][view_i][batch_i]
-            proj_gt = cam.world2proj()(keypoints_3d_gt[batch_i].detach().cpu())
+            for view_i in range(n_views):
+                cam = batch['cameras'][view_i][batch_i]
+                proj_gt = cam.world2proj()(keypoints_3d_gt[batch_i].detach().cpu())
 
-            if config.model.triangulate_in_world_space:
-                proj_pred = cam.world2proj()(
-                    keypoints_3d_pred[batch_i].detach().cpu()
-                )
-            else:  # in master cam space
-                master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
-
-                proj_pred = master_cam.cam2other(cam)(
-                    multiview.euclidean_to_homogeneous(
+                if config.model.triangulate_in_world_space:
+                    proj_pred = cam.world2proj()(
                         keypoints_3d_pred[batch_i].detach().cpu()
                     )
-                )
+                else:  # in master cam space
+                    master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
 
-            proj_gts.append(proj_gt)
-            proj_preds.append(proj_pred)
+                    proj_pred = master_cam.cam2other(cam)(
+                        multiview.euclidean_to_homogeneous(
+                            keypoints_3d_pred[batch_i].detach().cpu()
+                        )
+                    )
 
-        proj_batch_gts.append(proj_gts)
-        proj_batch_preds.append(proj_preds)
+                proj_gts.append(proj_gt)
+                proj_preds.append(proj_pred)
+
+            proj_batch_gts.append(proj_gts)
+            proj_batch_preds.append(proj_preds)
 
     if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
         f_out = 'training' if is_train else 'validation'
@@ -233,78 +235,82 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
         )
 
     if is_train:
+        scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
         total_loss = 0.0
 
         minimon.enter()
 
-        if config.model.triangulate_in_world_space:
-            if config.opt.loss_2d:  # ~ 0 seconds
-                for batch_i in range(batch_size):
-                    for view_i in range(n_views):  # todo faster loop
-                        cam = batch['cameras'][view_i][batch_i]
+        if config.model.cam2cam_estimation:
+            pass  # todo calc loss based on GT cam2cam matrices
+        else:
+            if config.model.triangulate_in_world_space:
+                if config.opt.loss_2d:  # ~ 0 seconds
+                    for batch_i in range(batch_size):
+                        for view_i in range(n_views):  # todo faster loop
+                            cam = batch['cameras'][view_i][batch_i]
 
-                        gt = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
-                        pred = cam.world2proj()(
-                            keypoints_3d_pred[batch_i]
-                        )  # ~ 17, 2
-
-                        total_loss += criterion(
-                            pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                            gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                            keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
-                        )
-
-            if config.opt.loss_3d:  # ~ 0 seconds
-                total_loss = criterion(
-                    keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                    keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                    keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
-                )
-
-            use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
-            if use_volumetric_ce_loss:
-                volumetric_ce_criterion = VolumetricCELoss()
-
-                loss = volumetric_ce_criterion(
-                    coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
-                )
-
-                weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
-
-                total_loss += weight * loss
-        else:  # in cam space
-            if True:  # variant I: 3D loss on cam KP
-                gt_in_cam = [
-                    batch['cameras'][master_cams[batch_i]][batch_i].world2cam()(
-                        keypoints_3d_gt[batch_i].cpu()
-                    ).numpy()
-                    for batch_i in range(batch_size)
-                ]
-
-                total_loss = criterion(
-                    keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                    torch.FloatTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                    keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
-                )
-            else:  # variant II: 2D loss on each view
-                for batch_i in range(batch_size):
-                    master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
-
-                    for view_i in range(n_views):  # todo faster loop
-                        cam = batch['cameras'][view_i][batch_i]
-
-                        gt = proj_batch_gts[batch_i][view_i]
-                        pred = master_cam.cam2other(cam)(
-                            multiview.euclidean_to_homogeneous(
+                            gt = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
+                            pred = cam.world2proj()(
                                 keypoints_3d_pred[batch_i]
-                            )
-                        )  # ~ 17, 2
+                            )  # ~ 17, 2
 
-                        total_loss += criterion(
-                            torch.FloatTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                            torch.FloatTensor(gt).unsqueeze(0).cuda(),
-                            keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
-                        )
+                            total_loss += criterion(
+                                pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                                gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                                keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
+                            )
+
+                if config.opt.loss_3d:  # ~ 0 seconds
+                    total_loss = criterion(
+                        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+                    )
+
+                use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
+                if use_volumetric_ce_loss:
+                    volumetric_ce_criterion = VolumetricCELoss()
+
+                    loss = volumetric_ce_criterion(
+                        coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
+                    )
+
+                    weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+
+                    total_loss += weight * loss
+            else:  # in cam space
+                if config.opt.loss_3d:  # variant I: 3D loss on cam KP
+                    gt_in_cam = [
+                        batch['cameras'][master_cams[batch_i]][batch_i].world2cam()(
+                            keypoints_3d_gt[batch_i].cpu()
+                        ).numpy()
+                        for batch_i in range(batch_size)
+                    ]
+
+                    total_loss = criterion(
+                        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                        torch.FloatTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+                    )
+                else:  # variant II: 2D loss on each view
+                    for batch_i in range(batch_size):
+                        master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
+
+                        for view_i in range(n_views):  # todo faster loop
+                            cam = batch['cameras'][view_i][batch_i]
+
+                            gt = proj_batch_gts[batch_i][view_i]
+                            pred = master_cam.cam2other(cam)(
+                                multiview.euclidean_to_homogeneous(
+                                    keypoints_3d_pred[batch_i]
+                                )
+                            )  # ~ 17, 2
+
+                            total_loss += criterion(
+                                torch.FloatTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                                torch.FloatTensor(gt).unsqueeze(0).cuda(),
+                                keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
+                            )
 
         print('  {} batch iter {:d} loss ~ {:.3f}'.format(
             'training' if is_train else 'validation',
@@ -317,25 +323,31 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
         minimon.enter()
 
         opt.zero_grad()
-        total_loss.backward()
+        total_loss.backward()  # backward foreach batch
 
         if hasattr(config.opt, "grad_clip"):
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.opt.grad_clip / config.opt.lr)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                config.opt.grad_clip / config.opt.lr
+            )
 
         opt.step()
 
         minimon.leave('backward pass')
 
-    if config.model.triangulate_in_world_space:  # in world
-        results = keypoints_3d_pred.detach().cpu().numpy()
-    else:  # they're in cam space => cam2world
-        keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
-        results = np.float32([
-            batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
-                keypoints_3d_pred[batch_i]
-            )
-            for batch_i in range(batch_size)
-        ])
+    if config.model.cam2cam_estimation:
+        results = None  # evaluation not needed when estimating cam2cam matrices
+    else:
+        if config.model.triangulate_in_world_space:  # in world
+            results = keypoints_3d_pred.detach().cpu().numpy()
+        else:  # they're in cam space => cam2world
+            keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
+            results = np.float32([
+                batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
+                    keypoints_3d_pred[batch_i]
+                )
+                for batch_i in range(batch_size)
+            ])
 
     return results
 
@@ -372,25 +384,26 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
 
             if config.opt.torch_anomaly_detection:
                 with autograd.detect_anomaly():  # about x2s time
-                    keypoints_3d_pred = iter_batch(
+                    results_pred = iter_batch(
                         batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                     )
             else:
-                keypoints_3d_pred = iter_batch(
+                results_pred = iter_batch(
                     batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                 )
 
-            results['keypoints_3d'].append(keypoints_3d_pred)  # save answers for evaluation
+            results['preds'].append(results_pred)  # save answers for evaluation
             results['indexes'] += batch['indexes']
 
     if master:  # calculate evaluation metrics
-        results['keypoints_3d'] = np.vstack(results['keypoints_3d'])
-
-        minimon.enter()
-        
-        try:
+        if config.model.cam2cam_estimation:
+            print('  estimating cam2cam => no metrics needed!')
+        else:
+            minimon.enter()
+            
+            results['preds'] = np.vstack(results['preds'])
             scalar_metric, full_metric = dataloader.dataset.evaluate(
-                results['keypoints_3d'],
+                results['preds'],
                 indices_predicted=results['indexes']
             )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
             
@@ -398,33 +411,29 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 'training' if is_train else 'eval',
                 scalar_metric
             ))  # just a little bit of live debug
-        except:
-            print("Failed to evaluate")
-            traceback.print_exc()  # more info
 
-            scalar_metric, full_metric = 0.0, {}
-        
-        minimon.leave('evaluate results')
+            minimon.leave('evaluate results')
 
-        if config.debug.dump_checkpoints:
-            if experiment_dir:
-                checkpoint_dir = os.path.join(
-                    experiment_dir, "checkpoints", "{:04}".format(epoch)
-                )
-                os.makedirs(checkpoint_dir, exist_ok=True)
+        if config.debug.dump_checkpoints and experiment_dir:
+            checkpoint_dir = os.path.join(
+                experiment_dir, 'checkpoints', '{:04}'.format(epoch)
+            )
+            os.makedirs(checkpoint_dir, exist_ok=True)
 
-                if not is_train:  # dump results
-                    with open(os.path.join(checkpoint_dir, "results.pkl"), 'wb') as fout:
-                        pickle.dump(results, fout)
+            if not is_train and config.debug.dump_results:  # dump results
+                results_filename = os.path.join(checkpoint_dir, 'results.pkl')
+                with open(results_filename, 'wb') as fout:
+                    pickle.dump(results, fout)
 
-                metric_filename = 'metric_train.json' if is_train else 'metric_eval.json'
-                with open(os.path.join(checkpoint_dir, metric_filename), 'w') as fout:
-                    json.dump(full_metric, fout, indent=4, sort_keys=True)
-
+            metric_filename = 'metric_train' if is_train else 'metric_eval'
+            metric_filename += '.json'
+            metric_filename = os.path.join(checkpoint_dir, metric_filename)
+            with open(metric_filename, 'w') as fout:
+                json.dump(full_metric, fout, indent=4, sort_keys=True)
 
 
 def init_distributed(args):
-    if "WORLD_SIZE" not in os.environ or int(os.environ["WORLD_SIZE"]) < 1:
+    if not misc.is_distributed():
         return False
 
     torch.cuda.set_device(args.local_rank)
@@ -439,23 +448,15 @@ def init_distributed(args):
 
 
 def main(args):
-    minimon = MiniMon()
-    minimon.enter()
-
     print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
 
     is_distributed = init_distributed(args)
-    master = True
-    if is_distributed and os.environ["RANK"]:
-        master = int(os.environ["RANK"]) == 0
+    master = misc.is_master()
 
     if is_distributed:
         device = torch.device(args.local_rank)
     else:
         device = torch.device(0)
-
-    if not torch.cuda.is_available():
-        device = 'cpu'  # warning this blows CPU
 
     config = cfg.load_config(args.config)
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
@@ -519,9 +520,10 @@ def main(args):
     if is_distributed:  # multi-gpu
         model = DistributedDataParallel(model, device_ids=[device])
 
-    if not args.eval:
-        minimon.enter()
+    minimon = MiniMon()
+    minimon.enter()
 
+    if not args.eval:
         for epoch in range(config.opt.n_epochs):
             if master:
                 f_out = 'epoch {:4d} has started!'
@@ -549,19 +551,13 @@ def main(args):
                 
                 minimon.print_stats(as_minutes=False)
                 print('=' * 71)
-
-        minimon.leave('main loop')
     else:
-        minimon.enter()
-
         if args.eval_dataset == 'train':
             one_epoch(model, criterion, opt, config, train_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
         else:
             one_epoch(model, criterion, opt, config, val_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
 
-        minimon.leave('main loop')
-
-    minimon.leave('main')
+    minimon.leave('main loop')
 
     if master:
         minimon.print_stats(as_minutes=False)

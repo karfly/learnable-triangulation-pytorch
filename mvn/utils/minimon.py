@@ -1,6 +1,8 @@
 import numpy as np
 import time
 
+from mvn.utils.misc import is_master
+
 
 class MiniMonValue:  # todo support multi-GPU
     def __init__(self):
@@ -40,23 +42,39 @@ class MiniMonValue:  # todo support multi-GPU
 
 
 class MiniMon:
-    def __init__(self):
+    def __init__(self, only_by_master=True, only_master_should_print=True):
         self.store = {}  # str -> MiniMonValue
         self.entries = []  # LIFO
+        self.only_by_master = only_by_master
+        self.only_master_should_print = only_master_should_print
+
+    def _can_do_transaction(self):  # todo as wrapper
+        if self.only_by_master:
+            return is_master()
+
+        return True
+
+    def _can_print(self):  # todo as wrapper
+        if self.only_master_should_print:
+            return is_master()
+
+        return True
 
     def get_time_now(self):
         return time.time()
 
     def enter(self):
-        self.entries.append(self.get_time_now())
+        if self._can_do_transaction():
+            self.entries.append(self.get_time_now())
 
     def leave(self, checkpoint_name):
-        last_time = self.entries.pop()
+        if self._can_do_transaction():
+            last_time = self.entries.pop()
 
-        if checkpoint_name not in self.store:
-            self.store[checkpoint_name] = MiniMonValue()
+            if checkpoint_name not in self.store:
+                self.store[checkpoint_name] = MiniMonValue()
 
-        self.store[checkpoint_name].apply(self.get_time_now() - last_time)
+            self.store[checkpoint_name].apply(self.get_time_now() - last_time)
 
     def get_stats(self):
         return {
@@ -65,26 +83,27 @@ class MiniMon:
         }
 
     def print_stats(self, as_minutes=False):
-        f_out = '{:>20} x {:10d} ~ {:10.1f} [min: {:10.1f},    max: {:10.1f},    last: {:10.1f}]'
+        if self._can_print():
+            f_out = '{:>20} x {:10d} ~ {:10.1f} [min: {:10.1f},    max: {:10.1f},    last: {:10.1f}]'
 
-        for checkpoint, info in sorted(self.store.items(), key=lambda x: x[1].get_avg()):
-            if info.num > 1:
-                print(f_out.format(
-                    checkpoint[-20:],
-                    info.num,
-                    info.get_avg() / (60.0 if as_minutes else 1.0),
-                    info.get_min() / (60.0 if as_minutes else 1.0),
-                    info.get_max() / (60.0 if as_minutes else 1.0),
-                    info.get_last() / (60.0 if as_minutes else 1.0),
-                ))
-            else:  # single call
-                print('{:>20}   {:>10} ~ {:10.1f}'.format(
-                    checkpoint[-20:],
-                    '',
-                    info.get_avg() / (60.0 if as_minutes else 1.0)
-                ))
+            for checkpoint, info in sorted(self.store.items(), key=lambda x: x[1].get_avg()):
+                if info.num > 1:
+                    print(f_out.format(
+                        checkpoint[-20:],
+                        info.num,
+                        info.get_avg() / (60.0 if as_minutes else 1.0),
+                        info.get_min() / (60.0 if as_minutes else 1.0),
+                        info.get_max() / (60.0 if as_minutes else 1.0),
+                        info.get_last() / (60.0 if as_minutes else 1.0),
+                    ))
+                else:  # single call
+                    print('{:>20}   {:>10} ~ {:10.1f}'.format(
+                        checkpoint[-20:],
+                        '',
+                        info.get_avg() / (60.0 if as_minutes else 1.0)
+                    ))
 
-        if as_minutes:
-            print('    all times are in minutes')
-        else:
-            print('    all times are in seconds')
+            if as_minutes:
+                print('    all times are in minutes')
+            else:
+                print('    all times are in seconds')

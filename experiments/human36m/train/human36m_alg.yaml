@@ -11,6 +11,7 @@ debug:
   write_imgs: false
 # `write_imgs: true` will break dataloader (use only in extreme cases of debug)
   dump_checkpoints: true
+  dump_results: false
 
 opt:
   criterion: "MSESmooth"
@@ -47,6 +48,7 @@ model:
   heatmap_softmax: true
 
   triangulate_in_world_space: true
+  cam2cam_estimation: false
 
   backbone:
     name: "resnet152"

@@ -110,7 +110,7 @@ def prepare_batch(batch, device, config, is_train=True):
         ], dim=0).transpose(1, 0)  # shape (batch_size=8, n_views=4, 3, 4)
         proj_matricies_batch = proj_matricies_batch.float().to(device)
     else:  # in cam space
-        master_cams = np.random.randint(0, n_views, size=batch_size)
+        master_cams = np.random.randint(0, n_views, size=batch_size)  # choose random "master" cam foreach frame in batch
         proj_matricies_batch = torch.FloatTensor([
             [
                 cam2cam_batch(

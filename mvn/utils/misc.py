@@ -95,3 +95,17 @@ def flush_cache(in_torch=True, with_garbage_collector=True):
         torch.cuda.empty_cache()
 
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
+
+
+def is_distributed():
+    if "WORLD_SIZE" not in os.environ or int(os.environ["WORLD_SIZE"]) < 1:
+        return False
+
+    return True
+
+
+def is_master():
+    if is_distributed():
+        return int(os.environ["RANK"]) == 0  # notation: proc #0 is THE MASTER #fuckGithub
+
+    return True  # just 1 process

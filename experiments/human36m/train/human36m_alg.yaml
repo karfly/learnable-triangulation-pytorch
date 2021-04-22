@@ -4,11 +4,12 @@ vis_freq: 1000
 vis_n_elements: 10
 
 image_shape: [384, 384]
-image_shape_small: [128, 128]
+# `[128, 128]` does not work with pretrained weights (not even BB)
 
 debug:
   img_out: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/dumps"
   write_imgs: false
+# `write_imgs: true` will break dataloader (use only in extreme cases of debug)
   dump_checkpoints: true
 
 opt:
@@ -16,9 +17,7 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs_fast: 10
-  n_epochs: 1000
-  n_epochs_long: 1000
+  n_epochs: 200
 
   batch_size: 8
   val_batch_size: 16
@@ -30,10 +29,12 @@ opt:
   scale_keypoints_3d: 0.1
 
   torch_anomaly_detection: false
+# `torch_anomaly_detection: true` just x2s time
 
 svd:
   in_cpu: true
   gpu_friendly: true
+# `gpu_friendly` only used when `in_cpu` is false
 
 model:
   name: "alg"
@@ -62,8 +63,9 @@ dataset:
   kind: "human36m"
 
   train:
-    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-    h36m_root.scratch: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+# `h36m_root.bak` used when scratch will go out of renewals (<100 days)
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
 
     with_damaged_actions: false
@@ -78,12 +80,12 @@ dataset:
     num_workers: 1
 
     retain_every_n_frames_in_train: 4000
-    retain_every_n_frames_in_train_fast: 10000
-    retain_every_n_frames_in_train_long: 150
+# `100` = ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:
-    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-    h36m_root.scratch: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
+# `h36m_root.bak` used when scratch will go out of renewals (<100 days)
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     
     with_damaged_actions: false
@@ -98,4 +100,4 @@ dataset:
     num_workers: 1
 
     retain_every_n_frames_in_test: 500
-    retain_every_n_frames_in_test_long: 30
+# `10` => ~ 219, `100` => ~ 22, `500` => ~ 5

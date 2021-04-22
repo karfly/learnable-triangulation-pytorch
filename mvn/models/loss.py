@@ -83,3 +83,17 @@ class VolumetricCELoss(nn.Module):
 
 
         return loss / n_losses
+
+
+def element_by_element(A, B, as_percentage=False):
+    errs = np.float32([
+        np.linalg.norm(a - b)
+        for a, b in zip(A, B)  # each row is the error A - B
+    ])
+    
+    rel_errs = np.float32([
+        np.linalg.norm(a - b) / np.linalg.norm(a)
+        for a, b in zip(A, B)  # each row is the RELATIVE error: (A - B) / A
+    ])
+
+    return np.mean(errs), np.mean(rel_errs) * (100.0 if as_percentage else 1.0)

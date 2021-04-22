@@ -6,7 +6,7 @@ import time
 import json
 from datetime import datetime
 from collections import defaultdict
-from itertools import islice
+from itertools import islice, combinations
 import pickle
 import copy
 import traceback
@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
-from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss
+from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss, element_by_element
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
@@ -165,7 +165,6 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
         proj_matricies_batch, master_cams = proj_matricies_batch  # unpack
 
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
-    keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
     minimon.enter()
 
@@ -182,14 +181,72 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
             batch,
             minimon
         )
+    else:  # fail case
+        keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
     minimon.leave('forward pass')
 
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     if config.model.cam2cam_estimation:
-        pass  # todo estimate cam2cam matrices foreach pair of view in each frame
-    else:
+        pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), (0, 3), (1, 2) ... (2, 3)]
+
+        cam2cam_gts = []  # will be ~ (batch_size=8, len(pairs)=6, 3, 3)
+
+        for batch_i in range(batch_size):
+            cams = [
+                batch['cameras'][view_i][batch_i]
+                for view_i in range(n_views)
+            ]
+            cam2cam_gts_batch = []  # will be ~ (len(pairs), 3, 3)
+
+            for (i, j) in pairs:
+                # Ks = [
+                #     (cams[i].intrinsics_padded, cams[j].intrinsics_padded)
+                #     for (i, j) in pairs
+                # ]
+
+                kp_gt = keypoints_3d_gt[batch_i].cpu()  # ~ 17, 3
+                kp_i = cams[i].world2cam()(kp_gt)  # GT KP in cam-i space ~ 17 x 3
+
+                # ways to have KP from cam[i]-space into cam[j]-space:
+
+                # 1) usual way: E^-1 * E
+                # est = cams[i].cam2cam(cams[j])(
+                #     multiview.euclidean_to_homogeneous(
+                #         kp_i
+                #     )  # [x y z] -> [x y z 1] => ~ 17 x 4
+                # )
+                # est = multiview.homogeneous_to_euclidean(est)  # [x y z 1] -> [x y z]
+                # print(est - kp_gt)
+                
+                # 2) step-by-step: translate -> rotate -> rotate -> translate
+                # est = kp_i - np.repeat(cams[i].t.T, 17, axis=0)
+                # est = est @ np.linalg.inv(cams[i].R.T)
+                # est = est @ cams[j].R.T
+                # est = est + np.repeat(cams[j].t.T, 17, axis=0)
+                
+                # 3) translate -> rotate * rotate -> translate
+                est = kp_i - np.repeat(cams[i].t.T, 17, axis=0)
+                rot_2_rot_matrix = (cams[j].R.dot(np.linalg.inv(cams[i].R))).T
+                est = est @ rot_2_rot_matrix
+                est = est + np.repeat(cams[j].t.T, 17, axis=0)
+
+                kp_j = cams[j].world2cam()(kp_gt)  # GT KP in cam-j space ~ 17 x 3
+
+                _, e_perc = element_by_element(est, kp_j, as_percentage=True)
+                print('error ~ {:.5f} %'.format(e_perc))
+
+                print('frame #{} cam {} (R ~ {}) -> cam {} (R ~ {}) => rot2rot ~ {}'.format(
+                    batch_i,
+                    i, cams[i].R,
+                    j, cams[j].R,
+                    rot_2_rot_matrix
+                ))
+                cam2cam_gts_batch.append(rot_2_rot_matrix)
+
+            cam2cam_gts.append(cam2cam_gts_batch)
+    else:  # calc projections (used when using loss 2D)
         proj_batch_gts = []
         proj_batch_preds = []
 
@@ -219,6 +276,10 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
             proj_batch_gts.append(proj_gts)
             proj_batch_preds.append(proj_preds)
+    
+    cam2cam_gts = np.float32(cam2cam_gts)
+    print(cam2cam_gts.shape)
+    1/0
 
     if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
         f_out = 'training' if is_train else 'validation'
@@ -337,6 +398,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
     if config.model.cam2cam_estimation:
         results = None  # evaluation not needed when estimating cam2cam matrices
+        # todo maybe just evaluate element-by-element error ...
     else:
         if config.model.triangulate_in_world_space:  # in world
             results = keypoints_3d_pred.detach().cpu().numpy()

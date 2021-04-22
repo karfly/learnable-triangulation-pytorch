@@ -488,13 +488,13 @@ def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, conf
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     fig, axis = plt.subplots(n_views, batch_size, figsize=(40, 20))
     samples = []
+    cameras = dataloader.dataset.labels['camera_names']
 
     for batch_i in range(batch_size):  # foreach sample in batch
         sample_i = batch['indexes'][batch_i]
         shot = dataloader.dataset.labels['table'][sample_i]  # inside shuffled dataset
         samples.append(shot['frame_idx'])
 
-        cameras = dataloader.dataset.labels['camera_names']
         paths = [
             dataloader.dataset._get_view_path_from_shot(
                 shot, camera

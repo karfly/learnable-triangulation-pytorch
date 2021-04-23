@@ -152,6 +152,7 @@ class AlgebraicTriangulationNet(nn.Module):
         self.heatmap_softmax = config.model.heatmap_softmax
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
+        self.just_2d = config.model.cam2cam_estimation
         self.in_world_space = config.model.triangulate_in_world_space  # else it's in cam space
 
     def forward(self, images, proj_matricies, minimon=None):
@@ -197,41 +198,39 @@ class AlgebraicTriangulationNet(nn.Module):
         keypoints_2d_transformed[:, :, :, 1] = keypoints_2d[:, :, :, 1] * (image_shape[0] / heatmap_shape[0])
         keypoints_2d = keypoints_2d_transformed  # ~ (batch_size=8, n_views=4, n_joints=17, 2D)
 
-        # triangulate
+        if self.just_2d:
+            return keypoints_2d, heatmaps, alg_confidences
 
-        try:
-            # possible methods
-            # cpu: `triangulate_batch_of_points` with .cpu()
-            # gpu (classic): `triangulate_batch_of_points` with .cuda()
-            # gpu (friendly): `triangulate_batch_of_points_using_gpu_friendly_svd` with .cuda()
+        # triangulate with possible methods:
+        # - cpu: `triangulate_batch_of_points` with .cpu()
+        # - gpu (classic): `triangulate_batch_of_points` with .cuda()
+        # - gpu (friendly): `triangulate_batch_of_points_using_gpu_friendly_svd` with .cuda()
 
-            if self.in_world_space:
-                if minimon:
-                    minimon.enter()
+        if self.in_world_space:
+            if minimon:
+                minimon.enter()
 
-                keypoints_3d = multiview.triangulate_batch_of_points(
-                    proj_matricies.cpu(),
-                    keypoints_2d.cpu(),
-                    triangulator=multiview.triangulate_point_from_multiple_views_linear_torch,
-                    confidences_batch=alg_confidences.cpu()
-                )
-                
-                if minimon:
-                    minimon.leave('alg: tri in world')
-            else:  # doing it in cam space
-                if minimon:
-                    minimon.enter()
+            keypoints_3d = multiview.triangulate_batch_of_points(
+                proj_matricies.cpu(),
+                keypoints_2d.cpu(),
+                triangulator=multiview.triangulate_point_from_multiple_views_linear_torch,
+                confidences_batch=alg_confidences.cpu()
+            )
+            
+            if minimon:
+                minimon.leave('alg: tri in world')
+        else:  # doing it in cam space
+            if minimon:
+                minimon.enter()
 
-                keypoints_3d = multiview.triangulate_batch_of_points_in_cam_space(
-                    proj_matricies.cpu(),
-                    keypoints_2d.cpu(),
-                    confidences_batch=alg_confidences.cpu()
-                )
+            keypoints_3d = multiview.triangulate_batch_of_points_in_cam_space(
+                proj_matricies.cpu(),
+                keypoints_2d.cpu(),
+                confidences_batch=alg_confidences.cpu()
+            )
 
-                if minimon:
-                    minimon.leave('alg: tri in cam space')
-        except:
-            traceback.print_exc()  # more info
+            if minimon:
+                minimon.leave('alg: tri in cam space')
 
         return keypoints_3d, keypoints_2d, heatmaps, alg_confidences  # predictions + confidence
 

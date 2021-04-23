@@ -268,7 +268,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
         minimon
     )
     
-    minimon.leave('forward pass')
+    minimon.leave('BB forward pass')
 
     if is_train:
         minimon.enter()
@@ -344,11 +344,20 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 
 
 def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon):
+    minimon.enter()
+
+    keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+        images_batch, None, minimon
+    )
+
+    minimon.leave('BB forward pass')
+
+    minimon.enter()
+
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), ... (2, 3)]
 
     cam2cam_gts = []  # will be ~ (batch_size=8, len(pairs)=6, 3, 3)
-    cam2cam_preds = []
 
     for batch_i in range(batch_size):
         cams = [
@@ -356,40 +365,30 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
             for view_i in range(n_views)
         ]
         cam2cam_gts_batch = []  # will be ~ (len(pairs), 3, 3)
-        cam2cam_preds_batch = []
 
         for (i, j) in pairs:
             rot_2_rot_matrix = (cams[j].R.dot(np.linalg.inv(cams[i].R))).T
             cam2cam_gts_batch.append(rot_2_rot_matrix)  # save to calc loss
 
-            # rot_2_rot_pred = some_model(
-            #     K[i].detach(), K[j].detach(),
-            #     KP_2D[i].detach(), KP_2D[j].detach(),  # DO NOT optimize BB
-            #     HM_2D[i].detach(), HM_2D[j].detach()
-            # )
-            rot_2_rot_pred = rot_2_rot_matrix  # todo estimate with above
-            cam2cam_preds_batch.append(rot_2_rot_pred)
-
         cam2cam_gts.append(cam2cam_gts_batch)
-        cam2cam_preds.append(cam2cam_preds_batch)
 
-    cam2cam_gts = torch.FloatTensor(cam2cam_gts)  # ~ (batch_size=8, len(pairs)=6, 3, 3)
-    cam2cam_preds = torch.FloatTensor(cam2cam_preds)
+    cam2cam_gts = torch.FloatTensor(cam2cam_gts)
 
-    1/0  # breakpoint
+    minimon.leave('prepare GT cam2cam')
 
     minimon.enter()
 
-    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
-        images_batch,
-        proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
-        minimon
-    )
+    # cam2cam_preds = cam2cam_model(
+    #     Ks,
+    #     keypoints_2d_pred,
+    #     heatmaps_pred,
+    #     minimon
+    # )
+    cam2cam_preds = cam2cam_gts  # todo predict like above, see 1812.07035
 
-    minimon.leave('forward pass')
+    minimon.leave('cam2cam forward pass')
 
     if is_train:
-        scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
         total_loss = 0.0
 
         minimon.enter()
@@ -401,7 +400,7 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
         minimon.enter()
 
         opt.zero_grad()
-        total_loss.backward()  # backward foreach batch
+        # todo uncomment total_loss.backward()  # backward foreach batch
 
         if hasattr(config.opt, "grad_clip"):
             torch.nn.utils.clip_grad_norm_(
@@ -413,7 +412,19 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
         minimon.leave('backward pass')
 
-    return None  # todo compute 3D world from rot2rot
+    minimon.enter()
+
+    # todo now that I have backbone-predicted KP (2D), all the Ks and all the cam2cams ... I can DLT in one cam space and then recover world 3D
+    # keypoints_3d = multiview.triangulate_batch_of_points_in_cam_space(
+    #     cam2cams.cpu(),
+    #     keypoints_2d_pred.cpu(),
+    #     confidences_batch=alg_confidences.cpu()
+    # )
+    keypoints_3d = None
+
+    minimon.leave('cam2cam recover world KP')
+
+    return keypoints_3d
 
 
 def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train):
@@ -422,14 +433,21 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
     )
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
 
-    if config.model.triangulate_in_world_space:
-        results = original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon)
-    elif config.model.triangulate_in_cam_space:
-        results = triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon)
-    elif config.model.cam2cam_estimation:
-        results = cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon)
-    else:
-        results = None
+    if config.model.cam2cam_estimation:  # predict cam2cam
+        results = cam2cam_iter(
+            batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon
+        )
+    else:  # usual KP estimation
+        if config.model.triangulate_in_world_space:  # predict KP in world
+            results = original_iter(
+                batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon
+            )
+        elif config.model.triangulate_in_cam_space:  # predict KP in camspace
+            results = triangulate_in_cam_iter(
+                batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+            )
+        else:
+            results = None
 
     return results
 
@@ -466,27 +484,25 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                     batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
                 )
 
-            results['preds'].append(results_pred)  # save answers for evaluation
-            results['indexes'] += batch['indexes']
+            if not (results_pred is None):
+                results['preds'].append(results_pred)  # save answers for evaluation
+                results['indexes'] += batch['indexes']
 
-    if master:  # calculate evaluation metrics
-        if config.model.cam2cam_estimation:
-            print('  estimating cam2cam => no metrics needed!')
-        else:
-            minimon.enter()
-            
-            results['preds'] = np.vstack(results['preds'])
-            scalar_metric, full_metric = dataloader.dataset.evaluate(
-                results['preds'],
-                indices_predicted=results['indexes']
-            )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
-            
-            print('  {} MPJPE relative to pelvis: {:.3f} mm'.format(
-                'training' if is_train else 'eval',
-                scalar_metric
-            ))  # just a little bit of live debug
+    if master and len(results['preds']) > 0:  # calculate evaluation metrics
+        minimon.enter()
 
-            minimon.leave('evaluate results')
+        results['preds'] = np.vstack(results['preds'])
+        scalar_metric, full_metric = dataloader.dataset.evaluate(
+            results['preds'],
+            indices_predicted=results['indexes']
+        )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
+        
+        print('  {} MPJPE relative to pelvis: {:.3f} mm'.format(
+            'training' if is_train else 'eval',
+            scalar_metric
+        ))  # just a little bit of live debug
+
+        minimon.leave('evaluate results')
 
         if config.debug.dump_checkpoints and experiment_dir:
             checkpoint_dir = os.path.join(

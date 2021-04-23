@@ -80,8 +80,10 @@ class Roto6d(nn.Module):  # acts as SOTA
             )  # MLP
 
     def forward(self, batch):
+        """ batch ~ many poses, i.e ~ (batch_size, 2, n_joints, 2D) """
+
         batch_size = batch.shape[0]
-        features = self.backbone(
-            batch.view(batch_size, -1)  # ~ (batch_size=8, n_views * n_joints * 2D)
+        features = self.backbone(  # todo
+            .
         )
         return compute_rotation_matrix_from_ortho6d(features)

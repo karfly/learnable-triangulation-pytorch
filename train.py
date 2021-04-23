@@ -357,8 +357,10 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
     minimon.enter()
 
+    n_joints = heatmaps_pred.shape[2]
     pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), ... (2, 3)]
     cam2cam_gts = []
+    kps = torch.zeros(batch_size, len(pairs), 2, n_joints, 2)
 
     for batch_i in range(batch_size):
         cams = [
@@ -371,6 +373,15 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
             (cams[j].R.dot(np.linalg.inv(cams[i].R))).T  # 3 x 3 rotation matrix
             for (i, j) in pairs
         ]  # ~ (6, 3, 3)
+
+        kp_in_batch = torch.cat([
+            torch.cat([
+                keypoints_2d_pred[batch_i, i].unsqueeze(0),
+                keypoints_2d_pred[batch_i, j].unsqueeze(0)
+            ]).unsqueeze(0)
+            for (i, j) in pairs
+        ])
+        kps[batch_i] = kp_in_batch
 
         # second step: roto-translation
         # cam2cam_gts_batch = [
@@ -386,10 +397,13 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
     minimon.enter()
 
-    # cam2cam_preds = Roto6d(
-    #     keypoints_2d_pred (or heatmaps_pred),  # ~ (batch_size=8, n_views=4, n_joints=17, 2D)
-    # )
-    cam2cam_preds = cam2cam_gts  # todo predict like above, see 1812.07035
+    cam2cam_preds = torch.empty_like(cam2cam_gts)
+    for batch_i in range(batch_size):
+        for pair_i in pairs:
+            pair_of_pose = kps[batch_i, pair_i]  # ~ (2, n_joints=17, 2D)
+            cam2cam_preds[batch_i, pair_i] = Roto6d(
+                pair_of_pose.unsqueeze(0)  # todo with heatmap
+            )
 
     minimon.leave('cam2cam forward pass')
 
@@ -398,14 +412,18 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
         minimon.enter()
 
-        # todo calc loss based on GT cam2cam matrices
+        for batch_i in range(batch_size):
+            for pair_i in pairs:
+                pred = cam2cam_preds[batch_i, pair_i]
+                gt = cam2cam_gts[batch_i, pair_i]
+                # todo total_loss+= L2/geodesic loss
 
         minimon.leave('calc loss')
 
         minimon.enter()
 
         opt.zero_grad()
-        # todo uncomment total_loss.backward()  # backward foreach batch
+        total_loss.backward()  # backward foreach batch
 
         if hasattr(config.opt, "grad_clip"):
             torch.nn.utils.clip_grad_norm_(

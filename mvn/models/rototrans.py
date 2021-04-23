@@ -83,7 +83,7 @@ class Roto6d(nn.Module):  # acts as SOTA
         """ batch ~ many poses, i.e ~ (batch_size, 2, n_joints, 2D) """
 
         batch_size = batch.shape[0]
-        features = self.backbone(  # todo
-            .
+        features = self.backbone(
+            None  # todo
         )
         return compute_rotation_matrix_from_ortho6d(features)

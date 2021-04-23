@@ -1,9 +1,11 @@
 import os
 from collections import defaultdict
 import pickle
+import time
 
 import numpy as np
 import cv2
+from PIL import Image
 
 import torch
 from torch.utils.data import Dataset
@@ -169,12 +171,24 @@ class Human36MMultiViewDataset(Dataset):
             subject_name, action_name, camera_name, frame_idx
         )
 
-    def _load_image(self, subject, action, camera_name, frame_idx):
+    def _load_image(self, subject, action, camera_name, frame_idx, max_attempts=10):
         image_path = self._get_view_path(
             subject, action, camera_name, frame_idx
         )
-        image = cv2.imread(image_path)
-        return image
+        
+        attempt_counter = 0
+
+        while attempt_counter < max_attempts:
+            try:  # todo try with .npy salvato su disco (@edo)
+                attempt_counter += 1
+
+                image = cv2.imread(image_path)  # try read from disk
+                Image.fromarray(image)  # check if we can work on this image
+
+                return image
+            except:
+                timeout_seconds = 10
+                time.sleep(timeout_seconds)
 
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value

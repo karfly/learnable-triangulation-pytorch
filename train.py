@@ -180,6 +180,8 @@ def original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch
     minimon.leave('forward pass')
 
     if is_train:
+        use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
+
         minimon.enter()
 
         if config.opt.loss_2d:  # ~ 0 seconds
@@ -200,8 +202,7 @@ def original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch
                         gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
                         keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
                     )
-
-        if config.opt.loss_3d:  # ~ 0 seconds
+        elif config.opt.loss_3d:  # ~ 0 seconds
             scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
             total_loss = criterion(
@@ -209,9 +210,7 @@ def original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch
                 keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
                 keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
             )
-
-        use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
-        if use_volumetric_ce_loss:
+        elif use_volumetric_ce_loss:
             volumetric_ce_criterion = VolumetricCELoss()
 
             loss = volumetric_ce_criterion(
@@ -414,8 +413,8 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
         for batch_i in range(batch_size):
             for pair_i in pairs:
-                pred = cam2cam_preds[batch_i, pair_i]
-                gt = cam2cam_gts[batch_i, pair_i]
+                pred = cam2cam_preds[batch_i, pair_i]  # predicted 3x3
+                gt = cam2cam_gts[batch_i, pair_i]  # GT rotation matrix
                 # todo total_loss+= L2/geodesic loss
 
         minimon.leave('calc loss')
@@ -478,7 +477,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
     )
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
 
-    if config.model.cam2cam_estimation:  # predict cam2cam
+    if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
             batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon
         )

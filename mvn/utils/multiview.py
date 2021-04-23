@@ -128,8 +128,10 @@ class Camera:
         """ 3D world (N x 3) -> 2D image (N x 2) """
 
         def _f(x):
+            device = x.device
+            proj = torch.FloatTensor(self.projection.T).to(device)
             return homogeneous_to_euclidean(
-                euclidean_to_homogeneous(x) @ torch.FloatTensor(self.projection.T)
+                euclidean_to_homogeneous(x) @ proj
             )
 
         return _f

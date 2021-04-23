@@ -157,15 +157,7 @@ def setup_experiment(args, config, model_name, is_train=True):
     return experiment_dir
 
 
-def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train):
-    images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
-        batch, device, config
-    )
-    if not config.model.triangulate_in_world_space:  # in cam space
-        proj_matricies_batch, master_cams = proj_matricies_batch  # unpack
-
-    keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
-
+def original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon):
     minimon.enter()
 
     if model_type == "alg" or model_type == "ransac":
@@ -186,192 +178,48 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
     minimon.leave('forward pass')
 
-    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
-
-    if config.model.cam2cam_estimation:
-        pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), (0, 3), (1, 2) ... (2, 3)]
-
-        cam2cam_gts = []  # will be ~ (batch_size=8, len(pairs)=6, 3, 3)
-
-        for batch_i in range(batch_size):
-            cams = [
-                batch['cameras'][view_i][batch_i]
-                for view_i in range(n_views)
-            ]
-            cam2cam_gts_batch = []  # will be ~ (len(pairs), 3, 3)
-
-            for (i, j) in pairs:
-                # Ks = [
-                #     (cams[i].intrinsics_padded, cams[j].intrinsics_padded)
-                #     for (i, j) in pairs
-                # ]
-
-                kp_gt = keypoints_3d_gt[batch_i].cpu()  # ~ 17, 3
-                kp_i = cams[i].world2cam()(kp_gt)  # GT KP in cam-i space ~ 17 x 3
-
-                # ways to have KP from cam[i]-space into cam[j]-space:
-
-                # 1) usual way: E^-1 * E
-                # est = cams[i].cam2cam(cams[j])(
-                #     multiview.euclidean_to_homogeneous(
-                #         kp_i
-                #     )  # [x y z] -> [x y z 1] => ~ 17 x 4
-                # )
-                # est = multiview.homogeneous_to_euclidean(est)  # [x y z 1] -> [x y z]
-                # print(est - kp_gt)
-                
-                # 2) step-by-step: translate -> rotate -> rotate -> translate
-                # est = kp_i - np.repeat(cams[i].t.T, 17, axis=0)
-                # est = est @ np.linalg.inv(cams[i].R.T)
-                # est = est @ cams[j].R.T
-                # est = est + np.repeat(cams[j].t.T, 17, axis=0)
-                
-                # 3) translate -> rotate * rotate -> translate
-                est = kp_i - np.repeat(cams[i].t.T, 17, axis=0)
-                rot_2_rot_matrix = (cams[j].R.dot(np.linalg.inv(cams[i].R))).T
-                est = est @ rot_2_rot_matrix
-                est = est + np.repeat(cams[j].t.T, 17, axis=0)
-
-                kp_j = cams[j].world2cam()(kp_gt)  # GT KP in cam-j space ~ 17 x 3
-
-                _, e_perc = element_by_element(est, kp_j, as_percentage=True)
-                print('error ~ {:.5f} %'.format(e_perc))
-
-                print('frame #{} cam {} (R ~ {}) -> cam {} (R ~ {}) => rot2rot ~ {}'.format(
-                    batch_i,
-                    i, cams[i].R,
-                    j, cams[j].R,
-                    rot_2_rot_matrix
-                ))
-                cam2cam_gts_batch.append(rot_2_rot_matrix)
-
-            cam2cam_gts.append(cam2cam_gts_batch)
-    else:  # calc projections (used when using loss 2D)
-        proj_batch_gts = []
-        proj_batch_preds = []
-
-        for batch_i in range(batch_size):
-            proj_gts = []
-            proj_preds = []
-
-            for view_i in range(n_views):
-                cam = batch['cameras'][view_i][batch_i]
-                proj_gt = cam.world2proj()(keypoints_3d_gt[batch_i].detach().cpu())
-
-                if config.model.triangulate_in_world_space:
-                    proj_pred = cam.world2proj()(
-                        keypoints_3d_pred[batch_i].detach().cpu()
-                    )
-                else:  # in master cam space
-                    master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
-
-                    proj_pred = master_cam.cam2other(cam)(
-                        multiview.euclidean_to_homogeneous(
-                            keypoints_3d_pred[batch_i].detach().cpu()
-                        )
-                    )
-
-                proj_gts.append(proj_gt)
-                proj_preds.append(proj_pred)
-
-            proj_batch_gts.append(proj_gts)
-            proj_batch_preds.append(proj_preds)
-    
-    cam2cam_gts = np.float32(cam2cam_gts)
-    print(cam2cam_gts.shape)
-    1/0
-
-    if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
-        f_out = 'training' if is_train else 'validation'
-        f_out += '_batch_{}.png'.format(iter_i)
-
-        vis.save_predictions(
-            batch,
-            images_batch,
-            proj_batch_gts,
-            proj_batch_preds,
-            dataloader,
-            config,
-            batch_out=f_out
-        )
-
     if is_train:
-        scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
-        total_loss = 0.0
-
         minimon.enter()
 
-        if config.model.cam2cam_estimation:
-            pass  # todo calc loss based on GT cam2cam matrices
-        else:
-            if config.model.triangulate_in_world_space:
-                if config.opt.loss_2d:  # ~ 0 seconds
-                    for batch_i in range(batch_size):
-                        for view_i in range(n_views):  # todo faster loop
-                            cam = batch['cameras'][view_i][batch_i]
+        if config.opt.loss_2d:  # ~ 0 seconds
+            batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+            total_loss = 0.0
 
-                            gt = proj_batch_gts[batch_i][view_i]  # ~ 17, 2
-                            pred = cam.world2proj()(
-                                keypoints_3d_pred[batch_i]
-                            )  # ~ 17, 2
+            for batch_i in range(batch_size):
+                for view_i in range(n_views):  # todo faster loop
+                    cam = batch['cameras'][view_i][batch_i]
 
-                            total_loss += criterion(
-                                pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                                gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                                keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
-                            )
+                    gt = cam.world2proj()(keypoints_3d_gt[batch_i])  # ~ 17, 2
+                    pred = cam.world2proj()(
+                        keypoints_3d_pred[batch_i]
+                    )  # ~ 17, 2
 
-                if config.opt.loss_3d:  # ~ 0 seconds
-                    total_loss = criterion(
-                        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+                    total_loss += criterion(
+                        pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                        gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                        keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
                     )
 
-                use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
-                if use_volumetric_ce_loss:
-                    volumetric_ce_criterion = VolumetricCELoss()
+        if config.opt.loss_3d:  # ~ 0 seconds
+            scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
-                    loss = volumetric_ce_criterion(
-                        coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
-                    )
+            total_loss = criterion(
+                keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                keypoints_3d_gt.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+            )
 
-                    weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
+        use_volumetric_ce_loss = config.opt.use_volumetric_ce_loss if hasattr(config.opt, "use_volumetric_ce_loss") else False
+        if use_volumetric_ce_loss:
+            volumetric_ce_criterion = VolumetricCELoss()
 
-                    total_loss += weight * loss
-            else:  # in cam space
-                if config.opt.loss_3d:  # variant I: 3D loss on cam KP
-                    gt_in_cam = [
-                        batch['cameras'][master_cams[batch_i]][batch_i].world2cam()(
-                            keypoints_3d_gt[batch_i].cpu()
-                        ).numpy()
-                        for batch_i in range(batch_size)
-                    ]
+            loss = volumetric_ce_criterion(
+                coord_volumes_pred, volumes_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt
+            )
 
-                    total_loss = criterion(
-                        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                        torch.FloatTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
-                    )
-                else:  # variant II: 2D loss on each view
-                    for batch_i in range(batch_size):
-                        master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
+            weight = config.opt.volumetric_ce_loss_weight if hasattr(config.opt, "volumetric_ce_loss_weight") else 1.0
 
-                        for view_i in range(n_views):  # todo faster loop
-                            cam = batch['cameras'][view_i][batch_i]
-
-                            gt = proj_batch_gts[batch_i][view_i]
-                            pred = master_cam.cam2other(cam)(
-                                multiview.euclidean_to_homogeneous(
-                                    keypoints_3d_pred[batch_i]
-                                )
-                            )  # ~ 17, 2
-
-                            total_loss += criterion(
-                                torch.FloatTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                                torch.FloatTensor(gt).unsqueeze(0).cuda(),
-                                keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
-                            )
+            total_loss += weight * loss
 
         print('  {} batch iter {:d} loss ~ {:.3f}'.format(
             'training' if is_train else 'validation',
@@ -396,20 +244,192 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
         minimon.leave('backward pass')
 
-    if config.model.cam2cam_estimation:
-        results = None  # evaluation not needed when estimating cam2cam matrices
-        # todo maybe just evaluate element-by-element error ...
-    else:
-        if config.model.triangulate_in_world_space:  # in world
-            results = keypoints_3d_pred.detach().cpu().numpy()
-        else:  # they're in cam space => cam2world
-            keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
-            results = np.float32([
-                batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
-                    keypoints_3d_pred[batch_i]
-                )
+    return keypoints_3d_pred.detach().cpu().numpy()
+
+
+def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    master_cams = np.random.randint(0, n_views, size=batch_size)  # choose random "master" cam foreach frame in batch
+    proj_matricies_batch = torch.FloatTensor([
+        [
+            dataset_utils.cam2cam_batch(
+                master_cams[batch_i], view_i, batch['cameras'], batch_i
+            )
+            for view_i in range(n_views)
+        ]
+        for batch_i in range(batch_size)
+    ])
+
+    minimon.enter()
+    
+    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+        images_batch,
+        proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
+        minimon
+    )
+    
+    minimon.leave('forward pass')
+
+    if is_train:
+        minimon.enter()
+
+        if config.opt.loss_3d:  # variant I: 3D loss on cam KP
+            scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
+
+            gt_in_cam = [
+                batch['cameras'][master_cams[batch_i]][batch_i].world2cam()(
+                    keypoints_3d_gt[batch_i].cpu()
+                ).numpy()
                 for batch_i in range(batch_size)
-            ])
+            ]
+
+            total_loss = criterion(
+                keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                torch.FloatTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+            )  # "the loss is 3D pose difference between the obtained 3D pose from DLT and the 3D pose in the first camera space"
+        else:  # variant II: 2D loss on each view
+            total_loss = 0.0
+            
+            for batch_i in range(batch_size):
+                master_cam = batch['cameras'][master_cams[batch_i]][batch_i]
+
+                for view_i in range(n_views):  # todo faster loop
+                    cam = batch['cameras'][view_i][batch_i]
+
+                    gt = cam.world2proj()(keypoints_3d_gt[batch_i].detach().cpu())  # ~ 17, 2
+                    pred = master_cam.cam2other(cam)(
+                        multiview.euclidean_to_homogeneous(
+                            keypoints_3d_pred[batch_i]
+                        )
+                    )  # ~ 17, 2
+
+                    total_loss += criterion(
+                        torch.FloatTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                        torch.FloatTensor(gt).unsqueeze(0).cuda(),
+                        keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
+                    )  # "The loss is then 2D pose difference between the 2D pose you obtain this way and the GT 2D pose in each view."
+
+        print('  {} batch iter {:d} loss ~ {:.3f}'.format(
+            'training' if is_train else 'validation',
+            iter_i,
+            total_loss.item()
+        ))  # just a little bit of live debug
+
+        minimon.leave('calc loss')
+
+        minimon.enter()
+
+        opt.zero_grad()
+        total_loss.backward()  # backward foreach batch
+
+        if hasattr(config.opt, "grad_clip"):
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                config.opt.grad_clip / config.opt.lr
+            )
+
+        opt.step()
+
+        minimon.leave('backward pass')
+
+    # they're in cam space => cam2world for metric evaluation
+    keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
+    return np.float32([
+        batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
+            keypoints_3d_pred[batch_i]
+        )
+        for batch_i in range(batch_size)
+    ])
+
+
+def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon):
+    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), ... (2, 3)]
+
+    cam2cam_gts = []  # will be ~ (batch_size=8, len(pairs)=6, 3, 3)
+    cam2cam_preds = []
+
+    for batch_i in range(batch_size):
+        cams = [
+            batch['cameras'][view_i][batch_i]
+            for view_i in range(n_views)
+        ]
+        cam2cam_gts_batch = []  # will be ~ (len(pairs), 3, 3)
+        cam2cam_preds_batch = []
+
+        for (i, j) in pairs:
+            rot_2_rot_matrix = (cams[j].R.dot(np.linalg.inv(cams[i].R))).T
+            cam2cam_gts_batch.append(rot_2_rot_matrix)  # save to calc loss
+
+            # rot_2_rot_pred = some_model(
+            #     K[i].detach(), K[j].detach(),
+            #     KP_2D[i].detach(), KP_2D[j].detach(),  # DO NOT optimize BB
+            #     HM_2D[i].detach(), HM_2D[j].detach()
+            # )
+            rot_2_rot_pred = rot_2_rot_matrix  # todo estimate with above
+            cam2cam_preds_batch.append(rot_2_rot_pred)
+
+        cam2cam_gts.append(cam2cam_gts_batch)
+        cam2cam_preds.append(cam2cam_preds_batch)
+
+    cam2cam_gts = torch.FloatTensor(cam2cam_gts)  # ~ (batch_size=8, len(pairs)=6, 3, 3)
+    cam2cam_preds = torch.FloatTensor(cam2cam_preds)
+
+    1/0  # breakpoint
+
+    minimon.enter()
+
+    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+        images_batch,
+        proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
+        minimon
+    )
+
+    minimon.leave('forward pass')
+
+    if is_train:
+        scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
+        total_loss = 0.0
+
+        minimon.enter()
+
+        # todo calc loss based on GT cam2cam matrices
+
+        minimon.leave('calc loss')
+
+        minimon.enter()
+
+        opt.zero_grad()
+        total_loss.backward()  # backward foreach batch
+
+        if hasattr(config.opt, "grad_clip"):
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                config.opt.grad_clip / config.opt.lr
+            )
+
+        opt.step()
+
+        minimon.leave('backward pass')
+
+    return None  # todo compute 3D world from rot2rot
+
+
+def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train):
+    images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
+        batch, device, config
+    )
+    keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
+
+    if config.model.triangulate_in_world_space:
+        results = original_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon)
+    elif config.model.triangulate_in_cam_space:
+        results = triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon)
+    elif config.model.cam2cam_estimation:
+        results = cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon)
+    else:
+        results = None
 
     return results
 
@@ -431,15 +451,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
         if is_train and config.opt.n_iters_per_epoch is not None:
             iterator = islice(iterator, config.opt.n_iters_per_epoch)
 
-        minimon.enter()
-
         for iter_i, batch in iterator:  # batch 8 images ~ 384 x 384 => 27.36 KB = 0.0267 MB
-            if iter_i == 0:
-                if is_train:
-                    minimon.leave('load first train batch')
-                else:
-                    minimon.leave('load first eval batch')
-
             if batch is None:
                 print('iter #{:d}: found None batch'.format(iter_i))
                 continue
@@ -469,7 +481,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
                 indices_predicted=results['indexes']
             )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
             
-            print('  {} MPJPE relative to pelvis: {:.3f}'.format(
+            print('  {} MPJPE relative to pelvis: {:.3f} mm'.format(
                 'training' if is_train else 'eval',
                 scalar_metric
             ))  # just a little bit of live debug

@@ -81,6 +81,16 @@ def cam2cam_batch(src, target, cameras_batch, batch_i):
     )
 
 
+def cam2cam_precomputed_batch(src, target, cameras_batch, batch_i, cam2cams):
+    if src == target:  # just apply intrinsics
+        cam = cameras_batch[src][batch_i]  # multiview.Camera
+        return cam.intrinsics_padded
+
+    return cameras_batch[target][batch_i].intrinsics_padded.dot(
+        cam2cams[batch_i][target].T  # cam2cam from src -> target
+    )
+
+
 def prepare_batch(batch, device, config, is_train=True):
     images_batch = []  # images
     for image_batch in batch['images']:

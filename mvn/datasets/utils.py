@@ -70,7 +70,7 @@ def worker_init_fn(worker_id):
 def cam2cam_batch(src, target, cameras_batch, batch_i):
     if src == target:  # just apply intrinsics
         cam = cameras_batch[src][batch_i]  # multiview.Camera
-        return cam.intrinsics_padded
+        return cam.intrinsics_padded  # 3 x 4
 
     src = cameras_batch[src][batch_i]
     target = cameras_batch[target][batch_i]
@@ -78,17 +78,17 @@ def cam2cam_batch(src, target, cameras_batch, batch_i):
         target.extrinsics_padded
     ).dot(
         np.linalg.inv(src.extrinsics_padded)
-    )
+    )  # 3 x 4
 
 
 def cam2cam_precomputed_batch(src, target, cameras_batch, batch_i, cam2cams):
     if src == target:  # just apply intrinsics
         cam = cameras_batch[src][batch_i]  # multiview.Camera
-        return cam.intrinsics_padded
+        return cam.intrinsics_padded  # 3 x 4
 
     return cameras_batch[target][batch_i].intrinsics_padded.dot(
-        cam2cams[batch_i][target].T  # cam2cam from src -> target
-    )
+        cam2cams[batch_i][target]  # cam2cam from src -> target
+    )  # 3 x 4
 
 
 def prepare_batch(batch, device, config, is_train=True):

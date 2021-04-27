@@ -83,7 +83,7 @@ dataset:
     num_workers: 1
 
     retain_every_n_frames_in_train: 10000
-# `100` = ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
+# `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
@@ -103,4 +103,4 @@ dataset:
     num_workers: 1
 
     retain_every_n_frames_in_test: 500
-# `10` => ~ 219, `100` => ~ 22, `500` => ~ 5
+# `10` => ~ 211, `100` => ~ 22, `500` => ~ 5

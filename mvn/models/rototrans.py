@@ -50,7 +50,7 @@ def l2_loss(gt, pred):
 
 def compute_geodesic_distance(m1, m2):
     batch_size = m1.shape[0]
-    m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size=8, 3, 3)
+    m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
 
     cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
     cos = torch.min(
@@ -63,27 +63,35 @@ def compute_geodesic_distance(m1, m2):
     )
 
     theta = torch.acos(cos)
-    return theta
+    return theta.mean()  # ~ (batch_size,)
 
 
-class Roto6d(nn.Module):  # acts as SOTA
-    def __init__(self, using_conv=False, n_params=6):
+class Roto6d(nn.Module):  # acts as baseline
+    def __init__(self, using_conv=False, inner_size=128, n_joints=17, n_params=6):
         super().__init__()
 
         if using_conv:
             self.backbone = ...  # todo, then expecting as input some heatmaps
         else:
-            inner_size = 128
             self.backbone = nn.Sequential(
-                nn.Linear(3 * 3, inner_size),
+                nn.Linear(2 * n_joints * 2, inner_size),
                 nn.Linear(inner_size, n_params)
             )  # MLP
 
-    def forward(self, batch):
-        """ batch ~ many poses, i.e ~ (batch_size, 2, n_joints, 2D) """
+        self.trans_backbone = nn.Sequential(
+            nn.Linear(2 * n_joints * 2, inner_size),
+            nn.Linear(inner_size, 3)  # 3D space
+        )  # MLP
 
-        batch_size = batch.shape[0]
-        features = self.backbone(
-            None  # todo
-        )
-        return compute_rotation_matrix_from_ortho6d(features)
+    def forward(self, batch):
+        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
+
+        batch_size, n_joints = batch.shape[0], batch.shape[2]
+        batch = batch.view(batch_size, 2 * n_joints * 2)
+        
+        features = self.backbone(batch)  # ~ (batch_size, n_params=6)
+        rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
+        
+        trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
+
+        return rot2rot, trans2trans

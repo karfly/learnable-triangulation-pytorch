@@ -100,7 +100,7 @@ class Camera:
         return np.hstack([
             self.K,
             np.expand_dims(np.zeros(3), axis=0).T
-        ])  # 4 x 3
+        ])  # 3 x 4
 
     def cam2world(self):
         """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """

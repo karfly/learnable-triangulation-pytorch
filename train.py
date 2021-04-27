@@ -25,6 +25,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss, element_by_element
+from mvn.models.utils import build_opt
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
@@ -32,7 +33,7 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.models.rototrans import Roto6d
+from mvn.models.rototrans import Roto6d, compute_geodesic_distance
 
 
 def parse_args():
@@ -49,6 +50,43 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
+
+def build_env(config, device):
+    model = {
+        "ransac": RANSACTriangulationNet,
+        "alg": AlgebraicTriangulationNet,
+        "vol": VolumetricTriangulationNet
+    }[config.model.name](config, device=device).to(device)
+
+    if config.model.cam2cam_estimation:
+        cam2cam_model = Roto6d().to(device)  # todo DistributedDataParallel
+        opt = build_opt(cam2cam_model, config)  # do not optimize original model
+    else:
+        cam2cam_model = None
+        opt = build_opt(model, config)
+
+    if config.model.init_weights:
+        state_dict = torch.load(config.model.checkpoint)
+        for key in list(state_dict.keys()):
+            new_key = key.replace("module.", "")
+            state_dict[new_key] = state_dict.pop(key)
+
+        model.load_state_dict(state_dict, strict=True)
+        print('Successfully loaded pretrained weights for whole model')
+
+    criterion_class = {
+        "MSE": KeypointsMSELoss,
+        "MSESmooth": KeypointsMSESmoothLoss,
+        "MAE": KeypointsMAELoss
+    }[config.opt.criterion]
+
+    if config.opt.criterion == "MSESmooth":
+        criterion = criterion_class(config.opt.mse_smooth_threshold)
+    else:
+        criterion = criterion_class()
+
+    return model, cam2cam_model, criterion, opt
 
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
@@ -134,7 +172,7 @@ def setup_dataloaders(config, is_train=True, distributed_train=False):
     return train_dataloader, val_dataloader, train_sampler
 
 
-def setup_experiment(args, config, model_name, is_train=True):
+def setup_experiment(config_path, logdir, config, model_name, is_train=True):
     prefix = "" if is_train else "eval_"
 
     if config.title:
@@ -147,13 +185,17 @@ def setup_experiment(args, config, model_name, is_train=True):
     experiment_name = '{}@{}'.format(experiment_title, datetime.now().strftime("%d.%m.%Y-%H:%M:%S"))
     print("Experiment name: {}".format(experiment_name))
 
-    experiment_dir = os.path.join(args.logdir, experiment_name)
-    os.makedirs(experiment_dir, exist_ok=True)
+    if logdir:
+        experiment_dir = os.path.join(logdir, experiment_name)
+        os.makedirs(experiment_dir, exist_ok=True)
 
-    checkpoints_dir = os.path.join(experiment_dir, "checkpoints")
-    os.makedirs(checkpoints_dir, exist_ok=True)
+        checkpoints_dir = os.path.join(experiment_dir, "checkpoints")
+        os.makedirs(checkpoints_dir, exist_ok=True)
 
-    shutil.copy(args.config, os.path.join(experiment_dir, "config.yaml"))
+        if config_path:
+            shutil.copy(config_path, os.path.join(experiment_dir, "config.yaml"))
+    else:
+        experiment_dir = None
 
     return experiment_dir
 
@@ -343,14 +385,23 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
     ])
 
 
-def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon):
+def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, is_train, config, minimon):
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     minimon.enter()
 
-    keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+    _, heatmaps_pred, confidences_pred = model(
         images_batch, None, minimon
     )
+    keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)  # do not optimize this part
+
+    # todo using GT KP
+    for batch_i in range(batch_size):
+        for view_i in range(n_views):
+            cam = batch['cameras'][view_i][batch_i]
+            kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
+            kp_original = cam.world2cam()(kp_world)  # in cam space
+            keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
 
     minimon.leave('BB forward pass')
 
@@ -367,42 +418,37 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
             for view_i in range(n_views)
         ]
 
-        # first step: just roto
-        cam2cam_gts_batch = [
-            (cams[j].R.dot(np.linalg.inv(cams[i].R))).T  # 3 x 3 rotation matrix
-            for (i, j) in pairs
-        ]  # ~ (6, 3, 3)
-
         kp_in_batch = torch.cat([
             torch.cat([
-                keypoints_2d_pred[batch_i, i].unsqueeze(0),
+                keypoints_2d_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
                 keypoints_2d_pred[batch_i, j].unsqueeze(0)
             ]).unsqueeze(0)
             for (i, j) in pairs
         ])
         kps[batch_i] = kp_in_batch
 
-        # second step: roto-translation
-        # cam2cam_gts_batch = [
-        #     (cams[j].extrinsics_padded.dot(np.linalg.inv(cams[i].extrinsics_padded))).T  # 4 x 4 roto-translation matrix
-        #     for (i, j) in pairs
-        # ]  # ~ (6, 4, 4)
+        # GT roto-translation: (3 x 4 + last row [0, 0, 0, 1]) = [ [ rot2rot | t ], [0, 0, 0, 1] ]
+        cam2cam_gts_batch = [
+            (cams[j].extrinsics_padded.dot(np.linalg.inv(cams[i].extrinsics_padded)))  # 4 x 4 roto-translation matrix
+            for (i, j) in pairs
+        ]  # ~ (6, 4, 4)
 
         cam2cam_gts.append(cam2cam_gts_batch)
 
-    cam2cam_gts = torch.FloatTensor(cam2cam_gts)  # ~ (batch_size=8, len(pairs)=6, 3, 3)
+    cam2cam_gts = torch.FloatTensor(cam2cam_gts).cuda()  # ~ (batch_size=8, len(pairs)=6, 3, 3)
+    kps = kps.cuda()
 
     minimon.leave('prepare GT cam2cam')
 
     minimon.enter()
 
-    cam2cam_preds = torch.empty_like(cam2cam_gts)
+    cam2cam_preds = torch.empty(batch_size, len(pairs), 3, 3)
+
     for batch_i in range(batch_size):
-        for pair_i in pairs:
-            pair_of_pose = kps[batch_i, pair_i]  # ~ (2, n_joints=17, 2D)
-            cam2cam_preds[batch_i, pair_i] = Roto6d(
-                pair_of_pose.unsqueeze(0)  # todo with heatmap
-            )
+        rot2rot, _ = cam2cam_model(
+            kps[batch_i]  # ~ (len(pairs)=6, 2, n_joints=17, 2D)
+        )
+        cam2cam_preds[batch_i] = rot2rot
 
     minimon.leave('cam2cam forward pass')
 
@@ -412,10 +458,11 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
         minimon.enter()
 
         for batch_i in range(batch_size):
-            for pair_i in pairs:
-                pred = cam2cam_preds[batch_i, pair_i]  # predicted 3x3
-                gt = cam2cam_gts[batch_i, pair_i]  # GT rotation matrix
-                # todo total_loss+= L2/geodesic loss
+            total_loss += compute_geodesic_distance(  # todo L2 with pose
+                cam2cam_preds[batch_i].cuda(),
+                cam2cam_gts[batch_i, :, :3, :3].cuda()  # todo now just rot
+            )  # ~ (len(pairs), )
+            # todo loss also on trans2trans
 
         minimon.leave('calc loss')
 
@@ -436,16 +483,33 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
     minimon.enter()
 
+    full_cam2cam = torch.empty(batch_size, len(pairs), 4, 4)  # just for MPJPE
+    for batch_i in range(batch_size):
+        gt = cam2cam_gts[batch_i, :]  # ~ (len(pairs)=6, 3D)
+        rot2rot_pred = cam2cam_preds[batch_i]
+
+        for pair_i in range(len(pairs)):
+            R = rot2rot_pred[pair_i].detach().cpu().numpy()
+            # todo using GT rot2rot R = gt[pair_i, :3, :3].detach().cpu().numpy()
+            t = gt[pair_i, :3, 3].detach().cpu().numpy()  # # todo using GT t2t
+
+            cam2cam = np.hstack([R, np.expand_dims(t, 0).T])  # ~ 3 x 4
+            cam2cam = np.vstack([
+                cam2cam,
+                [0, 0, 0, 1]
+            ])  # 4 x 4
+            full_cam2cam[batch_i, pair_i] = torch.FloatTensor(cam2cam)
+
     # now that I have all cam2cam ...
     master_cams = [0] * batch_size  # todo random
-    cam2cam_preds = [
-        [None] + list(cam2cam_preds[batch_i][0: 2 + 1].numpy())
+    full_cam2cam = [
+        [None] + list(full_cam2cam[batch_i][0: 2 + 1].detach().cpu().numpy())
         for batch_i in range(batch_size)
     ]  # I only need [(0, 0)=None, (0, 1), (0, 2), (0, 3)] since 0 is the master
-    cam2cams = torch.FloatTensor([
+    full_cam2cam = torch.FloatTensor([
         [
             dataset_utils.cam2cam_precomputed_batch(
-                master_cams[batch_i], view_i, batch['cameras'], batch_i, cam2cam_preds
+                master_cams[batch_i], view_i, batch['cameras'], batch_i, full_cam2cam
             )
             for view_i in range(n_views)
         ]
@@ -454,7 +518,7 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
 
     # ... DLT in one random master cam but since ...
     keypoints_3d_pred = multiview.triangulate_batch_of_points_in_cam_space(
-        cam2cams.cpu(),
+        full_cam2cam.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
     )
@@ -471,7 +535,7 @@ def cam2cam_iter(batch, iter_i, model, model_type, criterion, opt, images_batch,
     ])
 
 
-def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train):
+def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train, cam2cam_model=None):
     images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
         batch, device, config
     )
@@ -479,7 +543,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            batch, iter_i, model, model_type, criterion, opt, images_batch, is_train, config, minimon
+            batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, is_train, config, minimon
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world
@@ -496,13 +560,20 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
     return results
 
 
-def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None):
-    model_type = config.model.name
-
+def set_model_state(model, is_train):
     if is_train:
         model.train()
     else:
         model.eval()
+
+
+def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None, cam2cam_model=None):
+    model_type = config.model.name
+
+    set_model_state(model, is_train)
+
+    if config.model.cam2cam_estimation:  # also using `cam2cam_model`
+        set_model_state(cam2cam_model, is_train)
 
     results = defaultdict(list)
 
@@ -521,11 +592,13 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
             if config.opt.torch_anomaly_detection:
                 with autograd.detect_anomaly():  # about x2s time
                     results_pred = iter_batch(
-                        batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
+                        batch, iter_i, model, model_type, criterion, opt, config, dataloader, device,
+                        epoch, minimon, is_train, cam2cam_model=cam2cam_model
                     )
             else:
                 results_pred = iter_batch(
-                    batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train
+                    batch, iter_i, model, model_type, criterion, opt, config, dataloader, device,
+                    epoch, minimon, is_train, cam2cam_model=cam2cam_model
                 )
 
             if not (results_pred is None):
@@ -581,123 +654,76 @@ def init_distributed(args):
     return True
 
 
-def main(args):
-    print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
-
-    is_distributed = init_distributed(args)
-    master = misc.is_master()
-
-    if is_distributed:
-        device = torch.device(args.local_rank)
-    else:
-        device = torch.device(0)
-
-    config = cfg.load_config(args.config)
-    config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
-
-    model = {
-        "ransac": RANSACTriangulationNet,
-        "alg": AlgebraicTriangulationNet,
-        "vol": VolumetricTriangulationNet
-    }[config.model.name](config, device=device).to(device)
-
-    if config.model.init_weights:
-        state_dict = torch.load(config.model.checkpoint)
-        for key in list(state_dict.keys()):
-            new_key = key.replace("module.", "")
-            state_dict[new_key] = state_dict.pop(key)
-
-        model.load_state_dict(state_dict, strict=True)
-        print('Successfully loaded pretrained weights for whole model')
-
-    criterion_class = {
-        "MSE": KeypointsMSELoss,
-        "MSESmooth": KeypointsMSESmoothLoss,
-        "MAE": KeypointsMAELoss
-    }[config.opt.criterion]
-
-    if config.opt.criterion == "MSESmooth":
-        criterion = criterion_class(config.opt.mse_smooth_threshold)
-    else:
-        criterion = criterion_class()
-
-    opt = None
-    if not args.eval:
-        if config.model.name == "vol":
-            opt = torch.optim.Adam(
-                [
-                    {
-                        'params': model.backbone.parameters()
-                    },
-                    {
-                        'params': model.process_features.parameters(),
-                        'lr': config.opt.process_features_lr if hasattr(config.opt, "process_features_lr") else config.opt.lr
-                    },
-                    {
-                        'params': model.volume_net.parameters(),
-                        'lr': config.opt.volume_net_lr if hasattr(config.opt, "volume_net_lr") else config.opt.lr
-                    }
-                ],
-                lr=config.opt.lr
-            )
-        else:
-            opt = optim.Adam(
-                filter(lambda p: p.requires_grad, model.parameters()),
-                lr=config.opt.lr
-            )
+def do_train(config_path, logdir, config, device, is_distributed, master):
+    model, cam2cam_model, criterion, opt = build_env(config, device)
+    if is_distributed:  # multi-gpu
+        model = DistributedDataParallel(model, device_ids=[device])
 
     train_dataloader, val_dataloader, train_sampler = setup_dataloaders(config, distributed_train=is_distributed)  # ~ 0 seconds
 
     if master:
-        experiment_dir = setup_experiment(args, config, type(model).__name__, is_train=not args.eval)
-
-    if is_distributed:  # multi-gpu
-        model = DistributedDataParallel(model, device_ids=[device])
+        experiment_dir = setup_experiment(
+            config_path, logdir, config, type(model).__name__, is_train=True
+        )
+    else:
+        experiment_dir = None
 
     minimon = MiniMon()
-    minimon.enter()
 
-    if not args.eval:
-        for epoch in range(config.opt.n_epochs):
-            if master:
-                f_out = 'epoch {:4d} has started!'
-                print(f_out.format(epoch))
+    for epoch in range(config.opt.n_epochs):  # training
+        if master:
+            f_out = 'epoch {:4d} has started!'
+            print(f_out.format(epoch))
 
-            if train_sampler:  # None when NOT distributed
-                train_sampler.set_epoch(epoch)
+        if train_sampler:  # None when NOT distributed
+            train_sampler.set_epoch(epoch)
 
-            minimon.enter()
-            one_epoch(model, criterion, opt, config, train_dataloader, device, epoch, minimon, is_train=True, master=master, experiment_dir=experiment_dir)
-            minimon.leave('train epoch')
+        minimon.enter()
+        one_epoch(
+            model, criterion, opt, config, train_dataloader, device, epoch,
+            minimon, is_train=True, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
+        )
+        minimon.leave('do train')
 
-            minimon.enter()
-            one_epoch(model, criterion, opt, config, val_dataloader, device, epoch, minimon, is_train=False, master=master, experiment_dir=experiment_dir)
-            minimon.leave('eval epoch')
+        minimon.enter()
+        one_epoch(
+            model, criterion, opt, config, val_dataloader, device, epoch,
+            minimon, is_train=False, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
+        )
+        minimon.leave('do eval')
 
-            if master:
-                checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
-                os.makedirs(checkpoint_dir, exist_ok=True)
+        if master and experiment_dir:
+            checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
+            os.makedirs(checkpoint_dir, exist_ok=True)
 
-                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
+            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
 
-                f_out = 'epoch {:4d} complete!'
-                print(f_out.format(epoch))
-                
-                minimon.print_stats(as_minutes=False)
-                print('=' * 71)
-    else:
-        if args.eval_dataset == 'train':
-            one_epoch(model, criterion, opt, config, train_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
-        else:
-            one_epoch(model, criterion, opt, config, val_dataloader, device, 0, is_train=False, master=master, experiment_dir=experiment_dir)
-
-    minimon.leave('main loop')
+            f_out = 'epoch {:4d} complete!'
+            print(f_out.format(epoch))
+            
+            minimon.print_stats(as_minutes=False)
+            print('=' * 105)
 
     if master:
         minimon.print_stats(as_minutes=False)
 
 
+def main(args):
+    print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
+
+    is_distributed = init_distributed(args)
+    master = misc.is_master()
+    device = torch.device(args.local_rank) if is_distributed else torch.device(0)
+    print('using dev {}'.format(device))
+
+    config = cfg.load_config(args.config)
+    config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
+
+    do_train(args.config, args.logdir, config, device, is_distributed, master)
+
+
 if __name__ == '__main__':
     args = parse_args()
     print("args: {}".format(args))
+    
     main(args)

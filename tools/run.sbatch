@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=4096
-#SBATCH --time=12:00:00
+#SBATCH --time=01:00:00
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
@@ -31,3 +31,5 @@ python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
 # python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}
 
 date +"%Y-%m-%d %H:%M:%S"
+
+sstat -jp $SLURM_JOB_ID.batch --format=JobID,AveVMSize,MaxVMSize,AveCPU,AveCPUFreq,AveDiskRead,AveDiskWrite,ConsumedEnergy

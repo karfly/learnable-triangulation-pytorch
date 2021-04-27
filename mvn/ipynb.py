@@ -27,10 +27,11 @@ def get_args():
     return args
 
 
-def get_config(args):
+def get_config(args, data_folder=str(Path.home() / '_tmp' / 'data') + '/'):
     config = cfg.load_config(args.config)
 
     config.image_shape = [128, 128]
+
     config.debug.write_imgs = True
     config.debug.img_out = '/home/stefano/_tmp/logs/imgs'
     config.debug.dump_checkpoints = False
@@ -38,34 +39,35 @@ def get_config(args):
     config.opt.n_epochs = 2
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
-    config.opt.torch_anomaly_detection = False
-
-    config.opt.loss_3d = False
-    config.opt.loss_2d = not config.opt.loss_3d
     config.opt.batch_size = 8
     config.opt.val_batch_size = 16
 
-    data_folder = str(Path.home() / '_tmp' / 'data') + '/'  # it's a folder
+    config.opt.loss_3d = False
+    config.opt.loss_2d = not config.opt.loss_3d
+
+    config.opt.torch_anomaly_detection = False
+
+    config.model.init_weights = False  # there is no point in loading full module with a shitty GPU
+    config.model.checkpoint = data_folder + 'weights_alg.pth'  #  + 'weights_vol.pth'
 
     config.model.triangulate_in_world_space = False
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
-    config.model.init_weights = False  # there is no point in loading full module with a shitty GPU
-    config.model.checkpoint = data_folder + 'weights_alg.pth'  #  + 'weights_vol.pth'
-    config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'
+    
     config.model.backbone.init_weights = config.model.init_weights
+    config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'
     config.model.backbone.num_layers = 18  # very small BB
     config.model.backbone.num_deconv_filters = 32
 
     config.dataset.train.h36m_root = data_folder + 'processed/'
     config.dataset.train.labels_path = data_folder + 'human36m-multiview-labels-GTbboxes.npy'
-    config.dataset.train.retain_every_n_frames_in_train = 10000  # 12 images when in full dataset
     config.dataset.train.num_workers = 1
+    config.dataset.train.retain_every_n_frames_in_train = 10000  # 12 images when in full dataset
 
     config.dataset.val.h36m_root = config.dataset.train.h36m_root  # the same! WTF!
     config.dataset.val.labels_path = config.dataset.train.labels_path  # the same! WTF!
-    config.dataset.val.retain_every_n_frames_in_test = 500  # 5 images when in full dataset
     config.dataset.val.num_workers = 1
+    config.dataset.val.retain_every_n_frames_in_test = 500  # 5 images when in full dataset
     
     return config
 

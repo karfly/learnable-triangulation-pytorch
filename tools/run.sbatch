@@ -32,4 +32,4 @@ python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
 
 date +"%Y-%m-%d %H:%M:%S"
 
-sstat -jp $SLURM_JOB_ID.batch --format=JobID,AveVMSize,MaxVMSize,AveCPU,AveCPUFreq,AveDiskRead,AveDiskWrite,ConsumedEnergy
+sstat -jp $SLURM_JOB_ID.batch --format=JobID,AveVMSize,MaxVMSize,AveCPU,AveCPUFreq,AveDiskRead,AveDiskWrite

@@ -18,12 +18,12 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs: 200
+  n_epochs: 20000
 
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.00001
+  lr: 0.001
   loss_3d: false
   loss_2d: true
 
@@ -47,9 +47,9 @@ model:
   heatmap_multiplier: 100.0
   heatmap_softmax: true
 
-  triangulate_in_world_space: true
+  triangulate_in_world_space: false
   triangulate_in_cam_space: false
-  cam2cam_estimation: false
+  cam2cam_estimation: true
 
   backbone:
     name: "resnet152"
@@ -82,7 +82,7 @@ dataset:
     max_n_views: 31
     num_workers: 1
 
-    retain_every_n_frames_in_train: 10000
+    retain_every_n_frames_in_train: 1000
 # `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:

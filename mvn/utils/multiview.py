@@ -106,11 +106,10 @@ class Camera:
         """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """
 
         def _f(x):
-            return homogeneous_to_euclidean(
-                euclidean_to_homogeneous(
-                    x  # [x y z] -> [x y z 1]
-                ) @ np.linalg.inv(self.extrinsics_padded.T)  # 4 x 4
-            )  # N x 4 -> N x 3
+            homo = euclidean_to_homogeneous(x)  # [x y z] -> [x y z 1]
+            inv = torch.inverse(torch.FloatTensor(self.extrinsics_padded.T))  # N x 4
+            eucl = homo @ inv
+            return homogeneous_to_euclidean(eucl)  # N x 4 -> N x 3
 
         return _f
 
@@ -129,10 +128,11 @@ class Camera:
 
         def _f(x):
             device = x.device
+            
             proj = torch.FloatTensor(self.projection.T).to(device)
-            return homogeneous_to_euclidean(
-                euclidean_to_homogeneous(x) @ proj
-            )
+            homo = euclidean_to_homogeneous(x).type('torch.FloatTensor').to(device)
+
+            return homogeneous_to_euclidean(homo @ proj)
 
         return _f
 
@@ -350,7 +350,7 @@ def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, trian
             else:
                 point_3d = triangulator(
                     matrices_batch[batch_i],
-                    points,
+                    points
                 )
 
             point_3d_batch[batch_i, joint_i] = point_3d

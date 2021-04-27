@@ -73,10 +73,25 @@ class Roto6d(nn.Module):  # acts as baseline
         if using_conv:
             self.backbone = ...  # todo, then expecting as input some heatmaps
         else:
+            # simple:
+            # self.backbone = nn.Sequential(
+            #     nn.Linear(2 * n_joints * 2, inner_size),
+            #     nn.Linear(inner_size, n_params)
+            # )  # MLP
+
+            # advanced:
             self.backbone = nn.Sequential(
                 nn.Linear(2 * n_joints * 2, inner_size),
+                nn.LeakyReLU(),
+                
+                nn.Linear(inner_size, inner_size),
+                nn.LeakyReLU(),
+                
+                nn.Linear(inner_size, inner_size),
+                nn.LeakyReLU(),
+                
                 nn.Linear(inner_size, n_params)
-            )  # MLP
+            )
 
         self.trans_backbone = nn.Sequential(
             nn.Linear(2 * n_joints * 2, inner_size),
@@ -88,10 +103,11 @@ class Roto6d(nn.Module):  # acts as baseline
 
         batch_size, n_joints = batch.shape[0], batch.shape[2]
         batch = batch.view(batch_size, 2 * n_joints * 2)
-        
+        # not needed (bias) batch = nn.functional.normalize(batch, p=2, dim=1)
+
         features = self.backbone(batch)  # ~ (batch_size, n_params=6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
-        
+
         trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
 
         return rot2rot, trans2trans

@@ -61,10 +61,19 @@ def build_env(config, device):
 
     if config.model.cam2cam_estimation:
         cam2cam_model = Roto6d().to(device)  # todo DistributedDataParallel
-        opt = build_opt(cam2cam_model, config)  # do not optimize original model
+        opt = optim.Adam(
+            [
+                {
+                    'params': model.backbone.parameters()
+                },
+                {
+                    'params': cam2cam_model.backbone.parameters()
+                }
+            ]
+        )
     else:
         cam2cam_model = None
-        opt = build_opt(model, config)
+        opt = build_opt(model, model.backbone.parameters(), config)
 
     if config.model.init_weights:
         state_dict = torch.load(config.model.checkpoint)
@@ -390,19 +399,19 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     minimon.enter()
 
-    # keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
-    #     images_batch, None, minimon
-    # )
+    keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+        images_batch, None, minimon
+    )
 
-    keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)  # do not optimize this part
-
-    # todo using GT KP
-    for batch_i in range(batch_size):
-        for view_i in range(n_views):
-            cam = batch['cameras'][view_i][batch_i]
-            kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
-            kp_original = cam.world2cam()(kp_world)  # in cam space
-            keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
+    # keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)  # do not optimize this part
+    # # todo using GT KP
+    # for batch_i in range(batch_size):
+    #     for view_i in range(n_views):
+    #         cam = batch['cameras'][view_i][batch_i]
+    #         kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
+    #         kp_original = cam.world2cam()(kp_world)  # in cam space
+    #         keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
+    # keypoints_2d_pred.requires_grad = True
 
     minimon.leave('BB forward pass')
 
@@ -466,22 +475,19 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     full_cam2cam = torch.empty(batch_size, len(pairs), 4, 4, device='cuda:0')
     for batch_i in range(batch_size):
         gt = cam2cam_gts[batch_i, :]  # ~ (len(pairs)=6, 3D)
-        rot2rot_pred = cam2cam_preds[batch_i]
 
         for pair_i in range(len(pairs)):
-            R = rot2rot_pred[pair_i].cuda()
-            
-            # todo using GT rot2rot
+            R = cam2cam_preds[batch_i, pair_i].cuda()
             # R = gt[pair_i, :3, :3].cuda()
             # R.requires_grad = True
-            
             t = gt[pair_i, :3, 3].cuda()  # todo using GT t2t
 
-            cam2cam = torch.hstack([R, t.unsqueeze(0).T])  # ~ 3 x 4
-            cam2cam = torch.vstack([
+            # cam2cam = torch.hstack()  # ~ 3 x 4
+            cam2cam = torch.cat([R, t.unsqueeze(0).T], dim=1)  # `torch.hstack`
+            cam2cam = torch.cat([  # `torch.vstack`
                 cam2cam,
-                torch.cuda.FloatTensor([0, 0, 0, 1])
-            ])  # 4 x 4
+                torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
+            ], dim=0)  # 4 x 4
             full_cam2cam[batch_i, pair_i] = cam2cam
 
     # now that I have all cam2cam ...
@@ -504,19 +510,18 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     keypoints_3d_pred = multiview.triangulate_batch_of_points_in_cam_space(
         full_cam2cam.cpu(),
         keypoints_2d_pred.cpu(),
-        # confidences_batch=confidences_pred.cpu()
+        confidences_batch=confidences_pred.cpu()
     )
 
-    minimon.leave('cam2cam DLT')
-
     # ... they're in master cam space => cam2world
-    # keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
     keypoints_3d_pred = torch.cat([
         batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
             keypoints_3d_pred[batch_i]
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
+
+    minimon.leave('cam2cam DLT')
 
     if is_train:
         total_loss = 0.0
@@ -525,24 +530,39 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
         for batch_i in range(batch_size):
             # geodesic loss
-            # total_loss += compute_geodesic_distance(
-            #     cam2cam_preds[batch_i].cuda(),
-            #     cam2cam_gts[batch_i, :, :3, :3].cuda()  # todo now just rot
-            # )  # ~ (len(pairs), )
+            total_loss += compute_geodesic_distance()(
+                cam2cam_preds[batch_i, :].cuda(),
+                cam2cam_gts[batch_i, :, :3, :3].cuda()  # todo now just rot
+            )  # ~ (len(pairs), )
 
-            # pose loss
-            in_world = torch.cuda.FloatTensor(keypoints_3d_gt[batch_i])
+            weight_kp = 0.1
             for view_i in range(n_views):
                 cam = batch['cameras'][view_i][batch_i]
-                gt = cam.world2proj()(in_world)  # ~ 17, 2
 
-                pred = cam.world2proj()(keypoints_3d_pred[batch_i])  # ~ 17, 2
+                gt = cam.world2proj()(keypoints_3d_gt[batch_i])  # ~ 17, 2
+                pred = cam.world2proj()(  # todo faster (batched) loop
+                    keypoints_3d_pred[batch_i]
+                )  # ~ 17, 2
 
-                total_loss += criterion(
+                total_loss += weight_kp * criterion(
                     pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
                     gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
                     keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
                 )
+
+            # pose loss
+            # in_world = torch.cuda.FloatTensor(keypoints_3d_gt[batch_i])
+            # for view_i in range(n_views):
+            #     cam = batch['cameras'][view_i][batch_i]
+            #     gt = cam.world2proj()(in_world)  # ~ 17, 2
+
+            #     pred = cam.world2proj()(keypoints_3d_pred[batch_i])  # ~ 17, 2
+
+            #     total_loss += criterion(
+            #         pred.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+            #         gt.unsqueeze(0).cuda(),  # ~ 1, 17, 2
+            #         keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ 1, 17, 1
+            #     )
 
         minimon.leave('calc loss')
 

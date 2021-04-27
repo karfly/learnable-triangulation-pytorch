@@ -2,11 +2,13 @@ import torch.optim as optim
 
 
 def build_opt(model, config, base_optim=optim.Adam):
+    bb_params = model.backbone.parameters()
+
     if config.model.name == "vol":
         return base_optim(
             [
                 {
-                    'params': model.backbone.parameters()
+                    'params': bb_params
                 },
                 {
                     'params': model.process_features.parameters(),
@@ -21,6 +23,6 @@ def build_opt(model, config, base_optim=optim.Adam):
         )
 
     return base_optim(
-        filter(lambda p: p.requires_grad, model.parameters()),
+        filter(lambda p: p.requires_grad, bb_params),
         lr=config.opt.lr
     )

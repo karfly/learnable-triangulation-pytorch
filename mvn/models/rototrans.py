@@ -48,22 +48,24 @@ def l2_loss(gt, pred):
     ).mean()  # scalar
 
 
-def compute_geodesic_distance(m1, m2):
-    batch_size = m1.shape[0]
-    m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
+def compute_geodesic_distance():
+    def _f(m1, m2):
+        batch_size = m1.shape[0]
+        m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
 
-    cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
-    cos = torch.min(
-        cos,
-        torch.autograd.Variable(torch.ones(batch_size).cuda())
-    )
-    cos = torch.max(
-        cos,
-        torch.autograd.Variable(torch.ones(batch_size).cuda()) * -1
-    )
+        cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
+        cos = torch.min(
+            cos,
+            torch.autograd.Variable(torch.ones(batch_size).cuda())
+        )
+        cos = torch.max(
+            cos,
+            torch.autograd.Variable(torch.ones(batch_size).cuda()) * -1
+        )
 
-    theta = torch.acos(cos)
-    return theta.mean()  # ~ (batch_size,)
+        theta = torch.acos(cos)
+        return theta.mean()  # ~ (batch_size,)
+    return _f
 
 
 class Roto6d(nn.Module):  # acts as baseline
@@ -93,10 +95,10 @@ class Roto6d(nn.Module):  # acts as baseline
                 nn.Linear(inner_size, n_params)
             )
 
-        self.trans_backbone = nn.Sequential(
-            nn.Linear(2 * n_joints * 2, inner_size),
-            nn.Linear(inner_size, 3)  # 3D space
-        )  # MLP
+        # self.trans_backbone = nn.Sequential(
+        #     nn.Linear(2 * n_joints * 2, inner_size),
+        #     nn.Linear(inner_size, 3)  # 3D space
+        # )  # MLP
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
@@ -108,6 +110,7 @@ class Roto6d(nn.Module):  # acts as baseline
         features = self.backbone(batch)  # ~ (batch_size, n_params=6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
+        # todo skip for now trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
+        trans2trans = None
 
         return rot2rot, trans2trans

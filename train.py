@@ -64,12 +64,15 @@ def build_env(config, device):
         opt = optim.Adam(
             [
                 {
-                    'params': model.backbone.parameters()
+                    'params': model.backbone.parameters(),
+                    'lr': config.opt.lr
                 },
                 {
-                    'params': cam2cam_model.backbone.parameters()
+                    'params': cam2cam_model.backbone.parameters(),
+                    'lr': 1e-3
                 }
-            ]
+            ],
+            lr=config.opt.lr
         )
     else:
         cam2cam_model = None

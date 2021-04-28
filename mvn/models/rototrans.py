@@ -6,12 +6,10 @@ import numpy as np
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
-def normalize_vector(v):
+def normalize_vector(v, eps=1e-8):
     batch = v.shape[0]
     v_mag = torch.sqrt(v.pow(2).sum(1))
-    v_mag = torch.max(
-        v_mag, torch.autograd.Variable(torch.FloatTensor([1e-8]).cuda())
-    )
+    v_mag = torch.max(v_mag, torch.cuda.FloatTensor([eps]))
     v_mag = v_mag.view(batch, 1).expand(batch, v.shape[1])
     v = v / v_mag
     return v
@@ -41,11 +39,13 @@ def compute_rotation_matrix_from_ortho6d(ortho6d):
     return matrix  # 3 x 3
 
 
-def l2_loss(gt, pred):
-    return torch.pow(
-        gt - pred,  # absolute error ~ (batch_size=8, 3, 3)
-        2
-    ).mean()  # scalar
+def l2_loss():
+    def _f(gt, pred):
+        return torch.pow(
+            gt - pred,  # absolute error ~ (batch_size=8, ...)
+            2
+        ).mean()  # scalar
+    return _f
 
 
 def compute_geodesic_distance():
@@ -75,42 +75,33 @@ class Roto6d(nn.Module):  # acts as baseline
         if using_conv:
             self.backbone = ...  # todo, then expecting as input some heatmaps
         else:
-            # simple:
-            # self.backbone = nn.Sequential(
-            #     nn.Linear(2 * n_joints * 2, inner_size),
-            #     nn.Linear(inner_size, n_params)
-            # )  # MLP
-
-            # advanced:
             self.backbone = nn.Sequential(
                 nn.Linear(2 * n_joints * 2, inner_size),
                 nn.LeakyReLU(),
-                
+
                 nn.Linear(inner_size, inner_size),
                 nn.LeakyReLU(),
-                
+
                 nn.Linear(inner_size, inner_size),
                 nn.LeakyReLU(),
-                
+
                 nn.Linear(inner_size, n_params)
             )
 
-        # self.trans_backbone = nn.Sequential(
-        #     nn.Linear(2 * n_joints * 2, inner_size),
-        #     nn.Linear(inner_size, 3)  # 3D space
-        # )  # MLP
+        self.trans_backbone = nn.Sequential(
+            nn.Linear(2 * n_joints * 2, inner_size),
+            nn.Linear(inner_size, 3)  # 3D space
+        )  # MLP
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         batch_size, n_joints = batch.shape[0], batch.shape[2]
         batch = batch.view(batch_size, 2 * n_joints * 2)
-        # not needed (bias) batch = nn.functional.normalize(batch, p=2, dim=1)
 
         features = self.backbone(batch)  # ~ (batch_size, n_params=6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        # todo skip for now trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
-        trans2trans = None
+        trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
 
         return rot2rot, trans2trans

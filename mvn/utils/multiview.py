@@ -253,7 +253,14 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
     A -= proj_matricies[:, :2]
     A *= confidences.view(-1, 1, 1)
 
-    u, s, vh = torch.svd(A.view(-1, 4))  # ~ (8, n_views=4)
+    try:
+        u, s, vh = torch.svd(A.view(-1, 4))  # ~ (8, n_views=4)
+    except:  # usually SVD may not converge because of nan values
+        print(proj_matricies)
+        print(points)
+        print(confidences)
+        print(convert_to_euclidean)
+        print(A)
 
     point_3d = -vh[:, 3]  # ~ (n_views=4,)
 

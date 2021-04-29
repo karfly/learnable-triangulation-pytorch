@@ -1,8 +1,33 @@
 import torch.optim as optim
 
 
+def get_params(layer, as_list=True):
+    params = layer.parameters()
+
+    if as_list:
+        return list(params)
+
+    return params
+
+
+def count_grad_params(layer):
+    params = get_params(layer, as_list=False)
+    return sum(
+        p.data.nelement()
+        for p in params
+        if p.requires_grad
+    )
+
+
 def build_opt(model, config, base_optim=optim.Adam):
-    bb_params = model.backbone.parameters()
+    bb_params = list(model.backbone.parameters())
+
+    for name, m in model.backbone.named_children():
+        print(name, count_grad_params(m))
+
+    print(model)
+
+    1/0
 
     if config.model.name == "vol":
         return base_optim(

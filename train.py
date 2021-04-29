@@ -76,7 +76,7 @@ def build_env(config, device):
         )
     else:
         cam2cam_model = None
-        opt = build_opt(model, model.backbone.parameters(), config)
+        opt = build_opt(model, config)
 
     if config.model.init_weights:
         state_dict = torch.load(config.model.checkpoint)
@@ -691,20 +691,21 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
 
         minimon.leave('evaluate results')
 
-        checkpoint_dir = os.path.join(
-            experiment_dir, 'checkpoints', '{:04}'.format(epoch)
-        )
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        metric_filename = 'metric_train' if is_train else 'metric_eval'
-        metric_filename += '.json'
-        metric_filename = os.path.join(checkpoint_dir, metric_filename)
-        with open(metric_filename, 'w') as fout:
-            json.dump(full_metric, fout, indent=4, sort_keys=True)
+        if experiment_dir:
+            checkpoint_dir = os.path.join(
+                experiment_dir, 'checkpoints', '{:04}'.format(epoch)
+            )
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            metric_filename = 'metric_train' if is_train else 'metric_eval'
+            metric_filename += '.json'
+            metric_filename = os.path.join(checkpoint_dir, metric_filename)
+            with open(metric_filename, 'w') as fout:
+                json.dump(full_metric, fout, indent=4, sort_keys=True)
 
-        if config.debug.dump_results and experiment_dir and not is_train:
-            results_filename = os.path.join(checkpoint_dir, 'results.pkl')
-            with open(results_filename, 'wb') as fout:
-                pickle.dump(results, fout)
+            if config.debug.dump_results and experiment_dir and not is_train:
+                results_filename = os.path.join(checkpoint_dir, 'results.pkl')
+                with open(results_filename, 'wb') as fout:
+                    pickle.dump(results, fout)
 
 
 def init_distributed(args):

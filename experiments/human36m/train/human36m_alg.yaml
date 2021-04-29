@@ -10,7 +10,7 @@ debug:
   img_out: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/dumps"
   write_imgs: false
 # `write_imgs: true` will break dataloader (use only in extreme cases of debug)
-  dump_checkpoints: false
+  dump_checkpoints: true
   dump_results: false
 
 opt:
@@ -18,7 +18,7 @@ opt:
   mse_smooth_threshold: 400
 
   n_objects_per_epoch: 15000
-  n_epochs: 20000
+  n_epochs: 1000
 
   batch_size: 8
   val_batch_size: 16
@@ -47,9 +47,9 @@ model:
   heatmap_multiplier: 100.0
   heatmap_softmax: true
 
-  triangulate_in_world_space: false
+  triangulate_in_world_space: true
   triangulate_in_cam_space: false
-  cam2cam_estimation: true
+  cam2cam_estimation: false
 
   backbone:
     name: "resnet152"

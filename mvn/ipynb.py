@@ -50,9 +50,9 @@ def get_config(args, data_folder=str(Path.home() / '_tmp' / 'data') + '/'):
     config.model.init_weights = False  # there is no point in loading full module with a shitty GPU
     config.model.checkpoint = data_folder + 'weights_alg.pth'  #  + 'weights_vol.pth'
 
-    config.model.triangulate_in_world_space = False
+    config.model.triangulate_in_world_space = True
     config.model.triangulate_in_cam_space = False
-    config.model.cam2cam_estimation = True
+    config.model.cam2cam_estimation = False
     
     config.model.backbone.init_weights = config.model.init_weights
     config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

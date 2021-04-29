@@ -19,15 +19,44 @@ def count_grad_params(layer):
     )
 
 
+def freeze_layer(layer):
+    for p in layer.parameters():
+        p.requires_grad = False
+
+
+def show_params(model):
+    tot = count_grad_params(model)
+
+    for name, m in model.named_children():
+        n_params = count_grad_params(m)
+        as_perc = n_params / tot * 100.0
+        print('{:>30} has {:.0f} params (~ {:.1f}) %'.format(
+            name, n_params, as_perc
+        ))
+
+    print('total params: {:.0f}'.format(
+        tot
+    ))
+
+
 def build_opt(model, config, base_optim=optim.Adam):
     bb_params = list(model.backbone.parameters())
 
-    for name, m in model.backbone.named_children():
-        print(name, count_grad_params(m))
+    show_params(model.backbone)
 
-    print(model)
+    freeze_layer(model.backbone.conv1)
+    freeze_layer(model.backbone.bn1)
+    freeze_layer(model.backbone.relu)
+    freeze_layer(model.backbone.maxpool)
+    freeze_layer(model.backbone.layer1)
+    freeze_layer(model.backbone.layer2)
+    freeze_layer(model.backbone.layer3)
+    freeze_layer(model.backbone.layer4)
+    # freeze_layer(model.backbone.alg_confidences)
+    # freeze_layer(model.backbone.deconv_layers)
+    # freeze_layer(model.backbone.final_layer)
 
-    1/0
+    show_params(model.backbone)
 
     if config.model.name == "vol":
         return base_optim(

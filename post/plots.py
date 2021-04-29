@@ -42,10 +42,10 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
     )
 
 
-def plot_epochs(at_least_2_axis, epochs):
+def plot_epochs(at_least_2_axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], loss_ylabel=None, metric_ylabel=None):
     axis = at_least_2_axis.ravel()[0]
     training_loss = [
-        np.mean(epoch['training loss / batch'])
+        np.sum(epoch['training loss / batch'])
         for epoch in epochs
     ]
 
@@ -53,12 +53,12 @@ def plot_epochs(at_least_2_axis, epochs):
         axis,
         training_loss,
         'training loss',
-        ylim=[0, 5],
+        ylim=loss_ylim,
         color='red',
         legend_loc='upper left'
     )
     axis.set_xlim([0, len(epochs) - 1])
-    axis.set_ylabel('geodesic loss')
+    axis.set_ylabel(loss_ylabel)
     axis.set_xlabel('# epoch')
 
     axis = axis.twinx()  # on the right
@@ -67,12 +67,12 @@ def plot_epochs(at_least_2_axis, epochs):
         axis,
         [epoch['training metrics'] for epoch in epochs],
         'training metrics',
-        ylim=[0, 20],
+        ylim=train_metric_ylim,
         color='green',
         legend_loc='upper right'
     )
     axis.set_xlim([0, len(epochs) - 1])
-    axis.set_ylabel('average MPJPE relative to pelvis (mm)')
+    axis.set_ylabel(metric_ylabel)
 
     axis = at_least_2_axis.ravel()[1]
     axis.set_yticks([])
@@ -84,15 +84,15 @@ def plot_epochs(at_least_2_axis, epochs):
         axis,
         [epoch['eval metrics'] for epoch in epochs],
         'eval metrics',
-        ylim=[1600, 5000],
+        ylim=eval_metric_ylim,
         color='blue',
         legend_loc='upper right'
     )
     axis.set_xlim([0, len(epochs) - 1])
-    axis.set_ylabel('average MPJPE relative to pelvis (mm)')
+    axis.set_ylabel(metric_ylabel)
 
 
-def make_axis_great_again(ax, title, xlim=None, ylim=None):
+def make_axis_great_again(ax, title=None, left_title=None, right_title=None, xlim=None, ylim=None):
     if ylim:
         ax.set_ylim(ylim)
     
@@ -100,10 +100,16 @@ def make_axis_great_again(ax, title, xlim=None, ylim=None):
         ax.set_xlim(xlim)
 
     ax.grid(True)
-    ax.set_title(title)
-
-    ax.set_ylabel('average MPJPE relative to pelvis (mm)')
     ax.set_xlabel('epoch')
+
+    if title:
+        ax.set_title(title)
+
+    if left_title:
+        ax.set_ylabel(left_title)
+
+    if right_title:
+        ax.twinx().set_ylabel(right_title)
 
 
 def get_figsize(n_rows, n_cols, row_size=8, column_size=24):

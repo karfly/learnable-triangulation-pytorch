@@ -90,6 +90,11 @@ class Roto6d(nn.Module):  # acts as baseline
 
         self.trans_backbone = nn.Sequential(
             nn.Linear(2 * n_joints * 2, inner_size),
+            nn.LeakyReLU(),
+
+            nn.Linear(inner_size, inner_size),
+            nn.LeakyReLU(),
+            
             nn.Linear(inner_size, 3)  # 3D space
         )  # MLP
 

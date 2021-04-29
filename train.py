@@ -68,7 +68,7 @@ def build_env(config, device):
                     'lr': config.opt.lr
                 },
                 {
-                    'params': cam2cam_model.backbone.parameters(),
+                    'params': cam2cam_model.parameters(),
                     'lr': 1e-4
                 }
             ],
@@ -693,22 +693,20 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
 
         minimon.leave('evaluate results')
 
-        if config.debug.dump_checkpoints and experiment_dir:
-            checkpoint_dir = os.path.join(
-                experiment_dir, 'checkpoints', '{:04}'.format(epoch)
-            )
-            os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoint_dir = os.path.join(
+            experiment_dir, 'checkpoints', '{:04}'.format(epoch)
+        )
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        metric_filename = 'metric_train' if is_train else 'metric_eval'
+        metric_filename += '.json'
+        metric_filename = os.path.join(checkpoint_dir, metric_filename)
+        with open(metric_filename, 'w') as fout:
+            json.dump(full_metric, fout, indent=4, sort_keys=True)
 
-            if not is_train and config.debug.dump_results:  # dump results
-                results_filename = os.path.join(checkpoint_dir, 'results.pkl')
-                with open(results_filename, 'wb') as fout:
-                    pickle.dump(results, fout)
-
-            metric_filename = 'metric_train' if is_train else 'metric_eval'
-            metric_filename += '.json'
-            metric_filename = os.path.join(checkpoint_dir, metric_filename)
-            with open(metric_filename, 'w') as fout:
-                json.dump(full_metric, fout, indent=4, sort_keys=True)
+        if config.debug.dump_results and experiment_dir and not is_train:
+            results_filename = os.path.join(checkpoint_dir, 'results.pkl')
+            with open(results_filename, 'wb') as fout:
+                pickle.dump(results, fout)
 
 
 def init_distributed(args):
@@ -764,11 +762,14 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
         )
         minimon.leave('do eval')
 
-        if master and experiment_dir:
+        if master and experiment_dir and config.debug.dump_checkpoints:
             checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
             os.makedirs(checkpoint_dir, exist_ok=True)
 
-            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights.pth"))
+            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
+
+            if config.model.cam2cam_estimation:
+                torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))
 
             f_out = 'epoch {:4d} complete!'
             print(f_out.format(epoch))

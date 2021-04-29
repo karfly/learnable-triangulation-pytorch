@@ -1,4 +1,7 @@
 import re
+import numpy as np
+
+from mvn.utils.misc import drop_na
 
 
 def get_lines(f_path):
@@ -49,7 +52,7 @@ def parse_metrics_log(f_path, verbose=True):
     return train_metrics, eval_metrics
 
 
-def parse_job_log(f_path):
+def parse_job_log(f_path, verbose=True, normalize_per_samples=False):
     lines = get_lines(f_path)
 
     exp_name = next(filter(
@@ -57,6 +60,9 @@ def parse_job_log(f_path):
         lines[:50]
     ))  # should be in the first lines -> just take 1st occurrence
     exp_name = exp_name.split()[-1]  # remove 'Experiment name:'
+
+    train_data_amount = None
+    eval_data_amount = None
 
     epochs = []  # will be a  [] of {} with details about each epoch
     current_epoch_details = {
@@ -67,10 +73,16 @@ def parse_job_log(f_path):
     }  # tmp epoch details
 
     for line in lines:
+        if line.startswith('training dataset length:'):
+            train_data_amount = float(line.split()[-1])
+        
+        if line.startswith('validation dataset length:'):
+            eval_data_amount = float(line.split()[-1])
+
         if line.endswith('has started!'):  # new epoch
             current_epoch_details['epoch'] = int(line.split()[1])
             current_epoch_details['training loss / batch'] = []
-        
+
         if line.startswith('training batch iter'):  # batch loss
             loss = parse_fp_number(line.split('~')[-1])
             current_epoch_details['training loss / batch'].append(loss)
@@ -86,4 +98,30 @@ def parse_job_log(f_path):
         if line.endswith('complete!'):  # end of epoch
             epochs.append(current_epoch_details.copy())
 
-    return exp_name, epochs
+    if verbose:
+        print('{} correctly parsed'.format(exp_name))
+        print('training on {:.0f}, evaluating on {:.0f}'.format(
+            train_data_amount,
+            eval_data_amount
+        ))
+        print('found {:.0f} epochs'.format(len(epochs)))
+
+        loss = [np.sum(epoch['training loss / batch']) for epoch in epochs]
+        print('training loss in [{:.1f}, {:.1f}]'.format(
+            np.min(drop_na(loss)),
+            np.max(drop_na(loss))
+        ))
+
+        training_metrics = [epoch['training metrics'] for epoch in epochs]
+        print('training metrics in [{:.1f}, {:.1f}]'.format(
+            np.min(drop_na(training_metrics)),
+            np.max(drop_na(training_metrics))
+        ))
+
+        eval_metrics = [epoch['eval metrics'] for epoch in epochs]
+        print('eval metrics in [{:.1f}, {:.1f}]'.format(
+            np.min(drop_na(eval_metrics)),
+            np.max(drop_na(eval_metrics))
+        ))
+
+    return exp_name, train_data_amount, eval_data_amount, epochs

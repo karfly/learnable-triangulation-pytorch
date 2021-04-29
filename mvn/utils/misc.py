@@ -6,6 +6,7 @@ import re
 from sys import getsizeof
 from types import ModuleType, FunctionType
 from gc import get_referents
+import numpy as np
 
 import torch
 
@@ -109,3 +110,9 @@ def is_master():
         return int(os.environ["RANK"]) == 0  # notation: proc #0 is THE MASTER #fuckGithub
 
     return True  # just 1 process
+
+
+def drop_na(x):
+    return list(filter(
+        lambda x: np.isfinite(x), x
+    ))

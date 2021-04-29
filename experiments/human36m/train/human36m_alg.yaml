@@ -10,7 +10,7 @@ debug:
   img_out: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/dumps"
   write_imgs: false
 # `write_imgs: true` will break dataloader (use only in extreme cases of debug)
-  dump_checkpoints: true
+  dump_checkpoints: false
   dump_results: false
 
 opt:

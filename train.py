@@ -480,8 +480,6 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     full_cam2cam = torch.empty(batch_size, len(pairs), 4, 4, device='cuda:0')
     for batch_i in range(batch_size):
-        gt = cam2cam_gts[batch_i, :]  # ~ (len(pairs)=6, 3D)
-
         for pair_i in range(len(pairs)):
             R = cam2cam_preds[batch_i, pair_i, :3, :3].cuda()
             t = cam2cam_preds[batch_i, pair_i, :3, 3].cuda()

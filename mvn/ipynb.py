@@ -27,13 +27,13 @@ def get_args():
     return args
 
 
-def get_config(args, data_folder=str(Path.home() / '_tmp' / 'data') + '/'):
+def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/data/'):
     config = cfg.load_config(args.config)
 
     config.image_shape = [128, 128]
 
     config.debug.write_imgs = True
-    config.debug.img_out = '/home/stefano/_tmp/logs/imgs'
+    config.debug.img_out = '/home/stefano/Scuola/tud/_classes/4/thesis/logs/imgs'
     config.debug.dump_checkpoints = False
 
     config.opt.n_epochs = 2
@@ -50,9 +50,9 @@ def get_config(args, data_folder=str(Path.home() / '_tmp' / 'data') + '/'):
     config.model.init_weights = False  # there is no point in loading full module with a shitty GPU
     config.model.checkpoint = data_folder + 'weights_alg.pth'  #  + 'weights_vol.pth'
 
-    config.model.triangulate_in_world_space = True
+    config.model.triangulate_in_world_space = False
     config.model.triangulate_in_cam_space = False
-    config.model.cam2cam_estimation = False
+    config.model.cam2cam_estimation = True
     
     config.model.backbone.init_weights = config.model.init_weights
     config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

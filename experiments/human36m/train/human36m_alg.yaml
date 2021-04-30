@@ -32,6 +32,8 @@ opt:
   torch_anomaly_detection: false
 # `torch_anomaly_detection: true` just x2s time
 
+  save_every_n_epochs: 5
+
 svd:
   in_cpu: true
   gpu_friendly: true
@@ -82,7 +84,7 @@ dataset:
     max_n_views: 31
     num_workers: 1
 
-    retain_every_n_frames_in_train: 2000
+    retain_every_n_frames_in_train: 10000
 # `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:

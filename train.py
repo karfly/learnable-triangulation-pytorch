@@ -25,7 +25,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss, element_by_element
-from mvn.models.utils import build_opt
+from mvn.models.utils import build_opt, get_grad_params
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
@@ -34,6 +34,10 @@ from mvn.utils.multiview import project_3d_points_to_image_plane_without_distort
 
 from mvn.utils.minimon import MiniMon
 from mvn.models.rototrans import Roto6d, compute_geodesic_distance, l2_loss
+
+
+def make_sample_prediction():
+    pass  # todo
 
 
 def parse_args():
@@ -63,12 +67,12 @@ def build_env(config, device):
         cam2cam_model = Roto6d().to(device)  # todo DistributedDataParallel
         opt = optim.Adam(
             [
+                # not needed since I'm using GT KP {
+                #     'params': get_grad_params(model.backbone),
+                #     'lr': config.opt.lr
+                # },
                 {
-                    'params': model.backbone.parameters(),
-                    'lr': config.opt.lr
-                },
-                {
-                    'params': cam2cam_model.parameters(),
+                    'params': get_grad_params(cam2cam_model),
                     'lr': 1e-4
                 }
             ],
@@ -398,6 +402,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 
 
 def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+    scale_trans2trans = 1000.0  # L2 loss on 4k vectors is poor -> scale
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     minimon.enter()
@@ -469,6 +474,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         rot2rot, trans2trans = cam2cam_model(
             kps[batch_i]  # ~ (len(pairs)=6, 2, n_joints=17, 2D)
         )
+        trans2trans *= scale_trans2trans
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
         cam2cam_preds[batch_i] = torch.cat([
             rot2rot, trans2trans
@@ -538,11 +544,11 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
             total_loss += loss
 
             # trans loss
-            weight_trans = 0.1
+            weight_trans = 0.2
             if weight_trans > 0:
                 loss = l2_loss()(
-                    cam2cam_preds[batch_i, :, :3, 3].cuda(),
-                    cam2cam_gts[batch_i, :, :3, 3].cuda()
+                    cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
+                    cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
                 )
                 total_loss += weight_trans * loss
 
@@ -765,7 +771,8 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
             checkpoint_dir = os.path.join(experiment_dir, "checkpoints", "{:04}".format(epoch))
             os.makedirs(checkpoint_dir, exist_ok=True)
 
-            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
+            if epoch % config.opt.save_every_n_epochs == 0:
+                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
 
             if config.model.cam2cam_estimation:
                 torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))

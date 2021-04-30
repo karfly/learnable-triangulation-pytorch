@@ -26,6 +26,7 @@ def parse_fp_number(x):
 
 
 def parse_metrics_log(f_path, verbose=True):
+    """ parses seeMetrics /scratch/ws/... > wow.txt """
 
     lines = get_lines(f_path)
     split_index = lines.index('... on EVALuation set')
@@ -45,7 +46,7 @@ def parse_metrics_log(f_path, verbose=True):
     train_metrics, eval_metrics = list(train_metrics), list(eval_metrics)
 
     if verbose:
-        print('found {:d} / {:d} training / validation epochs'.format(
+        print('= found {:d} / {:d} training / validation epochs'.format(
             len(train_metrics), len(eval_metrics)
         ))
 
@@ -53,6 +54,8 @@ def parse_metrics_log(f_path, verbose=True):
 
 
 def parse_job_log(f_path, verbose=True, normalize_per_samples=False):
+    """ parses 14034239.out """
+
     lines = get_lines(f_path)
 
     exp_name = next(filter(

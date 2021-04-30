@@ -5,10 +5,18 @@ from matplotlib import pyplot as plt
 def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None):
     if xrange is None:
         done = len(metrics)
-        xrange = list(range(1, done + 1))
+        xrange = list(range(done))
+    else:
+        xrange = list(range(xrange[0], xrange[-1] + 1))
 
     axis.plot(
         xrange, metrics, label=label, color=color
+    )
+    axis.plot(
+        xrange[np.argmin(metrics)],
+        np.min(metrics),
+        marker='x', color='r', markersize=10,
+        label='min = {:.1f}'.format(np.min(metrics))
     )
 
     if ylim:
@@ -17,29 +25,52 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
     if legend_loc:
         axis.legend(loc=legend_loc)
 
+    print('- plotted metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
+        np.min(metrics), np.max(metrics),
+        xrange[0], xrange[-1]
+    ))
+
+    return xrange
+
 
 def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 30], eval_ylim=[0, 100]):
-    plot_metric(
+    legend_loc='upper left'
+    _xrange = plot_metric(
         axis,
         train_metrics,
         'on TRAIN set (S1, S6, S7, S8)',
         xrange=xrange,
         ylim=train_ylim,
         color='red',
-        legend_loc='upper left'
+        legend_loc=legend_loc
     )
 
     axis = axis.twinx()
 
-    plot_metric(
+    legend_loc='upper right'
+    _xrange = plot_metric(
         axis,
         eval_metrics,
         'on EVAL set (S9, S11)',
         xrange=xrange,
         ylim=eval_ylim,
         color='green',
-        legend_loc='upper right'
+        legend_loc=legend_loc
     )
+
+    # show original paper results
+    axis.hlines(
+        21.3, xmin=_xrange[0], xmax=_xrange[-1],
+        color='green', linestyle=':', label='algebraic SOTA = 21.3'
+    )
+
+    # I'm using algebraic so volumetric SOTA may be misleading
+    # axis.hlines(
+    #     13.7, xmin=_xrange[0], xmax=_xrange[-1],
+    #     color='green', linestyle=':', label='volumetric (softmax) SOTA = 13.7'
+    # )
+
+    axis.legend(loc=legend_loc)
 
 
 def plot_epochs(at_least_2_axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], loss_ylabel=None, metric_ylabel=None):

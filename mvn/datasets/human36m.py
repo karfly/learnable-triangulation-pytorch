@@ -79,11 +79,11 @@ class Human36MMultiViewDataset(Dataset):
 
         train_subjects = [
             self.labels['subject_names'].index(x)
-            for x in ['S1']  # , 'S6', 'S7', 'S8']  # todo solve missings in 'S5'
+            for x in ['S1', 'S6', 'S7', 'S8']  # todo solve missings in 'S5'
         ]
         test_subjects = [
             self.labels['subject_names'].index(x)
-            for x in ['S9']  # , 'S11']
+            for x in ['S9', 'S11']
         ]
 
         indices = []

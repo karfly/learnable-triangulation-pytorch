@@ -33,7 +33,7 @@ from mvn.datasets import utils as dataset_utils
 from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.models.rototrans import Roto6d, compute_geodesic_distance, l2_loss
+from mvn.models.rototrans import RotoTransNetMLP, RotoTransNetConv, compute_geodesic_distance, l2_loss
 
 
 def make_sample_prediction():
@@ -66,7 +66,12 @@ def build_env(config, device):
     }[config.model.name](config, device=device).to(device)
 
     if config.model.cam2cam_estimation:
-        cam2cam_model = Roto6d().to(device)  # todo DistributedDataParallel
+        if config.model.cam2cam_using_heatmaps:
+            roto_net = RotoTransNetConv
+        else:
+            roto_net = RotoTransNetMLP
+
+        cam2cam_model = roto_net().to(device)  # todo DistributedDataParallel
 
         freeze_backbone(model)
         opt = optim.Adam(
@@ -413,7 +418,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     _iter_tag = 'cam2cam'
 
-    scale_trans2trans = 1000.0  # L2 loss on 4k vectors is poor -> scale
+    scale_trans2trans = 3000.0  # L2 loss on 4k vectors is poor -> scale
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     minimon.enter()
@@ -421,6 +426,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
         images_batch, None, minimon
     )
+    heatmap_w, heatmap_h = heatmaps_pred.shape[-2], heatmaps_pred.shape[-1]
 
     # misc.live_debug_log(_iter_tag, 'I\'m using 2D GT KP for cam2cam estimation')
     # keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
@@ -431,8 +437,6 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     #         kp_original = cam.world2cam()(kp_world)  # in cam space
     #         keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
     # keypoints_2d_pred.requires_grad = True  # to comply with torch graph
-    # todo use GT heatmaps (GT KP + Gaussian)
-    # todo use predicted heatmaps
 
     minimon.leave('BB forward pass')
 
@@ -440,16 +444,29 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     n_joints = 17  # todo infer
     pairs = [(0, 1), (0, 2), (0, 3)]  # 0 cam will be the "master"
     cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
-    keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, 2)
+
+    if config.model.cam2cam_using_heatmaps:
+        keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h)
+    else:
+        keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, 2)
 
     for batch_i in range(batch_size):
-        keypoints_forward[batch_i] = torch.cat([
-            torch.cat([
-                keypoints_2d_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
-                keypoints_2d_pred[batch_i, j].unsqueeze(0)
-            ]).unsqueeze(0)  # ~ (1, 2, 17, 2)
-            for (i, j) in pairs
-        ])  # ~ (3, 2, 17, 2)
+        if config.model.cam2cam_using_heatmaps:
+            keypoints_forward[batch_i] = torch.cat([
+                torch.cat([
+                    heatmaps_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 32, 32)
+                    heatmaps_pred[batch_i, j].unsqueeze(0)
+                ]).unsqueeze(0)  # ~ (1, 2, 17, 32, 32)
+                for (i, j) in pairs
+            ])  # ~ (3, 2, 17, 32, 32)
+        else:
+            keypoints_forward[batch_i] = torch.cat([
+                torch.cat([
+                    keypoints_2d_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
+                    keypoints_2d_pred[batch_i, j].unsqueeze(0)
+                ]).unsqueeze(0)  # ~ (1, 2, 17, 2)
+                for (i, j) in pairs
+            ])  # ~ (3, 2, 17, 2)
 
         # GT roto-translation: (3 x 4 + last row [0, 0, 0, 1]) = [ [ rot2rot | trans2trans ], [0, 0, 0, 1] ]
         cam2cam_gts[batch_i] = torch.cat([
@@ -463,65 +480,54 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     cam2cam_gts = cam2cam_gts.cuda()  # ~ (batch_size=8, len(pairs), 3, 3)
     keypoints_forward = keypoints_forward.cuda()
 
-    max_attemps = 10
-    current_attempt = 1
-    done = False
-    while current_attempt < max_attemps:  # DLT in cam space may fail ...
-        current_attempt += 1
+    minimon.enter()
 
-        if not done:
-            try:
-                minimon.enter()
+    cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
 
-                cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
+    for batch_i in range(batch_size):
+        rot2rot, trans2trans = cam2cam_model(
+            keypoints_forward[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
+        )
 
-                for batch_i in range(batch_size):
-                    rot2rot, trans2trans = cam2cam_model(
-                        keypoints_forward[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
-                    )
-                    trans2trans *= scale_trans2trans
-                    trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
-                    pred = torch.cat([
-                        rot2rot, trans2trans
-                    ], dim=2)  # `torch.hstack`, for compatibility with cluster
+        trans2trans *= scale_trans2trans
+        trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
+        pred = torch.cat([
+            rot2rot, trans2trans
+        ], dim=2)  # `torch.hstack`, for compatibility with cluster
 
-                    # add [0, 0, 0, 1] at the bottom -> 4 x 4
-                    for pair_i in range(len(pairs)):
-                        cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
-                            pred[pair_i],
-                            torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
-                        ], dim=0)
+        # add [0, 0, 0, 1] at the bottom -> 4 x 4
+        for pair_i in range(len(pairs)):
+            cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
+                pred[pair_i],
+                torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
+            ], dim=0)
 
-                minimon.leave('cam2cam forward')
+    minimon.leave('cam2cam forward')
 
-                minimon.enter()
+    minimon.enter()
 
-                # reconstruct full cam2cam and ...
-                full_cam2cam = [
-                    [None] + list(cam2cam_preds[batch_i].cuda())
-                    for batch_i in range(batch_size)
-                ]  # None for cam_0 -> cam_0
-                master_cams = [0] * batch_size  # todo random
-                full_cam2cam = torch.cat([
-                    torch.cat([
-                        dataset_utils.cam2cam_precomputed_batch(
-                            master_cams[batch_i], view_i, batch['cameras'], batch_i, full_cam2cam
-                        ).unsqueeze(0)
-                        for view_i in range(n_views)
-                    ]).unsqueeze(0)
-                    for batch_i in range(batch_size)
-                ])
+    # reconstruct full cam2cam and ...
+    full_cam2cam = [
+        [None] + list(cam2cam_preds[batch_i].cuda())
+        for batch_i in range(batch_size)
+    ]  # None for cam_0 -> cam_0
+    master_cams = [0] * batch_size  # todo random
+    full_cam2cam = torch.cat([
+        torch.cat([
+            dataset_utils.cam2cam_precomputed_batch(
+                master_cams[batch_i], view_i, batch['cameras'], batch_i, full_cam2cam
+            ).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
-                # ... perform DLT in master cam space, but since ...
-                keypoints_3d_pred = multiview.triangulate_batch_of_points_in_cam_space(
-                    full_cam2cam.cpu(),
-                    keypoints_2d_pred.cpu(),
-                    confidences_batch=confidences_pred.cpu()
-                )
-
-                done = True
-            except:
-                misc.live_debug_log(_iter_tag, 'DLT in cam space failed')
+    # ... perform DLT in master cam space, but since ...
+    keypoints_3d_pred = multiview.triangulate_batch_of_points_in_cam_space(
+        full_cam2cam.cpu(),
+        keypoints_2d_pred.cpu(),
+        confidences_batch=confidences_pred.cpu()
+    )
 
     # ... they're in master cam space => cam2world
     keypoints_3d_pred = torch.cat([

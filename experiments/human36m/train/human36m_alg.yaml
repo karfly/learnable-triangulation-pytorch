@@ -23,7 +23,7 @@ opt:
   batch_size: 8
   val_batch_size: 16
 
-  lr: 0.000001
+  lr: 0.0000001
   loss_3d: false
   loss_2d: true
 
@@ -50,8 +50,10 @@ model:
   heatmap_softmax: true
 
   triangulate_in_world_space: false
-  triangulate_in_cam_space: true
-  cam2cam_estimation: false
+  triangulate_in_cam_space: false
+  cam2cam_estimation: true
+
+  cam2cam_using_heatmaps: false
 
   backbone:
     name: "resnet152"

@@ -53,7 +53,9 @@ def show_params(model):
     ))
 
 
-def build_opt(model, config, base_optim=optim.Adam):
+def freeze_backbone(model):
+    """ BB has already been pre-trained on the COCO dataset and finetuned jointly on MPII and Human3.6M for 10 epochs using the Adam optimizer with 10−4 learning rate => freeze most layers and optimize just the last ones """
+
     show_params(model.backbone)
 
     freeze_layer(model.backbone.conv1)
@@ -70,6 +72,10 @@ def build_opt(model, config, base_optim=optim.Adam):
     # reset_layer(model.backbone.final_layer)
 
     show_params(model.backbone)
+
+
+def build_opt(model, config, base_optim=optim.Adam):
+    freeze_backbone(model)
 
     if config.model.name == "vol":
         return base_optim(

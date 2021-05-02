@@ -77,8 +77,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
     axis.legend(loc=legend_loc)
 
 
-def plot_epochs(at_least_2_axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], loss_ylabel=None, metric_ylabel=None):
-    axis = at_least_2_axis.ravel()[0]
+def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], title=None, metric_ylabel=None):
     training_loss = [
         np.sum(epoch['training loss / batch'])
         for epoch in epochs
@@ -93,8 +92,8 @@ def plot_epochs(at_least_2_axis, epochs, train_metric_ylim=[0, 1], eval_metric_y
         legend_loc='upper left'
     )
     axis.set_xlim([0, len(epochs) - 1])
-    axis.set_ylabel(loss_ylabel)
     axis.set_xlabel('# epoch')
+    axis.set_title(title)
 
     axis = axis.twinx()  # on the right
 
@@ -106,14 +105,6 @@ def plot_epochs(at_least_2_axis, epochs, train_metric_ylim=[0, 1], eval_metric_y
         color='green',
         legend_loc='upper right'
     )
-    axis.set_xlim([0, len(epochs) - 1])
-    axis.set_ylabel(metric_ylabel)
-
-    axis = at_least_2_axis.ravel()[1]
-    axis.set_yticks([])
-    axis.set_xlabel('# epoch')
-
-    axis = axis.twinx()  # on the right
 
     plot_metric(
         axis,

@@ -49,8 +49,8 @@ model:
   heatmap_multiplier: 100.0
   heatmap_softmax: true
 
-  triangulate_in_world_space: true
-  triangulate_in_cam_space: false
+  triangulate_in_world_space: false
+  triangulate_in_cam_space: true
   cam2cam_estimation: false
 
   backbone:

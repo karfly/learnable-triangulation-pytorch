@@ -116,3 +116,8 @@ def drop_na(x):
     return list(filter(
         lambda x: np.isfinite(x), x
     ))
+
+
+def find_min(lst):
+    m = np.min(drop_na(lst))
+    return m, list(lst).index(m)

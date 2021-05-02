@@ -24,6 +24,8 @@ def count_grad_params(layer):
 
 
 def freeze_layer(layer):
+    print('freezing {}'.format(layer._get_name()))
+
     for p in layer.parameters():
         p.requires_grad = False
 

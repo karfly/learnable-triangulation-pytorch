@@ -1,6 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
+from mvn.utils.misc import find_min, drop_na
+
 
 def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None):
     if xrange is None:
@@ -12,11 +14,13 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
     axis.plot(
         xrange, metrics, label=label, color=color
     )
+
+    m, m_i = find_min(metrics)
     axis.plot(
-        xrange[np.argmin(metrics)],
-        np.min(metrics),
+        xrange[m_i],
+        m,
         marker='x', color='r', markersize=10,
-        label='min = {:.1f}'.format(np.min(metrics))
+        label='min = {:.1f}'.format(m)
     )
 
     if ylim:
@@ -26,7 +30,7 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
         axis.legend(loc=legend_loc)
 
     print('- plotted metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
-        np.min(metrics), np.max(metrics),
+        np.min(drop_na(metrics)), np.max(drop_na(metrics)),
         xrange[0], xrange[-1]
     ))
 

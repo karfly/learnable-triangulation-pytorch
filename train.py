@@ -73,7 +73,7 @@ def build_env(config, device):
                 # },
                 {
                     'params': get_grad_params(cam2cam_model),
-                    'lr': 1e-4
+                    'lr': 1e-5
                 }
             ],
             lr=config.opt.lr
@@ -392,11 +392,11 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
         minimon.leave('backward pass')
 
     # they're in cam space => cam2world for metric evaluation
-    keypoints_3d_pred = keypoints_3d_pred.detach().cpu().numpy()
-    return np.float32([
+    keypoints_3d_pred = keypoints_3d_pred.detach()
+    return torch.cat([
         batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
             keypoints_3d_pred[batch_i]
-        )
+        ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
 
@@ -412,6 +412,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     )
 
     if True:  # using GT KP
+        print('REMINDER: I\'m using 2D GT KP for cam2cam estimation')
         keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
         for batch_i in range(batch_size):
             for view_i in range(n_views):
@@ -421,9 +422,11 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
                 keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
         keypoints_2d_pred.requires_grad = True  # to comply with torch graph
 
-    minimon.leave('BB forward pass')
+    # todo use GT heatmaps (GT KP + Gaussian)
+    # todo use predicted KP
+    # todo use predicted heatmaps
 
-    minimon.enter()
+    minimon.leave('BB forward pass')
 
     n_joints = 17  # todo infer
     pairs = list(sorted(combinations(range(n_views), 2)))  # all sorted combos of cam2cam indices: [(0, 1), (0, 2), ... (2, 3)]
@@ -463,8 +466,6 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     cam2cam_gts = torch.FloatTensor(cam2cam_gts).cuda()  # ~ (batch_size=8, len(pairs)=6, 3, 3)
     kps = kps.cuda()
-
-    minimon.leave('prepare GT cam2cam')
 
     minimon.enter()
 
@@ -535,7 +536,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
         minimon.enter()
 
-        for batch_i in range(batch_size):
+        for batch_i in range(batch_size):  # foreach sample in batch
             # geodesic loss
             loss = compute_geodesic_distance()(
                 cam2cam_preds[batch_i, :, :3, :3].cuda(),

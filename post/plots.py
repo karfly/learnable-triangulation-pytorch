@@ -94,6 +94,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_xlabel('# epoch')
     axis.set_title(title)
+    axis.set_ylabel('training loss')
 
     axis = axis.twinx()  # on the right
 

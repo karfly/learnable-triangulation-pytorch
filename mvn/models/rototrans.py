@@ -4,6 +4,8 @@ from torch import nn
 from torch.autograd import Variable
 import numpy as np
 
+from mvn.models.vgg import make_virgin_vgg
+
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
 def normalize_vector(v, eps=1e-8):
@@ -73,15 +75,22 @@ def compute_geodesic_distance():
     return _f
 
 
+class View(nn.Module):
+    def __init__(self, shape):
+        super().__init__()
+        self.shape = shape
+
+    def forward(self, x):
+        return x.view(*self.shape)
+
+
 class RotoTransNetMLP(nn.Module):
     BN_MOMENTUM = 0.1
 
-    def __init__(self, inner_size=128, n_joints=17, n_params=6):
+    def __init__(self, config, inner_size=128, n_joints=17, n_params=6):
         super().__init__()
 
-        self.bn = nn.BatchNorm2d(num_features=2, momentum=self.BN_MOMENTUM)
-
-        self.rot_backbone = nn.Sequential(
+        self.roto_encoder = nn.Sequential(
             nn.Linear(2 * n_joints * 2, inner_size),
             nn.LeakyReLU(),
 
@@ -94,7 +103,7 @@ class RotoTransNetMLP(nn.Module):
             nn.Linear(inner_size, n_params)
         )
 
-        self.trans_backbone = nn.Sequential(
+        self.trans_encoder = nn.Sequential(
             nn.Linear(2 * n_joints * 2, inner_size),
             nn.LeakyReLU(),
 
@@ -108,14 +117,13 @@ class RotoTransNetMLP(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         batch_size, n_joints = batch.shape[0], batch.shape[2]
-
-        batch = self.bn(batch)  # 1 round of BatchNorm is always good
         batch = batch.view(batch_size, 2 * n_joints * 2)
 
-        features = self.rot_backbone(batch)  # ~ (batch_size, n_params=6)
+        features = self.roto_encoder(batch)  # ~ (batch_size, n_params=6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        trans2trans = self.trans_backbone(batch)  # ~ (batch_size, 3)
+        features = self.trans_encoder(batch)  # ~ (batch_size, 3)
+        trans2trans = features
 
         return rot2rot, trans2trans
 
@@ -123,57 +131,52 @@ class RotoTransNetMLP(nn.Module):
 class RotoTransNetConv(nn.Module):
     BN_MOMENTUM = 0.1
 
-    def __init__(self, inner_size=128, n_joints=17, n_params=6):
+    def __init__(self, config, n_joints=17, n_params=6):
         super().__init__()
 
-        self.bn = nn.BatchNorm2d(num_features=2, momentum=self.BN_MOMENTUM)
+        # inspired by http://arxiv.org/abs/1905.10711
 
-        # ~ 1 layer of UNet
-        self.unet_layer = nn.Sequential(
-            nn.BatchNorm2d(num_features=n_joints, momentum=self.BN_MOMENTUM),
-            nn.Conv2d(n_joints, n_joints, 3, stride=1, padding=0, bias=True, padding_mode='zeros'),  # joints as channels
-            nn.LeakyReLU(),
-
-            nn.BatchNorm2d(num_features=n_joints, momentum=self.BN_MOMENTUM),
-            nn.Conv2d(n_joints, n_joints, 3, stride=1, padding=0, bias=True, padding_mode='zeros'),  # joints as channels
-            nn.LeakyReLU(),
-
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-        )  # ~ ResNet
-
-        self.rot_backbone = nn.Sequential(
-            nn.Linear(2 * n_joints * 14 * 14, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, n_params)
+        # todo try batch_norm=True
+        # todo try smaller backbone
+        self.roto_encoder = make_virgin_vgg(
+            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=config.cam2cam.inner_size
         )
 
-        self.trans_backbone = nn.Sequential(
-            nn.Linear(2 * n_joints * 14 * 14, inner_size),
+        self.roto_decoder = nn.Sequential(
+            nn.Linear(config.cam2cam.inner_size, config.cam2cam.inner_size),  # another round, just to be sure
             nn.LeakyReLU(),
 
-            nn.Linear(inner_size, 3)
+            nn.Linear(config.cam2cam.inner_size, n_params)
         )
 
+        # todo try batch_norm=True
+        # todo try smaller backbone
+        self.trans_encoder = make_virgin_vgg(
+            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=config.cam2cam.inner_size
+        )
+
+        self.trans_decoder = nn.Sequential(
+            nn.Linear(config.cam2cam.inner_size, config.cam2cam.inner_size),
+            nn.LeakyReLU(),
+            
+            nn.Linear(config.cam2cam.inner_size, 3)  # 3D space
+        )  # MLP
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, width, height) """
 
-        batch_size, n_joints = batch.shape[0], batch.shape[2]
-        heatmaps_w, heatmaps_h = batch.shape[-2], batch.shape[-1]  # 32, 32
+        # stack each view vertically
+        batch = torch.cat([
+            batch[:, 0, ...],
+            batch[:, 1, ...],
+        ], dim=2)  # ~ 3, 17, 64, 32
 
-        batch = batch.view(batch_size * 2, n_joints, heatmaps_w, heatmaps_h)  # process each view with same weights
-        features = self.unet_layer(batch)  # ~ batch_size * 2, n_joints, 14, 14
-        features = features.view(
-            batch_size, 2 * n_joints * features.shape[-2] * features.shape[-1]
-        )
+        features = self.roto_encoder(batch)
+        features = self.roto_decoder(features)
+        rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        rot2rot = self.rot_backbone(features)
-        rot2rot = compute_rotation_matrix_from_ortho6d(rot2rot)  # ~ (batch_size, 3, 3)
-
-        trans2trans = self.trans_backbone(features)  # ~ (batch_size, 3)
+        features = self.trans_encoder(batch)
+        features = self.trans_decoder(features)
+        trans2trans = features
 
         return rot2rot, trans2trans

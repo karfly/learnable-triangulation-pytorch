@@ -68,12 +68,12 @@ def build_env(config, device):
 
     # ... and cam2cam ...
     if config.model.cam2cam_estimation:
-        if config.model.cam2cam_using_heatmaps:
+        if config.cam2cam.using_heatmaps:
             roto_net = RotoTransNetConv
         else:
             roto_net = RotoTransNetMLP
 
-        cam2cam_model = roto_net().to(device)  # todo DistributedDataParallel
+        cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
     else:
         cam2cam_model = None
 
@@ -333,7 +333,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
         minimon.enter()
 
         if config.opt.loss_3d:  # variant I: 3D loss on cam KP
-            misc.live_debug_log(_iter_tag, 'using variant I (3D loss on cam KP)')
+            misc.live_debug_log(_iter_tag, 'using variant I (3D loss)')
 
             scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
 
@@ -435,13 +435,13 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     pairs = [(0, 1), (0, 2), (0, 3)]  # 0 cam will be the "master"
     cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
 
-    if config.model.cam2cam_using_heatmaps:
+    if config.cam2cam.using_heatmaps:
         keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h)
     else:
         keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, 2)
 
     for batch_i in range(batch_size):
-        if config.model.cam2cam_using_heatmaps:
+        if config.cam2cam.using_heatmaps:
             keypoints_forward[batch_i] = torch.cat([
                 torch.cat([
                     heatmaps_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 32, 32)
@@ -534,22 +534,20 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
         minimon.enter()
 
-        geo_weight, trans_weight, proj_weight = 0.0, 0.0, 1.0
-
         for batch_i in range(batch_size):  # foreach sample in batch
-            if geo_weight > 0:  # geodesic loss
-                total_loss += geo_weight * compute_geodesic_distance()(
+            if config.cam2cam.loss.geo_weight > 0:  # geodesic loss
+                total_loss += config.cam2cam.loss.geo_weight * compute_geodesic_distance()(
                     cam2cam_preds[batch_i, :, :3, :3].cuda(),
                     cam2cam_gts[batch_i, :, :3, :3].cuda()
                 )  # ~ (len(pairs), )
 
-            if trans_weight > 0:  # trans loss
-                total_loss += trans_weight * l2_loss()(
+            if config.cam2cam.loss.trans_weight > 0:  # trans loss
+                total_loss += config.cam2cam.loss.trans_weight * l2_loss()(
                     cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
                     cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
                 )
 
-            if proj_weight > 0:  # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
+            if config.cam2cam.loss.proj_weight > 0:  # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
                 gts = torch.cat([
                     batch['cameras'][view_i][batch_i].world2proj()(
                         keypoints_3d_gt[batch_i]
@@ -562,10 +560,9 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
                     ).unsqueeze(0)
                     for view_i in range(n_views)
                 ])
-                total_loss += proj_weight * criterion(
+                total_loss += config.cam2cam.loss.proj_weight * l2_loss()(
                     gts.cuda(),  # ~ n_views, 17, 2
                     preds.cuda(),  # ~ n_views, 17, 2
-                    keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ n_views, 17, 1
                 )
 
         minimon.leave('calc loss')
@@ -716,6 +713,7 @@ def init_distributed(args):
 
 
 def do_train(config_path, logdir, config, device, is_distributed, master):
+    _iter_tag = 'do_train'
     model, cam2cam_model, criterion, opt = build_env(config, device)
     if is_distributed:  # multi-gpu
         model = DistributedDataParallel(model, device_ids=[device])
@@ -728,6 +726,19 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
         )
     else:
         experiment_dir = None
+
+    if config.model.cam2cam_estimation:
+        weights = ', '.join([
+            'geo: {:.1f}'.format(config.cam2cam.loss.geo_weight),
+            'trans: {:.1f}'.format(config.cam2cam.loss.trans_weight),
+            'proj: {:.1f}'.format(config.cam2cam.loss.proj_weight),
+        ])
+        misc.live_debug_log(_iter_tag, 'cam2cam loss weights: {}'.format(weights))
+    else:  # usual KP estimation
+        if config.model.triangulate_in_world_space:  # predict KP in world
+            misc.live_debug_log(_iter_tag, 'triang in world loss weights: {}'.format(''))  # todo print loss weights
+        elif config.model.triangulate_in_cam_space:  # predict KP in camspace
+            misc.live_debug_log(_iter_tag, 'triang in cam loss weights: {}'.format(''))  # todo print loss weights
 
     minimon = MiniMon()
 

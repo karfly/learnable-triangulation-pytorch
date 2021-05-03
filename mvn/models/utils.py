@@ -48,7 +48,7 @@ def show_params(model):
             name, n_params, as_perc
         ))
 
-    print('total params: {:.0f}'.format(
+    print('total params: {:20.0f}'.format(
         tot
     ))
 
@@ -78,6 +78,9 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:
+        print('cam2cam model:')
+        show_params(cam2cam_model)
+
         return base_optim(
             [
                 {
@@ -86,7 +89,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
                 },
                 {
                     'params': get_grad_params(cam2cam_model),
-                    'lr': 1e-4
+                    'lr': 1e-5
                 }
             ]
         )

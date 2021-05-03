@@ -39,6 +39,17 @@ svd:
   gpu_friendly: true
 # `gpu_friendly` only used when `in_cpu` is false
 
+cam2cam:
+  using_heatmaps: true
+  backbone: "16"
+  batch_norm: false
+  inner_size: 128
+
+  loss:
+    geo_weight: 0.0
+    trans_weight: 0.0
+    proj_weight: 0.1
+
 model:
   name: "alg"
 
@@ -52,8 +63,6 @@ model:
   triangulate_in_world_space: false
   triangulate_in_cam_space: false
   cam2cam_estimation: true
-
-  cam2cam_using_heatmaps: true
 
   backbone:
     name: "resnet152"

@@ -53,7 +53,7 @@ def parse_metrics_log(f_path, verbose=True):
     return train_metrics, eval_metrics
 
 
-def parse_job_log(f_path, verbose=True, normalize_per_samples=False):
+def parse_job_log(f_path, verbose=True):
     """ parses 14034239.out """
 
     lines = get_lines(f_path)
@@ -76,29 +76,29 @@ def parse_job_log(f_path, verbose=True, normalize_per_samples=False):
     }  # tmp epoch details
 
     for line in lines:
-        if line.startswith('training dataset length:'):
+        if 'training dataset length:' in line:
             train_data_amount = float(line.split()[-1])
         
-        if line.startswith('validation dataset length:'):
+        if 'validation dataset length:' in line:
             eval_data_amount = float(line.split()[-1])
 
-        if line.endswith('has started!'):  # new epoch
+        if 'has started!' in line:  # new epoch
             current_epoch_details['epoch'] = int(line.split()[1])
             current_epoch_details['training loss / batch'] = []
 
-        if line.startswith('training batch iter'):  # batch loss
+        if 'training batch iter' in line:  # batch loss
             loss = parse_fp_number(line.split('~')[-1])
             current_epoch_details['training loss / batch'].append(loss)
 
-        if line.startswith('training MPJPE'):
+        if 'training MPJPE' in line:
             metric = parse_fp_number(line.split(':')[-1].split()[0])
             current_epoch_details['training metrics'] = metric
 
-        if line.startswith('eval MPJPE'):
+        if 'eval MPJPE' in line:
             metric = parse_fp_number(line.split(':')[-1].split()[0])
             current_epoch_details['eval metrics'] = metric
 
-        if line.endswith('complete!'):  # end of epoch
+        if 'complete!' in line:  # end of epoch
             epochs.append(current_epoch_details.copy())
 
     if verbose:

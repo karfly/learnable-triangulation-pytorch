@@ -52,7 +52,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.triangulate_in_world_space = False
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
-    config.model.cam2cam_using_heatmaps = False
+    config.model.cam2cam_using_heatmaps = True
     
     config.model.backbone.init_weights = config.model.init_weights
     config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

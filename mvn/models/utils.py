@@ -74,14 +74,28 @@ def freeze_backbone(model):
     show_params(model.backbone)
 
 
-def build_opt(model, config, base_optim=optim.Adam):
+def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     freeze_backbone(model)
 
-    if config.model.name == "vol":
+    if config.model.cam2cam_estimation:
         return base_optim(
             [
                 {
-                    'params': model.backbone.parameters()
+                    'params': get_grad_params(model.backbone),
+                    'lr': 1e-6  # BB already optimized
+                },
+                {
+                    'params': get_grad_params(cam2cam_model),
+                    'lr': 1e-4
+                }
+            ]
+        )
+    elif config.model.name == "vol":
+        return base_optim(
+            [
+                {
+                    'params': get_grad_params(model.backbone),
+                    'lr': 1e-6  # BB already optimized
                 },
                 {
                     'params': model.process_features.parameters(),
@@ -94,8 +108,8 @@ def build_opt(model, config, base_optim=optim.Adam):
             ],
             lr=config.opt.lr
         )
-
-    return base_optim(
-        filter(lambda p: p.requires_grad, model.backbone.parameters()),
-        lr=config.opt.lr
-    )
+    else:
+        return base_optim(
+            get_grad_params(model.backbone),
+            lr=1e-6  # BB already optimized
+        )

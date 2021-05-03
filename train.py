@@ -59,12 +59,14 @@ def parse_args():
 
 
 def build_env(config, device):
+    # build triangulator model ...
     model = {
         "ransac": RANSACTriangulationNet,
         "alg": AlgebraicTriangulationNet,
         "vol": VolumetricTriangulationNet
     }[config.model.name](config, device=device).to(device)
 
+    # ... and cam2cam ...
     if config.model.cam2cam_estimation:
         if config.model.cam2cam_using_heatmaps:
             roto_net = RotoTransNetConv
@@ -72,34 +74,22 @@ def build_env(config, device):
             roto_net = RotoTransNetMLP
 
         cam2cam_model = roto_net().to(device)  # todo DistributedDataParallel
-
-        freeze_backbone(model)
-        opt = optim.Adam(
-            [
-                {
-                    'params': get_grad_params(model.backbone),
-                    'lr': 1e-6  # BB already optimized
-                },
-                {
-                    'params': get_grad_params(cam2cam_model),
-                    'lr': 1e-5
-                }
-            ],
-            lr=config.opt.lr
-        )
     else:
         cam2cam_model = None
-        opt = build_opt(model, config)
 
-    if config.model.init_weights:
-        state_dict = torch.load(config.model.checkpoint)
-        for key in list(state_dict.keys()):
-            new_key = key.replace("module.", "")
-            state_dict[new_key] = state_dict.pop(key)
+    # ... and opt ...
+    opt = build_opt(model, cam2cam_model, config)
 
-        model.load_state_dict(state_dict, strict=True)
-        print('Successfully loaded pretrained weights for whole model')
+    # if config.model.init_weights:
+    #     state_dict = torch.load(config.model.checkpoint)
+    #     for key in list(state_dict.keys()):
+    #         new_key = key.replace("module.", "")
+    #         state_dict[new_key] = state_dict.pop(key)
 
+    #     model.load_state_dict(state_dict, strict=True)
+    #     print('Successfully loaded pretrained weights for whole model')
+
+    # ... and loss criterion
     criterion_class = {
         "MSE": KeypointsMSELoss,
         "MSESmooth": KeypointsMSESmoothLoss,
@@ -544,43 +534,39 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
         minimon.enter()
 
+        geo_weight, trans_weight, proj_weight = 0.0, 0.0, 1.0
+
         for batch_i in range(batch_size):  # foreach sample in batch
-            # geodesic loss
-            # misc.live_debug_log(_iter_tag, 'geodesic loss (w={:.1f})'.format(weight_geo))
+            if geo_weight > 0:  # geodesic loss
+                total_loss += geo_weight * compute_geodesic_distance()(
+                    cam2cam_preds[batch_i, :, :3, :3].cuda(),
+                    cam2cam_gts[batch_i, :, :3, :3].cuda()
+                )  # ~ (len(pairs), )
 
-            # loss = compute_geodesic_distance()(
-            #     cam2cam_preds[batch_i, :, :3, :3].cuda(),
-            #     cam2cam_gts[batch_i, :, :3, :3].cuda()
-            # )  # ~ (len(pairs), )
-            # total_loss += loss
+            if trans_weight > 0:  # trans loss
+                total_loss += trans_weight * l2_loss()(
+                    cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
+                    cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
+                )
 
-            # trans loss
-            # misc.live_debug_log(_iter_tag, 'trans loss (w={:.1f})'.format(weight_trans))
-
-            # loss = l2_loss()(
-            #     cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
-            #     cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
-            # )
-            # total_loss += weight_trans * loss
-
-            # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
-            gts = torch.cat([
-                batch['cameras'][view_i][batch_i].world2proj()(
-                    keypoints_3d_gt[batch_i]
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ])
-            preds = torch.cat([
-                batch['cameras'][view_i][batch_i].world2proj()(
-                    keypoints_3d_pred[batch_i]
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ])
-            total_loss += criterion(
-                gts.cuda(),  # ~ n_views, 17, 2
-                preds.cuda(),  # ~ n_views, 17, 2
-                keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ n_views, 17, 1
-            )
+            if proj_weight > 0:  # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
+                gts = torch.cat([
+                    batch['cameras'][view_i][batch_i].world2proj()(
+                        keypoints_3d_gt[batch_i]
+                    ).unsqueeze(0)
+                    for view_i in range(n_views)
+                ])
+                preds = torch.cat([
+                    batch['cameras'][view_i][batch_i].world2proj()(
+                        keypoints_3d_pred[batch_i]
+                    ).unsqueeze(0)
+                    for view_i in range(n_views)
+                ])
+                total_loss += proj_weight * criterion(
+                    gts.cuda(),  # ~ n_views, 17, 2
+                    preds.cuda(),  # ~ n_views, 17, 2
+                    keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()  # ~ n_views, 17, 1
+                )
 
         minimon.leave('calc loss')
 

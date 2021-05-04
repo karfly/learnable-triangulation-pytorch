@@ -94,13 +94,13 @@ class ExtractEverythingLayer(nn.Module):
         inner_size = 128
         self.linear_encoder = nn.Sequential(
             nn.Linear(2 * in_channels * 2, inner_size),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(inplace=False),
 
             nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(inplace=False),
 
             nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(inplace=False),
 
             nn.Linear(inner_size, out_channels)
         )

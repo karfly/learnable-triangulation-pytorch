@@ -33,9 +33,9 @@ def make_layers(cfg, batch_norm= False, in_channels=3, activation=nn.ReLU):
             v = cast(int, v)
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
             if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), activation(inplace=True)]
+                layers += [conv2d, nn.BatchNorm2d(v), activation(inplace=False)]
             else:
-                layers += [conv2d, activation(inplace=True)]
+                layers += [conv2d, activation(inplace=False)]
             in_channels = v
     return nn.Sequential(*layers)
 
@@ -88,11 +88,11 @@ def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, num_classes=128, 
 
     classifier = nn.Sequential(
         nn.Linear(int(cfg[-2]) * 7 * 7, 4096),
-        activation(inplace=True),
+        activation(inplace=False),
         nn.Dropout(),
 
         nn.Linear(4096, 4096),
-        activation(inplace=True),
+        activation(inplace=False),
         nn.Dropout(),
 
         nn.Linear(4096, num_classes),

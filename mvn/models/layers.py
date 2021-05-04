@@ -14,6 +14,6 @@ def make_MLP(sizes=[64, 32, 16, 3], batch_norm=False, activation=nn.LeakyReLU):
                 ls.append(nn.BatchNorm1d(next_size))
 
             if i + 2 < len(sizes):  # not on last layer
-                ls.append(activation(inplace=True))
+                ls.append(activation(inplace=False))
 
     return nn.Sequential(*ls)

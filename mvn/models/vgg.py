@@ -78,19 +78,23 @@ class VGG(nn.Module):
 
 def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, num_classes=128, activation=nn.LeakyReLU):
     cfg = VGG_CONFIGS[vgg_type]
+
     features = make_layers(
         cfg,
         batch_norm=batch_norm,
         in_channels=in_channels,
         activation=activation,
     )
+
     classifier = nn.Sequential(
         nn.Linear(int(cfg[-2]) * 7 * 7, 4096),
         activation(inplace=True),
         nn.Dropout(),
+
         nn.Linear(4096, 4096),
         activation(inplace=True),
         nn.Dropout(),
+
         nn.Linear(4096, num_classes),
     )
     return VGG(

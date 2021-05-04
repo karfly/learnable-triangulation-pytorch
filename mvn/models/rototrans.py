@@ -76,13 +76,35 @@ def compute_geodesic_distance():
     return _f
 
 
-class View(nn.Module):
-    def __init__(self, shape):
+class ExtractEverythingLayer(nn.Module):
+    def __init__(self, in_channels, n_out_features, mlp_sizes, batch_norm=False):
         super().__init__()
-        self.shape = shape
+
+        self.encoder = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            kernel_size=2,
+            stride=1,
+            padding=0,
+            bias=True,
+            padding_mode='zeros'
+        )
+
+        self.mlp_in = mlp_sizes[0]
+        self.mlp = make_MLP(
+            mlp_sizes,
+            n_classes=n_out_features,
+            batch_norm=batch_norm,
+            activation=nn.LeakyReLU
+        )
 
     def forward(self, x):
-        return x.view(*self.shape)
+        x = self.encoder(x)
+
+        x = x.view(-1, self.mlp_in)  # ready for MLP
+        x = self.mlp(x)
+
+        return x
 
 
 class RotoTransNetMLP(nn.Module):
@@ -92,41 +114,37 @@ class RotoTransNetMLP(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
+        sizes = [
+            n_joints,
+            config.cam2cam.inner_size,
+            config.cam2cam.inner_size // 2,
+            config.cam2cam.inner_size // 4,
+        ]
 
-        self.roto_encoder = nn.Sequential(
-            nn.Linear(2 * n_joints * 2, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, 6)  # need 6D parametrization of rotation matrix
+        self.roto_extractor = ExtractEverythingLayer(
+            n_joints,
+            6,  # need 6D parametrization of rotation matrix
+            sizes,
+            batch_norm=config.cam2cam.batch_norm
         )
 
-        self.trans_encoder = nn.Sequential(
-            nn.Linear(2 * n_joints * 2, inner_size),
-            nn.LeakyReLU(),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(),
-            
-            nn.Linear(inner_size, 3)  # 3D space
-        )  # MLP
+        self.trans_extractor = ExtractEverythingLayer(
+            n_joints,
+            3,  # need 3D vector
+            sizes,
+            batch_norm=config.cam2cam.batch_norm
+        )
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         batch_size, n_joints = batch.shape[0], batch.shape[2]
-        batch = batch.view(batch_size, 2 * n_joints * 2)
+        batch = batch.view(batch_size, n_joints, 2, 2)
 
-        features = self.roto_encoder(batch)  # ~ (batch_size, n_params=6)
+        features = self.roto_extractor(batch)  # ~ (batch_size, 6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        features = self.trans_encoder(batch)  # ~ (batch_size, 3)
-        trans2trans = features
+        trans2trans = self.trans_extractor(batch)  # ~ (batch_size, 3)
 
         return rot2rot, trans2trans
 
@@ -148,19 +166,31 @@ class RotoTransNetConv(nn.Module):
 
         # todo try smaller backbone
         self.roto_encoder = make_virgin_vgg(
-            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=sizes[0]
+            config.cam2cam.backbone,
+            batch_norm=config.cam2cam.batch_norm,
+            in_channels=n_joints,
+            num_classes=sizes[0]
         )
         self.roto_decoder = make_MLP(
-            sizes, n_classes=6, activation=nn.LeakyReLU
+            sizes,
+            n_classes=6,
+            batch_norm=config.cam2cam.batch_norm,
+            activation=nn.LeakyReLU
         )  # need 6D parametrization of rotation matrix
 
         # todo try smaller backbone
         self.trans_encoder = make_virgin_vgg(
-            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=sizes[0]
+            config.cam2cam.backbone,
+            batch_norm=config.cam2cam.batch_norm,
+            in_channels=n_joints,
+            num_classes=sizes[0]
         )
 
         self.trans_decoder = make_MLP(
-            sizes, n_classes=3, activation=nn.LeakyReLU
+            sizes,
+            n_classes=3,
+            batch_norm=config.cam2cam.batch_norm,
+            activation=nn.LeakyReLU
         )
 
     def forward(self, batch):

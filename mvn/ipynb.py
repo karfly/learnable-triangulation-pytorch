@@ -53,9 +53,9 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
-    config.cam2cam.using_heatmaps = True
+    config.cam2cam.using_heatmaps = False
     config.cam2cam.backbone = 'smallest'
-    config.cam2cam.batch_norm = False
+    config.cam2cam.batch_norm = True
     config.cam2cam.inner_size = 16
     config.cam2cam.loss.geo_weight = 0.0
     config.cam2cam.loss.trans_weight = 0.0

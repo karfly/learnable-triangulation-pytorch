@@ -1,7 +1,7 @@
 from torch import nn
 
 
-def make_MLP(sizes=[64, 32, 16], n_classes=3, activation=nn.LeakyReLU):
+def make_MLP(sizes=[64, 32, 16], n_classes=3, batch_norm=False, activation=nn.LeakyReLU):
     ls = []
 
     for i, size in enumerate(sizes):
@@ -9,6 +9,10 @@ def make_MLP(sizes=[64, 32, 16], n_classes=3, activation=nn.LeakyReLU):
 
         if next_size:
             ls.append(nn.Linear(size, next_size))
+
+            if batch_norm:
+                ls.append(nn.BatchNorm1d(next_size))
+
             ls.append(activation(inplace=True))
         else:  # output head
             last_size = sizes[-1]

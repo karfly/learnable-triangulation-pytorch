@@ -42,8 +42,8 @@ svd:
 cam2cam:
   using_heatmaps: true
   backbone: "16"
-  batch_norm: true
-  inner_size: 1024
+  batch_norm: false
+  inner_size: 16
 
   loss:
     geo_weight: 0.0

@@ -24,14 +24,14 @@ VGG_CONFIGS = {
 }
 
 
-def make_layers(cfg, batch_norm= False, in_channels=3, activation=nn.ReLU):
+def make_layers(cfg, batch_norm=False, in_channels=3, kernel_size=3, activation=nn.ReLU):
     layers: List[nn.Module] = []
     for v in cfg:
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
             v = cast(int, v)
-            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            conv2d = nn.Conv2d(in_channels, v, kernel_size=kernel_size, padding=1)
             if batch_norm:
                 layers += [conv2d, nn.BatchNorm2d(v), activation(inplace=False)]
             else:
@@ -76,27 +76,29 @@ class VGG(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, num_classes=128, activation=nn.LeakyReLU):
+def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, kernel_size=3, num_classes=128, activation=nn.LeakyReLU):
     cfg = VGG_CONFIGS[vgg_type]
 
     features = make_layers(
         cfg,
         batch_norm=batch_norm,
         in_channels=in_channels,
+        kernel_size=kernel_size,
         activation=activation,
     )
 
+    inner_size = 4096
     classifier = nn.Sequential(
-        nn.Linear(int(cfg[-2]) * 7 * 7, 4096),
+        nn.Linear(int(cfg[-2]) * 7 * 7, inner_size),
         activation(inplace=False),
         nn.Dropout(),
 
-        nn.Linear(4096, 4096),
+        nn.Linear(inner_size, inner_size),
         activation(inplace=False),
         nn.Dropout(),
 
-        nn.Linear(4096, num_classes),
+        nn.Linear(inner_size, num_classes),
     )
     return VGG(
-        features, classifier, num_classes=num_classes, init_weights=False
+        features, classifier, num_classes=num_classes, init_weights=True
     )

@@ -149,24 +149,60 @@ class RotoTransNetMLP(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
+        # sizes = [
+        #     n_joints,
+        #     config.cam2cam.inner_size,
+        #     config.cam2cam.inner_size // 2,
+        #     config.cam2cam.inner_size // 4,
+        # ]
+
+        # self.roto_extractor = ExtractEverythingLayer(
+        #     n_joints,
+        #     sizes + [6],  # need 6D parametrization of rotation matrix
+        #     batch_norm=config.cam2cam.batch_norm
+        # )
+
+        # self.trans_extractor = ExtractEverythingLayer(
+        #     n_joints,
+        #     sizes + [3],  # 3D world
+        #     batch_norm=config.cam2cam.batch_norm
+        # )
+
         sizes = [
-            n_joints,
             config.cam2cam.inner_size,
             config.cam2cam.inner_size // 2,
             config.cam2cam.inner_size // 4,
         ]
 
-        self.roto_extractor = ExtractEverythingLayer(
-            n_joints,
-            sizes + [6],  # need 6D parametrization of rotation matrix
-            batch_norm=config.cam2cam.batch_norm
-        )
+        self.roto_extractor = nn.Sequential(*[
+            make_virgin_vgg(
+                config.cam2cam.backbone,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=n_joints,
+                kernel_size=2,
+                num_classes=sizes[0]
+            ),  # ~ encoder
+            make_MLP(
+                sizes + [6],  # need 6D parametrization of rotation matrix
+                batch_norm=config.cam2cam.batch_norm,
+                activation=nn.LeakyReLU
+            )  # ~ decoder
+        ])
 
-        self.trans_extractor = ExtractEverythingLayer(
-            n_joints,
-            sizes + [3],  # 3D world
-            batch_norm=config.cam2cam.batch_norm
-        )
+        self.trans_extractor = nn.Sequential(*[
+            make_virgin_vgg(
+                config.cam2cam.backbone,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=n_joints,
+                kernel_size=2,
+                num_classes=sizes[0]
+            ),  # ~ encoder
+            make_MLP(
+                sizes + [3],  # 3D world
+                batch_norm=config.cam2cam.batch_norm,
+                activation=nn.LeakyReLU
+            )  # ~ decoder
+        ])
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
@@ -207,7 +243,11 @@ class RotoTransNetConv(nn.Module):
             sizes + [6],  # need 6D parametrization of rotation matrix
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU
-        )  
+        )
+        self.roto_extractor = nn.Sequential(*[
+            self.roto_encoder,
+            self.roto_decoder
+        ])
 
         self.trans_encoder = make_virgin_vgg(
             config.cam2cam.backbone,
@@ -215,28 +255,28 @@ class RotoTransNetConv(nn.Module):
             in_channels=n_joints,
             num_classes=sizes[0]
         )
-
         self.trans_decoder = make_MLP(
             sizes + [3],  # 3D world
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU
         )
+        self.trans_extractor = nn.Sequential(*[
+            self.trans_encoder,
+            self.trans_decoder
+        ])
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, width, height) """
 
-        # stack each view vertically
+        # stack each view "vertically"
         batch = torch.cat([
             batch[:, 0, ...],
             batch[:, 1, ...],
         ], dim=2)  # ~ 3, 17, 64, 32
 
-        features = self.roto_encoder(batch)
-        features = self.roto_decoder(features)
+        features = self.roto_extractor(batch)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
-        features = self.trans_encoder(batch)
-        features = self.trans_decoder(features)
-        trans2trans = features
+        trans2trans = self.trans_extractor(batch)
 
         return rot2rot, trans2trans

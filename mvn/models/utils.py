@@ -38,7 +38,10 @@ def reset_layer(layer):
             reset_layer(layer)
 
 
-def show_params(model):
+def show_params(model, verbose=False):
+    if verbose:
+        print(model)
+
     tot = count_grad_params(model)
 
     for name, m in model.named_children():
@@ -79,7 +82,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
 
     if config.model.cam2cam_estimation:
         print('cam2cam model:')
-        show_params(cam2cam_model)
+        show_params(cam2cam_model, verbose=True)
 
         return base_optim(
             [

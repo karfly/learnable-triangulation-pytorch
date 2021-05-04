@@ -43,7 +43,8 @@ cam2cam:
   using_heatmaps: false
   backbone: "16"
   batch_norm: false
-  inner_size: 16
+  inner_size: 1024
+# `inner_size` should be 16 when NOT using heatmaps
 
   loss:
     geo_weight: 0.0

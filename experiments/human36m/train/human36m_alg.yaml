@@ -48,7 +48,7 @@ cam2cam:
   loss:
     geo_weight: 0.0
     trans_weight: 0.0
-    proj_weight: 1.0
+    proj_weight: 0.1
 
 model:
   name: "alg"

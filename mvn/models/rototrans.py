@@ -5,6 +5,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from mvn.models.vgg import make_virgin_vgg
+from mvn.models.layers import make_MLP
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
@@ -87,8 +88,10 @@ class View(nn.Module):
 class RotoTransNetMLP(nn.Module):
     BN_MOMENTUM = 0.1
 
-    def __init__(self, config, inner_size=128, n_joints=17, n_params=6):
+    def __init__(self, config, inner_size=128):
         super().__init__()
+
+        n_joints = config.model.backbone.num_joints
 
         self.roto_encoder = nn.Sequential(
             nn.Linear(2 * n_joints * 2, inner_size),
@@ -100,7 +103,7 @@ class RotoTransNetMLP(nn.Module):
             nn.Linear(inner_size, inner_size),
             nn.LeakyReLU(),
 
-            nn.Linear(inner_size, n_params)
+            nn.Linear(inner_size, 6)  # need 6D parametrization of rotation matrix
         )
 
         self.trans_encoder = nn.Sequential(
@@ -131,36 +134,34 @@ class RotoTransNetMLP(nn.Module):
 class RotoTransNetConv(nn.Module):
     BN_MOMENTUM = 0.1
 
-    def __init__(self, config, n_joints=17, n_params=6):
+    def __init__(self, config):
         super().__init__()
 
-        # inspired by http://arxiv.org/abs/1905.10711
+        n_joints = config.model.backbone.num_joints
 
-        # todo try batch_norm=True
+        # inspired by http://arxiv.org/abs/1905.10711
+        sizes = [
+            config.cam2cam.inner_size,
+            config.cam2cam.inner_size // 2,
+            config.cam2cam.inner_size // 4,
+        ]
+
         # todo try smaller backbone
         self.roto_encoder = make_virgin_vgg(
-            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=config.cam2cam.inner_size
+            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=sizes[0]
         )
+        self.roto_decoder = make_MLP(
+            sizes, n_classes=6, activation=nn.LeakyReLU
+        )  # need 6D parametrization of rotation matrix
 
-        self.roto_decoder = nn.Sequential(
-            nn.Linear(config.cam2cam.inner_size, config.cam2cam.inner_size),  # another round, just to be sure
-            nn.LeakyReLU(),
-
-            nn.Linear(config.cam2cam.inner_size, n_params)
-        )
-
-        # todo try batch_norm=True
         # todo try smaller backbone
         self.trans_encoder = make_virgin_vgg(
-            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=config.cam2cam.inner_size
+            config.cam2cam.backbone, batch_norm=config.cam2cam.batch_norm, in_channels=n_joints, num_classes=sizes[0]
         )
 
-        self.trans_decoder = nn.Sequential(
-            nn.Linear(config.cam2cam.inner_size, config.cam2cam.inner_size),
-            nn.LeakyReLU(),
-            
-            nn.Linear(config.cam2cam.inner_size, 3)  # 3D space
-        )  # MLP
+        self.trans_decoder = make_MLP(
+            sizes, n_classes=3, activation=nn.LeakyReLU
+        )
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, width, height) """

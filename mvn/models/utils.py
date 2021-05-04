@@ -89,7 +89,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
                 },
                 {
                     'params': get_grad_params(cam2cam_model),
-                    'lr': 1e-5  # try me: 1e-4 seems too much larger, NaN when triangulating
+                    'lr': config.cam2cam.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
                 }
             ]
         )

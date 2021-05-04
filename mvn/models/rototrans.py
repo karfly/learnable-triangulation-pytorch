@@ -77,12 +77,13 @@ def compute_geodesic_distance():
 
 
 class ExtractEverythingLayer(nn.Module):
-    def __init__(self, in_channels, n_out_features, mlp_sizes, batch_norm=False):
+    def __init__(self, in_channels, mlp_sizes, batch_norm=False, init_weights=True):
         super().__init__()
 
-        self.encoder = nn.Conv2d(
+        out_channels = mlp_sizes[0]
+        self.conv_encoder = nn.Conv2d(
             in_channels=in_channels,
-            out_channels=in_channels,
+            out_channels=out_channels,
             kernel_size=2,
             stride=1,
             padding=0,
@@ -90,27 +91,61 @@ class ExtractEverythingLayer(nn.Module):
             padding_mode='zeros'
         )
 
-        self.mlp_in = mlp_sizes[0]
+        inner_size = 128
+        self.linear_encoder = nn.Sequential(
+            nn.Linear(2 * in_channels * 2, inner_size),
+            nn.LeakyReLU(inplace=True),
+
+            nn.Linear(inner_size, inner_size),
+            nn.LeakyReLU(inplace=True),
+
+            nn.Linear(inner_size, inner_size),
+            nn.LeakyReLU(inplace=True),
+
+            nn.Linear(inner_size, out_channels)
+        )
+
+        mlp_sizes[0] *= 2
         self.mlp = make_MLP(
             mlp_sizes,
-            n_classes=n_out_features,
             batch_norm=batch_norm,
             activation=nn.LeakyReLU
         )
 
+        if init_weights:
+            self._initialize_weights()
+
     def forward(self, x):
-        x = self.encoder(x)
+        batch_size = x.shape[0]
 
-        x = x.view(-1, self.mlp_in)  # ready for MLP
-        x = self.mlp(x)
+        x1 = self.conv_encoder(x).view(batch_size, -1)
+        x2 = self.linear_encoder(x.view(batch_size, -1))
+        x3 = torch.cat([
+            x1, x2
+        ], dim=1)
 
-        return x
+        return self.mlp(x3)
+
+    def _initialize_weights(self):  # like VGG
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu'
+                )
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
 
 
 class RotoTransNetMLP(nn.Module):
     BN_MOMENTUM = 0.1
 
-    def __init__(self, config, inner_size=128):
+    def __init__(self, config):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
@@ -123,15 +158,13 @@ class RotoTransNetMLP(nn.Module):
 
         self.roto_extractor = ExtractEverythingLayer(
             n_joints,
-            6,  # need 6D parametrization of rotation matrix
-            sizes,
+            sizes + [6],  # need 6D parametrization of rotation matrix
             batch_norm=config.cam2cam.batch_norm
         )
 
         self.trans_extractor = ExtractEverythingLayer(
             n_joints,
-            3,  # need 3D vector
-            sizes,
+            sizes + [3],  # 3D world
             batch_norm=config.cam2cam.batch_norm
         )
 
@@ -164,7 +197,6 @@ class RotoTransNetConv(nn.Module):
             config.cam2cam.inner_size // 4,
         ]
 
-        # todo try smaller backbone
         self.roto_encoder = make_virgin_vgg(
             config.cam2cam.backbone,
             batch_norm=config.cam2cam.batch_norm,
@@ -172,13 +204,11 @@ class RotoTransNetConv(nn.Module):
             num_classes=sizes[0]
         )
         self.roto_decoder = make_MLP(
-            sizes,
-            n_classes=6,
+            sizes + [6],  # need 6D parametrization of rotation matrix
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU
-        )  # need 6D parametrization of rotation matrix
+        )  
 
-        # todo try smaller backbone
         self.trans_encoder = make_virgin_vgg(
             config.cam2cam.backbone,
             batch_norm=config.cam2cam.batch_norm,
@@ -187,8 +217,7 @@ class RotoTransNetConv(nn.Module):
         )
 
         self.trans_decoder = make_MLP(
-            sizes,
-            n_classes=3,
+            sizes + [3],  # 3D world
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU
         )

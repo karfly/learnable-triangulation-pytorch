@@ -53,13 +53,13 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
-    config.cam2cam.using_heatmaps = False
-    config.cam2cam.backbone = '3'
+    config.cam2cam.using_heatmaps = True
+    config.cam2cam.backbone = 'smallest'
     config.cam2cam.batch_norm = False
     config.cam2cam.inner_size = 16
     config.cam2cam.loss.geo_weight = 0.0
     config.cam2cam.loss.trans_weight = 0.0
-    config.cam2cam.loss.proj_weight = 0.1
+    config.cam2cam.loss.proj_weight = 1.0
 
     config.model.backbone.init_weights = config.model.init_weights
     config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

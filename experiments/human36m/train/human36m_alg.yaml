@@ -42,13 +42,13 @@ svd:
 cam2cam:
   using_heatmaps: true
   backbone: "16"
-  batch_norm: false
-  inner_size: 128
+  batch_norm: true
+  inner_size: 1024
 
   loss:
     geo_weight: 0.0
     trans_weight: 0.0
-    proj_weight: 0.1
+    proj_weight: 1.0
 
 model:
   name: "alg"

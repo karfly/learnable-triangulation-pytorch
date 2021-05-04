@@ -436,9 +436,9 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
 
     if config.cam2cam.using_heatmaps:
-        keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h)
+        keypoints_forward = torch.empty(batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h)
     else:
-        keypoints_forward = torch.zeros(batch_size, len(pairs), 2, n_joints, 2)
+        keypoints_forward = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
 
     for batch_i in range(batch_size):
         if config.cam2cam.using_heatmaps:
@@ -560,7 +560,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
                     ).unsqueeze(0)
                     for view_i in range(n_views)
                 ])
-                total_loss += config.cam2cam.loss.proj_weight * l2_loss()(
+                total_loss += config.cam2cam.loss.proj_weight * KeypointsMSESmoothLoss(threshold=1e3)(
                     gts.cuda(),  # ~ n_views, 17, 2
                     preds.cuda(),  # ~ n_views, 17, 2
                 )
@@ -743,9 +743,7 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
     minimon = MiniMon()
 
     for epoch in range(config.opt.n_epochs):  # training
-        if master:
-            f_out = 'epoch {:4d} has started!'
-            print(f_out.format(epoch))
+        misc.live_debug_log(_iter_tag, 'epoch {:4d} has started!'.format(epoch))
 
         if train_sampler:  # None when NOT distributed
             train_sampler.set_epoch(epoch)
@@ -774,11 +772,23 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
             if config.model.cam2cam_estimation:
                 torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))
 
-            f_out = 'epoch {:4d} complete!'
-            print(f_out.format(epoch))
 
-            minimon.print_stats(as_minutes=False)
-            print('=' * 105)
+        train_time_avg = 'do train'
+        train_time_avg = minimon.store[train_time_avg].get_avg()
+
+        val_time_avg = 'do eval'
+        val_time_avg = minimon.store[val_time_avg].get_avg()
+
+        epoch_time_avg = train_time_avg + val_time_avg
+        epochs_in_1_hour = 60 * 60 / epoch_time_avg
+        epochs_in_1_day = 24 * 60 * 60 / epoch_time_avg
+        message = 'epoch time ~ {:.1f}" => {:.0f} epochs / hour, {:.0f} epochs / day'.format(epoch_time_avg, epochs_in_1_hour, epochs_in_1_day)
+        misc.live_debug_log(_iter_tag, message)
+
+        # minimon.print_stats(as_minutes=False)
+        # print('=' * 105)
+
+        misc.live_debug_log(_iter_tag, 'epoch {:4d} complete!'.format(epoch))
 
     if master:
         minimon.print_stats(as_minutes=False)

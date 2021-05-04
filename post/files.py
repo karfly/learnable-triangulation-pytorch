@@ -60,7 +60,7 @@ def parse_job_log(f_path, verbose=True):
 
     exp_name = next(filter(
         lambda x: x.startswith('Experiment name:'),
-        lines[:50]
+        lines[:60]
     ))  # should be in the first lines -> just take 1st occurrence
     exp_name = exp_name.split()[-1]  # remove 'Experiment name:'
 

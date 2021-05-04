@@ -4,7 +4,7 @@ from typing import Union, List, cast
 
 # original configs
 VGG_CONFIGS = {
-    '3': [
+    'smallest': [
         64, 'M',
     ],
     '11': [

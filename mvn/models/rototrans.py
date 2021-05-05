@@ -109,6 +109,8 @@ class RotoTransNetMLP(nn.Module):
             config.cam2cam.inner_size,
             config.cam2cam.inner_size,
             config.cam2cam.inner_size,
+            config.cam2cam.inner_size,
+            config.cam2cam.inner_size,
         ]
 
         self.roto_extractor = nn.Sequential(*[

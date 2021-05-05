@@ -78,7 +78,7 @@ def parse_job_log(f_path, verbose=True):
     for line in lines:
         if 'training dataset length:' in line:
             train_data_amount = float(line.split()[-1])
-        
+
         if 'validation dataset length:' in line:
             eval_data_amount = float(line.split()[-1])
 
@@ -106,7 +106,7 @@ def parse_job_log(f_path, verbose=True):
             epochs.append(current_epoch_details.copy())
 
     if verbose:
-        print('{} correctly parsed'.format(exp_name))
+        print('{} (from {})'.format(exp_name, f_path))
         print('training on {:.0f}, evaluating on {:.0f}'.format(
             train_data_amount,
             eval_data_amount

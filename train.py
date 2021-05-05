@@ -530,47 +530,64 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     minimon.leave('cam2cam DLT')
 
     if is_train:
-        total_loss = 0.0
+        # not exactly needed, just to debug
+        geodesic_loss = 0.0
+        trans_loss = 0.0
+        pose_loss = 0.0
+        total_loss = 0.0  # real loss, the one grad is appllied to
 
         minimon.enter()
 
         for batch_i in range(batch_size):  # foreach sample in batch
-            if config.cam2cam.loss.geo_weight > 0:  # geodesic loss
-                total_loss += config.cam2cam.loss.geo_weight * compute_geodesic_distance()(
-                    cam2cam_preds[batch_i, :, :3, :3].cuda(),
-                    cam2cam_gts[batch_i, :, :3, :3].cuda()
-                )  # ~ (len(pairs), )
+            # geodesic loss
+            loss = compute_geodesic_distance()(
+                cam2cam_preds[batch_i, :, :3, :3].cuda(),
+                cam2cam_gts[batch_i, :, :3, :3].cuda()
+            )  # ~ (len(pairs), )
+            geodesic_loss += loss
 
-            if config.cam2cam.loss.trans_weight > 0:  # trans loss
-                total_loss += config.cam2cam.loss.trans_weight * l2_loss()(
-                    cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
-                    cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
-                )
+            if config.cam2cam.loss.geo_weight > 0:  
+                total_loss += config.cam2cam.loss.geo_weight * loss
 
-            if config.cam2cam.loss.proj_weight > 0:  # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
-                gts = torch.cat([
-                    batch['cameras'][view_i][batch_i].world2proj()(
-                        keypoints_3d_gt[batch_i]
-                    ).unsqueeze(0)
-                    for view_i in range(n_views)
-                ])
-                preds = torch.cat([
-                    batch['cameras'][view_i][batch_i].world2proj()(
-                        keypoints_3d_pred[batch_i]
-                    ).unsqueeze(0)
-                    for view_i in range(n_views)
-                ])
-                total_loss += config.cam2cam.loss.proj_weight * KeypointsMSESmoothLoss(threshold=600)(
-                    gts.cuda(),  # ~ n_views, 17, 2
-                    preds.cuda(),  # ~ n_views, 17, 2
-                )
+            # trans loss
+            loss = KeypointsMSESmoothLoss(threshold=400)(
+                cam2cam_preds[batch_i, :, :3, 3].cuda() / scale_trans2trans,
+                cam2cam_gts[batch_i, :, :3, 3].cuda() / scale_trans2trans
+            )
+            trans_loss += loss
+            if config.cam2cam.loss.trans_weight > 0:
+                total_loss += config.cam2cam.loss.trans_weight * loss
+
+            # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
+            gts = torch.cat([
+                batch['cameras'][view_i][batch_i].world2proj()(
+                    keypoints_3d_gt[batch_i]
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ])  # ~ n_views, 17, 2
+            preds = torch.cat([
+                batch['cameras'][view_i][batch_i].world2proj()(
+                    keypoints_3d_pred[batch_i]
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ])  # ~ n_views, 17, 2
+            loss = KeypointsMSESmoothLoss(threshold=400)(
+                gts.cuda(),
+                preds.cuda(),
+            )
+            pose_loss += loss
+            if config.cam2cam.loss.proj_weight > 0:
+                total_loss += config.cam2cam.loss.proj_weight * loss
 
         minimon.leave('calc loss')
 
-        message = '{} batch iter {:d} loss ~ {:.3f}'.format(
+        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
-            total_loss.item()
+            geodesic_loss.item() / batch_size,
+            trans_loss.item() / batch_size,
+            pose_loss.item() / batch_size,
+            total_loss.item() / batch_size,
         )  # just a little bit of live debug
         misc.live_debug_log(_iter_tag, message)
 

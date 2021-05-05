@@ -28,7 +28,7 @@ function seeMetrics () {
     echo
 }
 
-# e.g backupLog '/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@12.04.2021-17:01:07' '/projects/p_humanpose/learnable-triangulation/good_logs'
+# usage: backupLog '/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@12.04.2021-17:01:07' '/projects/p_humanpose/learnable-triangulation/good_logs'
 function backupLog () {
     src_folder=$1
     backup_folder=$2
@@ -44,7 +44,7 @@ function backupLog () {
     du -sh ${dest_folder}
 }
 
-# e.g `backupH36Data S11`
+# usage: backupH36Data S11
 function backupScratchData () {
     subject=$1
     src_folder=/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/${subject}
@@ -60,4 +60,20 @@ function backupScratchData () {
     
     echo "now target ~ $(du -sh ${target_folder})"
     echo "src ~ $(du -sh ${src_folder})"
+}
+
+# usage: showClusterUsageInMonth "p_humanpose"
+function showClusterUsageInMonth () {
+    account=$1
+    allocated_cpu_hours=3500
+
+    month=$(date +"%m")
+    year=$(date +"%Y")
+    firstOfThisMonth=${year}-${month}-01
+
+    cpu_minutes=$(sreport cluster AccountUtilizationByUser Accounts=${account} Start=${firstOfThisMonth} | tail -n1 | awk '{print $5}')
+    cpu_hours=$(echo "scale=9;${cpu_minutes}/60.0" | bc)
+    as_perc=$(echo "scale=9;${cpu_hours}/${allocated_cpu_hours}*100.0" | bc)
+
+    echo "since ${firstOfThisMonth} you used ${cpu_hours} CPU-hours (${as_perc} % of max)"
 }

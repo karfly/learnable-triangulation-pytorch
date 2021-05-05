@@ -83,9 +83,9 @@ class RotoTransNetMLP(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
-
-        n_inner_layers = config.cam2cam.mlp.n_inner_layers
         inner_size = config.cam2cam.mlp.inner_size
+
+        n_inner_layers = config.cam2cam.mlp.n_inner_layers  # bsf 5
         sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
         self.roto_extractor = nn.Sequential(*[
@@ -98,6 +98,9 @@ class RotoTransNetMLP(nn.Module):
                 init_weights=False
             )
         ])
+
+        n_inner_layers = 3  # bsf 5
+        sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
         self.trans_extractor = nn.Sequential(*[
             View((-1, sizes[0])),

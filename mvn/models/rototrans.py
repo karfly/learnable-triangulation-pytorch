@@ -5,7 +5,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from mvn.models.vgg import make_virgin_vgg
-from mvn.models.layers import make_MLP
+from mvn.models.layers import ExtractEverythingLayer, MLP, View
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
@@ -76,81 +76,6 @@ def compute_geodesic_distance():
     return _f
 
 
-class View(nn.Module):
-    def __init__(self, shape):
-        super().__init__()
-        self.shape = shape
-
-    def forward(self, x):
-        return x.view(*self.shape)
-
-
-class ExtractEverythingLayer(nn.Module):
-    def __init__(self, in_channels, mlp_sizes, batch_norm=False, init_weights=True):
-        super().__init__()
-
-        out_channels = mlp_sizes[0]
-        self.conv_encoder = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=2,
-            stride=1,
-            padding=0,
-            bias=True,
-            padding_mode='zeros'
-        )
-
-        inner_size = 128
-        self.linear_encoder = nn.Sequential(
-            nn.Linear(2 * in_channels * 2, inner_size),
-            nn.LeakyReLU(inplace=False),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(inplace=False),
-
-            nn.Linear(inner_size, inner_size),
-            nn.LeakyReLU(inplace=False),
-
-            nn.Linear(inner_size, out_channels)
-        )
-
-        mlp_sizes[0] *= 2
-        self.mlp = make_MLP(
-            mlp_sizes,
-            batch_norm=batch_norm,
-            activation=nn.LeakyReLU
-        )
-
-        if init_weights:
-            self._initialize_weights()
-
-    def forward(self, x):
-        batch_size = x.shape[0]
-
-        x1 = self.conv_encoder(x).view(batch_size, -1)
-        x2 = self.linear_encoder(x.view(batch_size, -1))
-        x3 = torch.cat([
-            x1, x2
-        ], dim=1)
-
-        return self.mlp(x3)
-
-    def _initialize_weights(self):  # like VGG
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode='fan_out', nonlinearity='relu'
-                )
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
-
-
 class RotoTransNetMLP(nn.Module):
     BN_MOMENTUM = 0.1
 
@@ -188,7 +113,7 @@ class RotoTransNetMLP(nn.Module):
 
         self.roto_extractor = nn.Sequential(*[
             View((-1, sizes[0])),
-            make_MLP(
+            MLP(
                 sizes + [6],  # need 6D parametrization of rotation matrix
                 batch_norm=config.cam2cam.batch_norm,
                 activation=nn.LeakyReLU
@@ -197,7 +122,7 @@ class RotoTransNetMLP(nn.Module):
 
         self.trans_extractor = nn.Sequential(*[
             View((-1, sizes[0])),
-            make_MLP(
+            MLP(
                 sizes + [3],  # 3D world
                 batch_norm=config.cam2cam.batch_norm,
                 activation=nn.LeakyReLU
@@ -218,7 +143,7 @@ class RotoTransNetMLP(nn.Module):
         #         kernel_size=2,
         #         num_classes=sizes[0]
         #     ),  # ~ encoder
-        #     make_MLP(
+        #     MLP(
         #         sizes + [6],  # need 6D parametrization of rotation matrix
         #         batch_norm=config.cam2cam.batch_norm,
         #         activation=nn.LeakyReLU
@@ -233,7 +158,7 @@ class RotoTransNetMLP(nn.Module):
         #         kernel_size=2,
         #         num_classes=sizes[0]
         #     ),  # ~ encoder
-        #     make_MLP(
+        #     MLP(
         #         sizes + [3],  # 3D world
         #         batch_norm=config.cam2cam.batch_norm,
         #         activation=nn.LeakyReLU
@@ -274,7 +199,7 @@ class RotoTransNetConv(nn.Module):
             in_channels=n_joints,
             num_classes=sizes[0]
         )
-        self.roto_decoder = make_MLP(
+        self.roto_decoder = MLP(
             sizes + [6],  # need 6D parametrization of rotation matrix
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU
@@ -290,7 +215,7 @@ class RotoTransNetConv(nn.Module):
             in_channels=n_joints,
             num_classes=sizes[0]
         )
-        self.trans_decoder = make_MLP(
+        self.trans_decoder = MLP(
             sizes + [3],  # 3D world
             batch_norm=config.cam2cam.batch_norm,
             activation=nn.LeakyReLU

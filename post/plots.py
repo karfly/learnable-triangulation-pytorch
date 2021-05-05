@@ -94,9 +94,10 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
             for epoch in epochs
         ])
 
-        _min, _last = np.min(drop_na(loss_history)), loss_history[-1]
-        label = '{} (min = {:.1f}, last = {:.1f})'.format(
-            key.replace('loss / batch', '').strip(), _min, _last
+        _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
+        _last = loss_history[-1]
+        label = '{} (min = {:.1f}, max = {:.1f}, last = {:.1f})'.format(
+            key.replace('loss / batch', '').strip(), _min, _max, _last
         )
         plot_metric(
             axis,

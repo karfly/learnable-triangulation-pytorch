@@ -40,6 +40,8 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
+  scale_trans2trans: 2000
+
   using_heatmaps: false
   
   batch_norm: false

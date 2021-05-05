@@ -414,7 +414,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     _iter_tag = 'cam2cam'
 
-    scale_trans2trans = 1000.0  # L2 loss on trans vectors is poor -> scale
+    scale_trans2trans = config.cam2cam.scale_trans2trans  # L2 loss on trans vectors is poor -> scale
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     minimon.enter()

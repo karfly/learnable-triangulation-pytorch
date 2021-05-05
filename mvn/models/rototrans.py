@@ -85,71 +85,74 @@ class RotoTransNetMLP(nn.Module):
         n_joints = config.model.backbone.num_joints
         inner_size = config.cam2cam.mlp.inner_size
 
-        n_inner_layers = config.cam2cam.mlp.n_inner_layers  # bsf 5
-        sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
+        # n_inner_layers = config.cam2cam.mlp.n_inner_layers  # bsf 5
+        # sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
+
+        # self.roto_extractor = nn.Sequential(*[
+        #     View((-1, sizes[0])),
+        #     MLP(
+        #         sizes + [6],  # need 6D parametrization of rotation matrix
+        #         batch_norm=config.cam2cam.batch_norm,
+        #         drop_out=config.cam2cam.drop_out,
+        #         activation=nn.LeakyReLU,
+        #         init_weights=False
+        #     )
+        # ])
+
+        # self.trans_extractor = nn.Sequential(*[
+        #     View((-1, sizes[0])),
+        #     MLP(
+        #         sizes + [3],  # 3D world
+        #         batch_norm=config.cam2cam.batch_norm,
+        #         drop_out=config.cam2cam.drop_out,
+        #         activation=nn.LeakyReLU,
+        #         init_weights=False
+        #     )
+        # ])
+
+        sizes = [
+            config.cam2cam.mlp.inner_size,
+            config.cam2cam.mlp.inner_size // 2,
+            config.cam2cam.mlp.inner_size // 4,
+        ]
 
         self.roto_extractor = nn.Sequential(*[
-            View((-1, sizes[0])),
+            View((-1, n_joints, 2, 2)),
+            make_virgin_vgg(
+                config.cam2cam.vgg,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=n_joints,
+                kernel_size=2,
+                num_classes=sizes[0],
+                init_weights=False
+            ),  # ~ encoder
             MLP(
                 sizes + [6],  # need 6D parametrization of rotation matrix
                 batch_norm=config.cam2cam.batch_norm,
                 drop_out=config.cam2cam.drop_out,
                 activation=nn.LeakyReLU,
                 init_weights=False
-            )
+            )  # ~ decoder
         ])
 
-        n_inner_layers = 3  # bsf 5
-        sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
-
         self.trans_extractor = nn.Sequential(*[
-            View((-1, sizes[0])),
+            View((-1, n_joints, 2, 2)),
+            make_virgin_vgg(
+                config.cam2cam.vgg,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=n_joints,
+                kernel_size=2,
+                num_classes=sizes[0],
+                init_weights=False
+            ),  # ~ encoder
             MLP(
                 sizes + [3],  # 3D world
                 batch_norm=config.cam2cam.batch_norm,
                 drop_out=config.cam2cam.drop_out,
                 activation=nn.LeakyReLU,
                 init_weights=False
-            )
+            )  # ~ decoder
         ])
-
-        # sizes = [
-        #     config.cam2cam.mlp.inner_size,
-        #     config.cam2cam.mlp.inner_size // 2,
-        #     config.cam2cam.mlp.inner_size // 4,
-        # ]
-
-        # self.roto_extractor = nn.Sequential(*[
-        #     make_virgin_vgg(
-        #         config.cam2cam.vgg,
-        #         batch_norm=config.cam2cam.batch_norm,
-        #         in_channels=n_joints,
-        #         kernel_size=2,
-        #         num_classes=sizes[0],
-        #         init_weights=False
-        #     ),  # ~ encoder
-        #     MLP(
-        #         sizes + [6],  # need 6D parametrization of rotation matrix
-        #         batch_norm=config.cam2cam.batch_norm,
-        #         activation=nn.LeakyReLU
-        #     )  # ~ decoder
-        # ])
-
-        # self.trans_extractor = nn.Sequential(*[
-        #     make_virgin_vgg(
-        #         config.cam2cam.vgg,
-        #         batch_norm=config.cam2cam.batch_norm,
-        #         in_channels=n_joints,
-        #         kernel_size=2,
-        #         num_classes=sizes[0],
-        #         init_weights=False
-        #     ),  # ~ encoder
-        #     MLP(
-        #         sizes + [3],  # 3D world
-        #         batch_norm=config.cam2cam.batch_norm,
-        #         activation=nn.LeakyReLU
-        #     )  # ~ decoder
-        # ])
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """

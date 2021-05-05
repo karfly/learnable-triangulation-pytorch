@@ -43,7 +43,7 @@ cam2cam:
   using_heatmaps: false
   
   batch_norm: false
-  drop_out: 0.1
+  drop_out: 0.0
 
   vgg: "16"
 

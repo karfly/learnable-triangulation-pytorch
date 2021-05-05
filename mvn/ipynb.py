@@ -54,7 +54,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.cam2cam_estimation = True
 
     config.cam2cam.using_heatmaps = False
-    config.model.cam2cam.init_weights = False
+    config.cam2cam.model.init_weights = False
 
     config.cam2cam.mlp.n_inner_layers = 1
     config.cam2cam.vgg = 'smallest'

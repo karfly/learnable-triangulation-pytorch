@@ -72,8 +72,8 @@ function showClusterUsageInMonth () {
     firstOfThisMonth=${year}-${month}-01
 
     cpu_minutes=$(sreport cluster AccountUtilizationByUser Accounts=${account} Start=${firstOfThisMonth} | tail -n1 | awk '{print $5}')
-    cpu_hours=$(echo "scale=9;${cpu_minutes}/60.0" | bc)
-    as_perc=$(echo "scale=9;${cpu_hours}/${allocated_cpu_hours}*100.0" | bc)
+    cpu_hours=$(echo "scale=2;${cpu_minutes}/60.0" | bc)
+    as_perc=$(echo "scale=2;${cpu_hours}/${allocated_cpu_hours}*100.0" | bc)
 
     echo "since ${firstOfThisMonth} you used ${cpu_hours} CPU-hours (${as_perc} % of max)"
 }

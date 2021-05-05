@@ -1,6 +1,22 @@
 from torch import nn
 
 
+def _initialize_weights_like_VGG(modules):
+    for m in modules:
+        if isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal_(
+                m.weight, mode='fan_out', nonlinearity='relu'
+            )
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.BatchNorm2d):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.Linear):
+            nn.init.normal_(m.weight, 0, 0.01)
+            nn.init.constant_(m.bias, 0)
+
+
 class View(nn.Module):
     def __init__(self, shape):
         super().__init__()
@@ -15,6 +31,9 @@ class MLP(nn.Module):
         super().__init__()
 
         self.backbone = self._make_layers(sizes, batch_norm, activation)
+
+        if init_weights:
+            _initialize_weights_like_VGG(self.modules())
 
     @staticmethod
     def _make_layers(sizes, batch_norm, activation):
@@ -90,7 +109,7 @@ class ExtractEverythingLayer(nn.Module):
         )
 
         if init_weights:
-            self._initialize_weights()
+            _initialize_weights_like_VGG(self.modules())
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -102,18 +121,3 @@ class ExtractEverythingLayer(nn.Module):
         ], dim=1)
 
         return self.mlp(x3)
-
-    def _initialize_weights(self):  # like VGG
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode='fan_out', nonlinearity='relu'
-                )
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)

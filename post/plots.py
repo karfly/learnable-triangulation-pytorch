@@ -1,10 +1,12 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from mvn.utils.misc import find_min, drop_na
+from mvn.utils.misc import find_min, drop_na, normalize_transformation
+
+LOSS_C = ['magenta', 'gold', 'lawngreen', 'red']
 
 
-def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None):
+def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None, show_min=False, marker=','):
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
@@ -12,16 +14,17 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
         xrange = list(range(xrange[0], xrange[-1] + 1))
 
     axis.plot(
-        xrange, metrics, label=label, color=color
+        xrange, metrics, label=label, color=color, marker=marker
     )
 
-    m, m_i = find_min(metrics)
-    axis.plot(
-        xrange[m_i],
-        m,
-        marker='x', color='r', markersize=10,
-        label='min = {:.1f}'.format(m)
-    )
+    if show_min:
+        m, m_i = find_min(metrics)
+        axis.plot(
+            xrange[m_i],
+            m,
+            marker='x', color='r', markersize=20,
+            label='min = {:.1f}'.format(m)
+        )
 
     if ylim:
         axis.set_ylim(ylim)
@@ -29,7 +32,8 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
     if legend_loc:
         axis.legend(loc=legend_loc)
 
-    print('- plotted metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
+    print('- plotted "{}" metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
+        label,
         np.min(drop_na(metrics)), np.max(drop_na(metrics)),
         xrange[0], xrange[-1]
     ))
@@ -78,23 +82,37 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
 
 
 def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], title=None, metric_ylabel=None):
-    training_loss = [
-        np.sum(epoch['training loss / batch'])
-        for epoch in epochs
-    ]
-
-    plot_metric(
-        axis,
-        training_loss,
-        'training loss',
-        ylim=loss_ylim,
-        color='red',
-        legend_loc='upper left'
+    loss_keys = filter(
+        lambda x: 'loss / batch' in x and 'training' not in x,
+        epochs[0].keys()
     )
+
+    for key, color in zip(loss_keys, LOSS_C):
+        loss_history = np.float32([
+            np.mean(epoch[key])
+            for epoch in epochs
+        ])
+
+        _min, _last = np.min(drop_na(loss_history)), loss_history[-1]
+        label = '{} (min = {:.1f}, last = {:.1f})'.format(
+            key.replace('loss / batch', '').strip(), _min, _last
+        )
+        plot_metric(
+            axis,
+            normalize_transformation((0, 1))(loss_history),
+            label=label,
+            ylim=[0, 1],  # since it's normalized
+            color=color,
+            legend_loc='lower left',
+            show_min=False,
+            marker='+'
+        )
+
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_xlabel('# epoch')
     axis.set_title(title)
-    axis.set_ylabel('training loss')
+    axis.set_ylabel('training losses')
+    axis.yaxis.set_visible(False)
 
     axis = axis.twinx()  # on the right
 
@@ -103,8 +121,10 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         [epoch['training metrics'] for epoch in epochs],
         'training metrics',
         ylim=train_metric_ylim,
-        color='green',
-        legend_loc='upper right'
+        color='aquamarine',
+        legend_loc='upper right',
+        show_min=True,
+        marker='o'
     )
 
     plot_metric(
@@ -113,7 +133,9 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         'eval metrics',
         ylim=eval_metric_ylim,
         color='blue',
-        legend_loc='upper right'
+        legend_loc='upper right',
+        show_min=True,
+        marker='o'
     )
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_ylabel(metric_ylabel)

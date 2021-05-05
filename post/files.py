@@ -88,11 +88,37 @@ def parse_job_log(f_path, verbose=True):
             except:
                 current_epoch_details['epoch'] = int(line.split()[2])
             
-            current_epoch_details['training loss / batch'] = []
+            for key in current_epoch_details:
+                if 'loss' in key:
+                    current_epoch_details[key] = []
 
         if 'training batch iter' in line:  # batch loss
-            loss = parse_fp_number(line.split('~')[-1])
-            current_epoch_details['training loss / batch'].append(loss)
+            tokens = line.split('~')
+
+            try:
+                if len(tokens) > 2:
+                    loss = parse_fp_number(tokens[1].split(',')[0])
+                    key = 'geo loss / batch'
+                    if key not in current_epoch_details:
+                        current_epoch_details[key] = []
+                    current_epoch_details[key].append(loss)
+
+                    loss = parse_fp_number(tokens[2].split(',')[0])
+                    key = 'trans loss / batch'
+                    if key not in current_epoch_details:
+                        current_epoch_details[key] = []
+                    current_epoch_details[key].append(loss)
+
+                    loss = parse_fp_number(tokens[3].split(',')[0])
+                    key = 'pose loss / batch'
+                    if key not in current_epoch_details:
+                        current_epoch_details[key] = []
+                    current_epoch_details[key].append(loss)
+            except:
+                pass  # old version of live debugs don't have much losses
+
+            total_loss = parse_fp_number(tokens[-1])
+            current_epoch_details['training loss / batch'].append(total_loss)
 
         if 'training MPJPE' in line:
             metric = parse_fp_number(line.split(':')[-1].split()[0])

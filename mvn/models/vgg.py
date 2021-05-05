@@ -76,7 +76,7 @@ class VGG(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, kernel_size=3, num_classes=128, activation=nn.LeakyReLU):
+def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, kernel_size=3, num_classes=128, activation=nn.LeakyReLU, init_weights=True):
     cfg = VGG_CONFIGS[vgg_type]
 
     features = make_layers(
@@ -91,14 +91,14 @@ def make_virgin_vgg(vgg_type, batch_norm=False, in_channels=3, kernel_size=3, nu
     classifier = nn.Sequential(
         nn.Linear(int(cfg[-2]) * 7 * 7, inner_size),
         activation(inplace=False),
-        nn.Dropout(),
+        nn.Dropout(inplace=False),
 
         nn.Linear(inner_size, inner_size),
         activation(inplace=False),
-        nn.Dropout(),
+        nn.Dropout(inplace=False),
 
         nn.Linear(inner_size, num_classes),
     )
     return VGG(
-        features, classifier, num_classes=num_classes, init_weights=True
+        features, classifier, num_classes=num_classes, init_weights=init_weights
     )

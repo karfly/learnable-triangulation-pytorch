@@ -84,41 +84,18 @@ class RotoTransNetMLP(nn.Module):
 
         n_joints = config.model.backbone.num_joints
 
-        # sizes = [
-        #     n_joints,
-        #     config.cam2cam.inner_size,
-        #     config.cam2cam.inner_size // 2,
-        #     config.cam2cam.inner_size // 4,
-        # ]
-
-        # self.roto_extractor = ExtractEverythingLayer(
-        #     n_joints,
-        #     sizes + [6],  # need 6D parametrization of rotation matrix
-        #     batch_norm=config.cam2cam.batch_norm
-        # )
-
-        # self.trans_extractor = ExtractEverythingLayer(
-        #     n_joints,
-        #     sizes + [3],  # 3D world
-        #     batch_norm=config.cam2cam.batch_norm
-        # )
-
-        sizes = [
-            2 * n_joints * 2,
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size,
-        ]
+        n_inner_layers = 5
+        inner_size = config.cam2cam.inner_size
+        sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
         self.roto_extractor = nn.Sequential(*[
             View((-1, sizes[0])),
             MLP(
                 sizes + [6],  # need 6D parametrization of rotation matrix
                 batch_norm=config.cam2cam.batch_norm,
-                activation=nn.LeakyReLU
+                drop_out=config.cam2cam.drop_out,
+                activation=nn.LeakyReLU,
+                init_weights=False
             )
         ])
 
@@ -127,7 +104,9 @@ class RotoTransNetMLP(nn.Module):
             MLP(
                 sizes + [3],  # 3D world
                 batch_norm=config.cam2cam.batch_norm,
-                activation=nn.LeakyReLU
+                drop_out=config.cam2cam.drop_out,
+                activation=nn.LeakyReLU,
+                init_weights=False
             )
         ])
 
@@ -143,7 +122,8 @@ class RotoTransNetMLP(nn.Module):
         #         batch_norm=config.cam2cam.batch_norm,
         #         in_channels=n_joints,
         #         kernel_size=2,
-        #         num_classes=sizes[0]
+        #         num_classes=sizes[0],
+        #         init_weights=False
         #     ),  # ~ encoder
         #     MLP(
         #         sizes + [6],  # need 6D parametrization of rotation matrix
@@ -158,7 +138,8 @@ class RotoTransNetMLP(nn.Module):
         #         batch_norm=config.cam2cam.batch_norm,
         #         in_channels=n_joints,
         #         kernel_size=2,
-        #         num_classes=sizes[0]
+        #         num_classes=sizes[0],
+        #         init_weights=False
         #     ),  # ~ encoder
         #     MLP(
         #         sizes + [3],  # 3D world

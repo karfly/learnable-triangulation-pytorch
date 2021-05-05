@@ -1,3 +1,4 @@
+import torch
 import torch.optim as optim
 
 
@@ -56,6 +57,18 @@ def show_params(model, verbose=False):
     ))
 
 
+def load_checkpoint(model, checkpoint_path):
+    state_dict = torch.load(checkpoint_path)
+
+    for key in list(state_dict.keys()):
+        new_key = key.replace("module.", "")
+        state_dict[new_key] = state_dict.pop(key)
+
+    model.load_state_dict(state_dict, strict=True)
+
+    print('successfully loaded pretrained weights from {}'.format(checkpoint_path))
+
+
 def freeze_backbone(model):
     """ BB has already been pre-trained on the COCO dataset and finetuned jointly on MPII and Human3.6M for 10 epochs using the Adam optimizer with 10−4 learning rate => freeze most layers and optimize just the last ones """
 
@@ -81,9 +94,6 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:
-        print('cam2cam model:')
-        show_params(cam2cam_model, verbose=True)
-
         return base_optim(
             [
                 {

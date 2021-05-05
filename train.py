@@ -25,7 +25,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss, element_by_element
-from mvn.models.utils import build_opt, get_grad_params, freeze_backbone
+from mvn.models.utils import build_opt, get_grad_params, freeze_backbone, show_params, load_checkpoint
 
 from mvn.utils import img, multiview, op, vis, misc, cfg
 from mvn.datasets import human36m
@@ -77,17 +77,23 @@ def build_env(config, device):
     else:
         cam2cam_model = None
 
+    # ... load weights (if necessary) ...
+
+    if config.model.init_weights:
+        load_checkpoint(model, config.model.checkpoint)
+
+        print('model:')
+        show_params(model, verbose=True)
+
+    if config.model.cam2cam_estimation:
+        if config.cam2cam.init_weights:
+            load_checkpoint(cam2cam_model, config.cam2cam.checkpoint)
+
+        print('cam2cam model:')
+        show_params(cam2cam_model, verbose=True)
+
     # ... and opt ...
     opt = build_opt(model, cam2cam_model, config)
-
-    # if config.model.init_weights:
-    #     state_dict = torch.load(config.model.checkpoint)
-    #     for key in list(state_dict.keys()):
-    #         new_key = key.replace("module.", "")
-    #         state_dict[new_key] = state_dict.pop(key)
-
-    #     model.load_state_dict(state_dict, strict=True)
-    #     print('Successfully loaded pretrained weights for whole model')
 
     # ... and loss criterion
     criterion_class = {
@@ -408,7 +414,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     _iter_tag = 'cam2cam'
 
-    scale_trans2trans = 3000.0  # L2 loss on 4k vectors is poor -> scale
+    scale_trans2trans = 1000.0  # L2 loss on trans vectors is poor -> scale
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
 
     minimon.enter()
@@ -534,7 +540,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         geodesic_loss = 0.0
         trans_loss = 0.0
         pose_loss = 0.0
-        total_loss = 0.0  # real loss, the one grad is appllied to
+        total_loss = 0.0  # real loss, the one grad is applied to
 
         minimon.enter()
 
@@ -545,8 +551,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
                 cam2cam_gts[batch_i, :, :3, :3].cuda()
             )  # ~ (len(pairs), )
             geodesic_loss += loss
-
-            if config.cam2cam.loss.geo_weight > 0:  
+            if config.cam2cam.loss.geo_weight > 0:
                 total_loss += config.cam2cam.loss.geo_weight * loss
 
             # trans loss
@@ -584,7 +589,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
-            geodesic_loss.item() / batch_size,
+            geodesic_loss.item() / batch_size,  # normalize per each sample
             trans_loss.item() / batch_size,
             pose_loss.item() / batch_size,
             total_loss.item() / batch_size,
@@ -786,8 +791,8 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
             if epoch % config.opt.save_every_n_epochs == 0:
                 torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
 
-            if config.model.cam2cam_estimation:
-                torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))
+                if config.model.cam2cam_estimation:
+                    torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))
 
         train_time_avg = 'do train'
         train_time_avg = minimon.store[train_time_avg].get_avg()

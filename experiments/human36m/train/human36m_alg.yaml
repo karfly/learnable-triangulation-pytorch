@@ -41,11 +41,15 @@ svd:
 
 cam2cam:
   using_heatmaps: false
-  backbone: "16"
+  
   batch_norm: false
   drop_out: 0.1
-  inner_size: 1024
-# `inner_size` should be 16 when NOT using heatmaps
+
+  vgg: "16"
+
+  mlp:
+    inner_size: 64
+    n_inner_layers: 5
 
   loss:
     geo_weight: 0.0
@@ -53,10 +57,11 @@ cam2cam:
     proj_weight: 1.0
 
   opt:
-    lr: 0.00001
+    lr: 0.00002
 
-  init_weights: false
-  checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@05.05.2021-11:13:48/checkpoints/0995/weights_cam2cam_model.pth"
+  model:
+    init_weights: false
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@05.05.2021-11:13:48/checkpoints/0995/weights_cam2cam_model.pth"
 
 model:
   name: "alg"

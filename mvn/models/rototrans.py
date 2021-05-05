@@ -84,8 +84,8 @@ class RotoTransNetMLP(nn.Module):
 
         n_joints = config.model.backbone.num_joints
 
-        n_inner_layers = 5
-        inner_size = config.cam2cam.inner_size
+        n_inner_layers = config.cam2cam.mlp.n_inner_layers
+        inner_size = config.cam2cam.mlp.inner_size
         sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
         self.roto_extractor = nn.Sequential(*[
@@ -111,14 +111,14 @@ class RotoTransNetMLP(nn.Module):
         ])
 
         # sizes = [
-        #     config.cam2cam.inner_size,
-        #     config.cam2cam.inner_size // 2,
-        #     config.cam2cam.inner_size // 4,
+        #     config.cam2cam.mlp.inner_size,
+        #     config.cam2cam.mlp.inner_size // 2,
+        #     config.cam2cam.mlp.inner_size // 4,
         # ]
 
         # self.roto_extractor = nn.Sequential(*[
         #     make_virgin_vgg(
-        #         config.cam2cam.backbone,
+        #         config.cam2cam.vgg,
         #         batch_norm=config.cam2cam.batch_norm,
         #         in_channels=n_joints,
         #         kernel_size=2,
@@ -134,7 +134,7 @@ class RotoTransNetMLP(nn.Module):
 
         # self.trans_extractor = nn.Sequential(*[
         #     make_virgin_vgg(
-        #         config.cam2cam.backbone,
+        #         config.cam2cam.vgg,
         #         batch_norm=config.cam2cam.batch_norm,
         #         in_channels=n_joints,
         #         kernel_size=2,
@@ -171,13 +171,13 @@ class RotoTransNetConv(nn.Module):
 
         # inspired by http://arxiv.org/abs/1905.10711
         sizes = [
-            config.cam2cam.inner_size,
-            config.cam2cam.inner_size // 2,
-            config.cam2cam.inner_size // 4,
+            config.cam2cam.mlp.inner_size,
+            config.cam2cam.mlp.inner_size // 2,
+            config.cam2cam.mlp.inner_size // 4,
         ]
 
         self.roto_encoder = make_virgin_vgg(
-            config.cam2cam.backbone,
+            config.cam2cam.vgg,
             batch_norm=config.cam2cam.batch_norm,
             in_channels=n_joints,
             num_classes=sizes[0]
@@ -193,7 +193,7 @@ class RotoTransNetConv(nn.Module):
         ])
 
         self.trans_encoder = make_virgin_vgg(
-            config.cam2cam.backbone,
+            config.cam2cam.vgg,
             batch_norm=config.cam2cam.batch_norm,
             in_channels=n_joints,
             num_classes=sizes[0]

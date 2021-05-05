@@ -6,7 +6,7 @@ from mvn.utils.misc import find_min, drop_na, normalize_transformation
 LOSS_C = ['magenta', 'gold', 'lawngreen', 'red']
 
 
-def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None, show_min=False, marker=','):
+def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None, show_min=False, marker=',', verbose=True):
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
@@ -32,11 +32,12 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black',
     if legend_loc:
         axis.legend(loc=legend_loc)
 
-    print('- plotted "{}" metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
-        label,
-        np.min(drop_na(metrics)), np.max(drop_na(metrics)),
-        xrange[0], xrange[-1]
-    ))
+    if verbose:
+        print('- plotted "{}" metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
+            label,
+            np.min(drop_na(metrics)), np.max(drop_na(metrics)),
+            xrange[0], xrange[-1]
+        ))
 
     return xrange
 
@@ -111,8 +112,8 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_xlabel('# epoch')
     axis.set_title(title)
+    axis.yaxis.set_ticks([])
     axis.set_ylabel('training losses')
-    axis.yaxis.set_visible(False)
 
     axis = axis.twinx()  # on the right
 

@@ -86,8 +86,8 @@ def build_env(config, device):
         show_params(model, verbose=True)
 
     if config.model.cam2cam_estimation:
-        if config.cam2cam.init_weights:
-            load_checkpoint(cam2cam_model, config.cam2cam.checkpoint)
+        if config.model.cam2cam.init_weights:
+            load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
 
         print('cam2cam model:')
         show_params(cam2cam_model, verbose=True)

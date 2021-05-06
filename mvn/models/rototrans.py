@@ -86,8 +86,7 @@ class RotoTransNetMLP(nn.Module):
         inner_size = config.cam2cam.mlp.inner_size
         just_mlp = True
 
-        if just_mlp:  # simpler version, without VGG
-            # bsf: 5 x 64
+        if just_mlp:  # simpler version, without VGG, bsf: 5 x 64
             n_inner_layers = config.cam2cam.mlp.n_inner_layers
             sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
@@ -176,13 +175,8 @@ class RotoTransNetConv(nn.Module):
 
         n_joints = config.model.backbone.num_joints
         inner_size = config.cam2cam.mlp.inner_size
-
-        # inspired by http://arxiv.org/abs/1905.10711
-        sizes = [
-            inner_size,
-            inner_size // 2,
-            inner_size // 4,
-        ]
+        n_inner_layers = config.cam2cam.mlp.n_inner_layers
+        sizes = (n_inner_layers + 1) * [inner_size]
 
         self.roto_extractor = nn.Sequential(*[
             make_virgin_vgg(

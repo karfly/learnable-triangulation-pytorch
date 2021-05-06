@@ -148,7 +148,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         marker='o'
     )
 
-    plot_SOTA(axis, [0, 46])
+    plot_SOTA(axis, [0, len(epochs) - 1])
 
     axis.legend(loc=legend_loc)
     axis.set_xlim([0, len(epochs) - 1])

@@ -40,7 +40,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  scale_trans2trans: 2000
+  scale_trans2trans: 3000
 
   using_heatmaps: true
   
@@ -50,7 +50,7 @@ cam2cam:
   vgg: "16"
 
   mlp:
-    inner_size: 1024
+    inner_size: 64
     n_inner_layers: 5
 
   loss:

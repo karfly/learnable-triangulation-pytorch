@@ -652,7 +652,7 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
 
     set_model_state(model, is_train)
 
-    if config.model.cam2cam_estimation:  # also using `cam2cam_model`
+    if config.model.cam2cam_estimation:
         set_model_state(cam2cam_model, is_train)
 
     results = defaultdict(list)

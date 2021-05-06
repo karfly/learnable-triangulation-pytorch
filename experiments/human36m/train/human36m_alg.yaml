@@ -42,10 +42,10 @@ svd:
 cam2cam:
   scale_trans2trans: 3000
 
-  using_heatmaps: true
-  
+  using_heatmaps: false
+
   batch_norm: false
-  drop_out: 0.0
+  drop_out: 0.1
 
   vgg: "16"
 

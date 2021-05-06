@@ -24,8 +24,9 @@ def count_grad_params(layer):
     )
 
 
-def freeze_layer(layer):
-    print('freezing {}'.format(layer._get_name()))
+def freeze_layer(layer, verbose=False):
+    if verbose:
+        print('freezing {}'.format(layer._get_name()))
 
     for p in layer.parameters():
         p.requires_grad = False
@@ -72,8 +73,6 @@ def load_checkpoint(model, checkpoint_path):
 def freeze_backbone(model):
     """ BB has already been pre-trained on the COCO dataset and finetuned jointly on MPII and Human3.6M for 10 epochs using the Adam optimizer with 10−4 learning rate => freeze most layers and optimize just the last ones """
 
-    show_params(model.backbone)
-
     freeze_layer(model.backbone.conv1)
     freeze_layer(model.backbone.bn1)
     freeze_layer(model.backbone.relu)
@@ -87,7 +86,7 @@ def freeze_backbone(model):
     # reset_layer(model.backbone.deconv_layers)
     # reset_layer(model.backbone.final_layer)
 
-    show_params(model.backbone)
+    # debug only show_params(model.backbone)
 
 
 def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):

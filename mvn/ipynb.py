@@ -53,7 +53,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
-    config.cam2cam.using_heatmaps = True
+    config.cam2cam.using_heatmaps = False  # KPs seem to work much better
     config.cam2cam.model.init_weights = False
 
     config.cam2cam.mlp.n_inner_layers = 1
@@ -63,7 +63,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.loss.geo_weight = 0.0
     config.cam2cam.loss.trans_weight = 0.0
     config.cam2cam.loss.proj_weight = 0.1
-    config.cam2cam.opt.lr = 1e-5
+    config.cam2cam.opt.lr = 2e-5
 
     config.model.backbone.init_weights = config.model.init_weights
     config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

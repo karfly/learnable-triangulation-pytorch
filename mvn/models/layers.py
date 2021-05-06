@@ -30,23 +30,24 @@ class View(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, sizes, batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=True):
+    def __init__(self, sizes, with_skip_connections=False, batch_norm=False, drop_out=0.0, linear=nn.Linear, activation=nn.LeakyReLU, init_weights=True):
         super().__init__()
 
-        self.backbone = self._make_layers(sizes, batch_norm, drop_out, activation)
+        self.backbone = self._make_layers(sizes, with_skip_connections, batch_norm, drop_out, linear, activation)
 
         if init_weights:
             _initialize_weights_like_VGG(self.modules())
 
     @staticmethod
-    def _make_layers(sizes, batch_norm, drop_out, activation):
+    def _make_layers(sizes, with_skip_connections, batch_norm, drop_out, linear, activation):
+        # todo with_skip_connections https://github.com/pytorch/vision/blob/a9a8220e0bcb4ce66a733f8c03a1c2f6c68d22cb/torchvision/models/resnet.py#L56-L72
         ls = []
 
         for i, size in enumerate(sizes):
             next_size = sizes[i + 1] if i + 1 < len(sizes) else None
 
             if next_size:
-                ls.append(nn.Linear(size, next_size))
+                ls.append(linear(size, next_size))
 
                 if i + 2 < len(sizes):  # not on last layer
                     if drop_out > 0.0:
@@ -58,21 +59,6 @@ class MLP(nn.Module):
                     ls.append(activation(inplace=False))
 
         return nn.Sequential(*ls)
-
-    def _initialize_weights(self):  # like VGG
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode='fan_out', nonlinearity='relu'
-                )
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         return self.backbone(x)

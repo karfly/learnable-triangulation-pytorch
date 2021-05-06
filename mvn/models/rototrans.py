@@ -6,6 +6,7 @@ import numpy as np
 
 from mvn.models.vgg import make_virgin_vgg
 from mvn.models.layers import ExtractEverythingLayer, MLP, View
+from mvn.models.resnet import MLPResNetBlock
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
@@ -84,77 +85,29 @@ class RotoTransNetMLP(nn.Module):
 
         n_joints = config.model.backbone.num_joints
         inner_size = config.cam2cam.mlp.inner_size
-        just_mlp = True
+        n_inner_layers = config.cam2cam.mlp.n_inner_layers
 
-        if just_mlp:  # simpler version, without VGG, bsf: 5 x 64
-            n_inner_layers = config.cam2cam.mlp.n_inner_layers
-            sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
+        self.roto_extractor = nn.Sequential(*[
+            View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
+            MLPResNetBlock(
+                n_inner_layers,
+                2 * n_joints * 2,
+                inner_size,
+                6,  # need 6D parametrization of rotation matrix
+                batch_norm=config.cam2cam.batch_norm
+            )
+        ])
 
-            self.roto_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),
-                MLP(
-                    sizes + [6],  # need 6D parametrization of rotation matrix
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,  # todo only if training
-                    activation=nn.LeakyReLU,
-                    init_weights=False
-                )
-            ])
-
-            self.trans_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),
-                MLP(
-                    sizes + [3],  # 3D world
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
-                    activation=nn.LeakyReLU,
-                    init_weights=False
-                )
-            ])
-        else:
-            sizes = [
-                inner_size,  # bsf: 1024
-                inner_size // 2,
-                inner_size // 4,
-            ]
-
-            self.roto_extractor = nn.Sequential(*[
-                View((-1, n_joints, 2, 2)),
-                make_virgin_vgg(
-                    config.cam2cam.vgg,
-                    batch_norm=config.cam2cam.batch_norm,
-                    in_channels=n_joints,
-                    kernel_size=2,
-                    num_classes=sizes[0],
-                    init_weights=False
-                ),  # ~ encoder
-                MLP(
-                    sizes + [6],  # need 6D parametrization of rotation matrix
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
-                    activation=nn.LeakyReLU,
-                    init_weights=False
-                )  # ~ decoder
-            ])
-
-            self.trans_extractor = nn.Sequential(*[
-                View((-1, n_joints, 2, 2)),
-                make_virgin_vgg(
-                    config.cam2cam.vgg,
-                    batch_norm=config.cam2cam.batch_norm,
-                    in_channels=n_joints,
-                    kernel_size=2,
-                    num_classes=sizes[0],
-                    init_weights=False
-                ),  # ~ encoder
-                MLP(
-                    sizes + [3],  # 3D world
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
-                    activation=nn.LeakyReLU,
-                    init_weights=False
-                )  # ~ decoder
-            ])
+        self.trans_extractor = nn.Sequential(*[
+            View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
+            MLPResNetBlock(
+                n_inner_layers,
+                2 * n_joints * 2,
+                inner_size,
+                3,  # 3D world
+                batch_norm=config.cam2cam.batch_norm
+            )
+        ])
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """

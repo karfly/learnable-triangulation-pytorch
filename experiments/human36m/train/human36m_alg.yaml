@@ -42,7 +42,7 @@ svd:
 cam2cam:
   scale_trans2trans: 2000
 
-  using_heatmaps: false
+  using_heatmaps: true
   
   batch_norm: false
   drop_out: 0.0
@@ -50,7 +50,7 @@ cam2cam:
   vgg: "16"
 
   mlp:
-    inner_size: 64
+    inner_size: 1024
     n_inner_layers: 5
 
   loss:

@@ -96,7 +96,7 @@ class RotoTransNetMLP(nn.Module):
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
+                    drop_out=config.cam2cam.drop_out,  # todo only if training
                     activation=nn.LeakyReLU,
                     init_weights=False
                 )
@@ -160,8 +160,6 @@ class RotoTransNetMLP(nn.Module):
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
-        batch_size, n_joints = batch.shape[0], batch.shape[2]
-
         features = self.roto_extractor(batch)  # ~ (batch_size, 6)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
@@ -177,44 +175,49 @@ class RotoTransNetConv(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
+        inner_size = config.cam2cam.mlp.inner_size
 
         # inspired by http://arxiv.org/abs/1905.10711
         sizes = [
-            config.cam2cam.mlp.inner_size,
-            config.cam2cam.mlp.inner_size // 2,
-            config.cam2cam.mlp.inner_size // 4,
+            inner_size,
+            inner_size // 2,
+            inner_size // 4,
         ]
 
-        self.roto_encoder = make_virgin_vgg(
-            config.cam2cam.vgg,
-            batch_norm=config.cam2cam.batch_norm,
-            in_channels=n_joints,
-            num_classes=sizes[0]
-        )
-        self.roto_decoder = MLP(
-            sizes + [6],  # need 6D parametrization of rotation matrix
-            batch_norm=config.cam2cam.batch_norm,
-            activation=nn.LeakyReLU
-        )
         self.roto_extractor = nn.Sequential(*[
-            self.roto_encoder,
-            self.roto_decoder
+            make_virgin_vgg(
+                config.cam2cam.vgg,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=2 * n_joints,
+                kernel_size=3,
+                num_classes=sizes[0],
+                init_weights=False
+            ),  # ~ encoder
+            MLP(
+                sizes + [6],  # need 6D parametrization of rotation matrix
+                batch_norm=config.cam2cam.batch_norm,
+                drop_out=config.cam2cam.drop_out,
+                activation=nn.LeakyReLU,
+                init_weights=False
+            )  # ~ decoder
         ])
 
-        self.trans_encoder = make_virgin_vgg(
-            config.cam2cam.vgg,
-            batch_norm=config.cam2cam.batch_norm,
-            in_channels=n_joints,
-            num_classes=sizes[0]
-        )
-        self.trans_decoder = MLP(
-            sizes + [3],  # 3D world
-            batch_norm=config.cam2cam.batch_norm,
-            activation=nn.LeakyReLU
-        )
         self.trans_extractor = nn.Sequential(*[
-            self.trans_encoder,
-            self.trans_decoder
+            make_virgin_vgg(
+                config.cam2cam.vgg,
+                batch_norm=config.cam2cam.batch_norm,
+                in_channels=2 * n_joints,
+                kernel_size=3,
+                num_classes=sizes[0],
+                init_weights=False
+            ),  # ~ encoder
+            MLP(
+                sizes + [3],  # 3D world
+                batch_norm=config.cam2cam.batch_norm,
+                drop_out=config.cam2cam.drop_out,
+                activation=nn.LeakyReLU,
+                init_weights=False
+            )  # ~ decoder
         ])
 
     def forward(self, batch):
@@ -224,7 +227,7 @@ class RotoTransNetConv(nn.Module):
         batch = torch.cat([
             batch[:, 0, ...],
             batch[:, 1, ...],
-        ], dim=2)  # ~ 3, 17, 64, 32
+        ], dim=1)  # ~ batch_size, 17 * 2, 32, 32
 
         features = self.roto_extractor(batch)
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)

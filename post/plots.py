@@ -6,6 +6,20 @@ from mvn.utils.misc import find_min, drop_na, normalize_transformation
 LOSS_C = ['magenta', 'gold', 'lawngreen', 'red']
 
 
+def plot_SOTA(axis, _xrange):
+    # show original paper results
+    axis.hlines(
+        21.3, xmin=_xrange[0], xmax=_xrange[-1],
+        color='blue', linestyle=':', label='algebraic SOTA = 21.3'
+    )
+
+    # I'm using algebraic so volumetric SOTA may be misleading
+    # axis.hlines(
+    #     13.7, xmin=_xrange[0], xmax=_xrange[-1],
+    #     color='green', linestyle=':', label='volumetric (softmax) SOTA = 13.7'
+    # )
+
+
 def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None, show_min=False, marker=',', verbose=True):
     if xrange is None:
         done = len(metrics)
@@ -66,29 +80,22 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
         color='green',
         legend_loc=legend_loc
     )
-
-    # show original paper results
-    axis.hlines(
-        21.3, xmin=_xrange[0], xmax=_xrange[-1],
-        color='green', linestyle=':', label='algebraic SOTA = 21.3'
-    )
-
-    # I'm using algebraic so volumetric SOTA may be misleading
-    # axis.hlines(
-    #     13.7, xmin=_xrange[0], xmax=_xrange[-1],
-    #     color='green', linestyle=':', label='volumetric (softmax) SOTA = 13.7'
-    # )
-
+    plot_SOTA(axis, _xrange)
     axis.legend(loc=legend_loc)
 
 
 def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], title=None, metric_ylabel=None):
-    loss_keys = filter(
+    loss_keys = list(filter(
         lambda x: 'loss / batch' in x and 'training' not in x,
         epochs[0].keys()
-    )
+    ))
+    if len(loss_keys) == 0:  # at least just show the training loss
+        loss_keys = ['training loss / batch']
+        colors = ['red']
+    else:
+        colors = LOSS_C
 
-    for key, color in zip(loss_keys, LOSS_C):
+    for key, color in zip(loss_keys, colors):
         loss_history = np.float32([
             np.mean(epoch[key])
             for epoch in epochs
@@ -114,17 +121,18 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
     axis.set_xlabel('# epoch')
     axis.set_title(title)
     axis.yaxis.set_ticks([])
-    axis.set_ylabel('training losses')
+    axis.set_ylabel('loss')
 
     axis = axis.twinx()  # on the right
 
+    legend_loc = 'upper right'
     plot_metric(
         axis,
         [epoch['training metrics'] for epoch in epochs],
         'training metrics',
         ylim=train_metric_ylim,
         color='aquamarine',
-        legend_loc='upper right',
+        legend_loc=legend_loc,
         show_min=True,
         marker='o'
     )
@@ -135,10 +143,14 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         'eval metrics',
         ylim=eval_metric_ylim,
         color='blue',
-        legend_loc='upper right',
+        legend_loc=legend_loc,
         show_min=True,
         marker='o'
     )
+
+    plot_SOTA(axis, [0, 46])
+
+    axis.legend(loc=legend_loc)
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_ylabel(metric_ylabel)
 

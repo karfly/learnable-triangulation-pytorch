@@ -93,18 +93,22 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:
-        return base_optim(
-            [
+        params = [
+            {
+                'params': get_grad_params(cam2cam_model),
+                'lr': config.cam2cam.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
+            }
+        ]
+
+        if not config.cam2cam.using_gt:  # predicting KP and HM
+            params.append(
                 {
                     'params': get_grad_params(model.backbone),
                     'lr': 1e-6  # BB already optimized
-                },
-                {
-                    'params': get_grad_params(cam2cam_model),
-                    'lr': config.cam2cam.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
                 }
-            ]
-        )
+            )
+
+        return base_optim(params)
     elif config.model.name == "vol":
         return base_optim(
             [

@@ -20,7 +20,7 @@ def plot_SOTA(axis, _xrange):
     # )
 
 
-def plot_metric(axis, metrics, label, xrange=None, ylim=[0, 200], color='black', legend_loc=None, show_min=False, marker=',', verbose=True):
+def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', legend_loc=None, show_min=False, marker=',', verbose=True):
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
@@ -84,7 +84,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
     axis.legend(loc=legend_loc)
 
 
-def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], loss_ylim=[0, 1], title=None, metric_ylabel=None):
+def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None):
     loss_keys = list(filter(
         lambda x: 'loss / batch' in x and 'training' not in x,
         epochs[0].keys()
@@ -101,26 +101,26 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
             for epoch in epochs
         ])
 
-        _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
-        _last = loss_history[-1]
-        label = '{} (min = {:.1f}, max = {:.1f}, last = {:.1f})'.format(
-            key.replace('loss / batch', '').strip(), _min, _max, _last
-        )
-        plot_metric(
-            axis,
-            normalize_transformation((0, 1))(loss_history),
-            label=label,
-            ylim=[0, 1],  # since it's normalized
-            color=color,
-            legend_loc='lower left',
-            show_min=False,
-            marker='+'
-        )
+        if np.mean(loss_history) > 0.0:
+            _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
+            _last = loss_history[-1]
+            label = '{} (min = {:.1f}, max = {:.1f}, last = {:.1f})'.format(
+                key.replace('loss / batch', '').strip(), _min, _max, _last
+            )
+            loss_history = normalize_transformation(normalize_loss)(loss_history) if normalize_loss else loss_history
+            plot_metric(
+                axis,
+                loss_history,
+                label=label,
+                color=color,
+                legend_loc='lower left',
+                show_min=False,
+                marker='+'
+            )
 
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_xlabel('# epoch')
     axis.set_title(title)
-    axis.yaxis.set_ticks([])
     axis.set_ylabel('loss')
 
     axis = axis.twinx()  # on the right
@@ -155,24 +155,15 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
     axis.set_ylabel(metric_ylabel)
 
 
-def make_axis_great_again(ax, title=None, left_title=None, right_title=None, xlim=None, ylim=None):
+def make_axis_great_again(ax, xlim=None, ylim=None, hide_y=False):
     if ylim:
         ax.set_ylim(ylim)
-    
+
     if xlim:
         ax.set_xlim(xlim)
 
-    ax.grid(True)
-    ax.set_xlabel('epoch')
-
-    if title:
-        ax.set_title(title)
-
-    if left_title:
-        ax.set_ylabel(left_title)
-
-    if right_title:
-        ax.twinx().set_ylabel(right_title)
+    if hide_y:
+        ax.yaxis.set_ticks([])
 
 
 def get_figsize(n_rows, n_cols, row_size=8, column_size=24):

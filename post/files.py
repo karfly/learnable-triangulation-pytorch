@@ -114,6 +114,12 @@ def parse_job_log(f_path, verbose=True):
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)
+
+                    loss = parse_fp_number(tokens[4].split(',')[0])
+                    key = 'roto loss / batch'
+                    if key not in current_epoch_details:
+                        current_epoch_details[key] = []
+                    current_epoch_details[key].append(loss)
             except:
                 pass  # old version of live debugs don't have much losses
 

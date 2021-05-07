@@ -83,14 +83,14 @@ def build_env(config, device):
         load_checkpoint(model, config.model.checkpoint)
 
         print('model:')
-        show_params(model, verbose=True)
+        show_params(model, verbose=config.debug.show_models)
 
     if config.model.cam2cam_estimation:
         if config.cam2cam.model.init_weights:
             load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
 
         print('cam2cam model:')
-        show_params(cam2cam_model, verbose=True)
+        show_params(cam2cam_model, verbose=config.debug.show_models)
 
     # ... and opt ...
     opt = build_opt(model, cam2cam_model, config)
@@ -416,23 +416,48 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     scale_trans2trans = config.cam2cam.scale_trans2trans  # L2 loss on trans vectors is poor -> scale
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    n_joints = config.model.backbone.num_joints  # todo infer
 
     minimon.enter()
 
-    keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
-        images_batch, None, minimon
-    )
-    heatmap_w, heatmap_h = heatmaps_pred.shape[-2], heatmaps_pred.shape[-1]
+    if config.cam2cam.using_gt:
+        misc.live_debug_log(_iter_tag, 'I\'m using GT data')
+
+        keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
+        for batch_i in range(batch_size):
+            for view_i in range(n_views):
+                cam = batch['cameras'][view_i][batch_i]
+                kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
+                kp_original = cam.world2cam()(kp_world)  # in cam space
+                keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(
+                    kp_original
+                )  # ~ (17, 2)
+        keypoints_2d_pred.requires_grad = False  # to comply with torch graph
+
+        heatmaps_pred = torch.zeros(
+            (batch_size, n_views, n_joints, 32, 32)
+        )  # todo fake heatmaps_pred from GT KP: ~ N
+        heatmaps_pred.requires_grad = False  # to comply with torch graph
+
+        confidences_pred = torch.ones(
+            (batch_size, n_views, n_joints)
+        )  # 100% confident in each view
+    else:
+        keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+            images_batch, None, minimon
+        )
 
     minimon.leave('BB forward pass')
 
     # prepare GTs (cam2cam) and KP for forward
-    n_joints = 17  # todo infer
     pairs = [(0, 1), (0, 2), (0, 3)]  # 0 cam will be the "master"
     cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
 
     if config.cam2cam.using_heatmaps:
-        keypoints_forward = torch.empty(batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h)
+        heatmap_w, heatmap_h = heatmaps_pred.shape[-2], heatmaps_pred.shape[-1]
+        keypoints_forward = torch.empty(
+            batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h
+        )
     else:
         keypoints_forward = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
 
@@ -496,7 +521,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     full_cam2cam = [
         [None] + list(cam2cam_preds[batch_i].cuda())
         for batch_i in range(batch_size)
-    ]  # None for cam_0 -> cam_0
+    ]  # `None` for cam_0 -> cam_0
     master_cams = [0] * batch_size  # todo random
     full_cam2cam = torch.cat([
         torch.cat([
@@ -527,6 +552,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     if is_train:
         # not exactly needed, just to debug
+        roto_loss = 0.0
         geodesic_loss = 0.0
         trans_loss = 0.0
         pose_loss = 0.0
@@ -535,7 +561,16 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         minimon.enter()
 
         for batch_i in range(batch_size):  # foreach sample in batch
-            # geodesic loss
+            # L2 loss on rotation matrix
+            loss = KeypointsMSESmoothLoss(threshold=0.5)(
+                cam2cam_preds[batch_i, :, :3, :3].cuda(),
+                cam2cam_gts[batch_i, :, :3, :3].cuda()
+            )  # ~ (len(pairs), )
+            roto_loss += loss
+            if config.cam2cam.loss.roto_weight > 0:
+                total_loss += config.cam2cam.loss.roto_weight * loss
+
+            # geodesic loss on rotation matrix
             loss = compute_geodesic_distance()(
                 cam2cam_preds[batch_i, :, :3, :3].cuda(),
                 cam2cam_gts[batch_i, :, :3, :3].cuda()
@@ -558,14 +593,14 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
                 batch['cameras'][view_i][batch_i].world2proj()(
                     keypoints_3d_gt[batch_i]
                 ).unsqueeze(0)
-                for view_i in range(n_views)
-            ])  # ~ n_views, 17, 2
+                for view_i in range(1, n_views)  # 0 is "master" cam
+            ])  # ~ n_views - 1, 17, 2
             preds = torch.cat([
                 batch['cameras'][view_i][batch_i].world2proj()(
                     keypoints_3d_pred[batch_i]
                 ).unsqueeze(0)
-                for view_i in range(n_views)
-            ])  # ~ n_views, 17, 2
+                for view_i in range(1, n_views)  # 0 is "master" cam
+            ])  # ~ n_views - 1, 17, 2
             loss = KeypointsMSESmoothLoss(threshold=400)(
                 gts.cuda(),
                 preds.cuda(),
@@ -576,12 +611,13 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
         minimon.leave('calc loss')
 
-        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item() / batch_size,  # normalize per each sample
             trans_loss.item() / batch_size,
             pose_loss.item() / batch_size,
+            roto_loss.item() / batch_size,
             total_loss.item() / batch_size,
         )  # just a little bit of live debug
         misc.live_debug_log(_iter_tag, message)
@@ -625,6 +661,43 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
             )
         else:
             results = None
+
+    if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
+        f_out = 'training' if is_train else 'validation'
+        f_out += '_batch_{}.png'.format(iter_i)
+
+        batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+
+        preds = torch.cat([
+            torch.cat([
+                batch['cameras'][view_i][batch_i].world2proj()(
+                    results[batch_i]
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)  # ~ n_views, 17, 2
+            for batch_i in range(batch_size)
+        ])  # ~ batch_size, n_views, 17, 2
+
+        gts = torch.cat([
+            torch.cat([
+                batch['cameras'][view_i][batch_i].world2proj()(
+                    keypoints_3d_gt[batch_i]
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)  # ~ n_views, 17, 2
+            for batch_i in range(batch_size)
+        ])  # ~ batch_size, n_views, 17, 2
+
+        vis.save_predictions(
+            batch,
+            images_batch,
+            gts.cpu(),
+            preds,
+            dataloader,
+            config,
+            batch_out=f_out,
+            with_originals=True
+        )
 
     return results
 
@@ -741,7 +814,7 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
 
     if config.model.cam2cam_estimation:
         weights = ', '.join([
-            'geo: {:.1f}'.format(config.cam2cam.loss.geo_weight),
+            'geo: {:.1f}'.format(config.cam2cam.loss.roto_weight),
             'trans: {:.1f}'.format(config.cam2cam.loss.trans_weight),
             'proj: {:.1f}'.format(config.cam2cam.loss.proj_weight),
         ])

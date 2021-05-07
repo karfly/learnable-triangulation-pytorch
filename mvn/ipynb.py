@@ -29,13 +29,14 @@ def get_args():
 def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/data/'):
     config = cfg.load_config(args.config)
 
-    config.image_shape = [128, 128]
+    config.image_shape = [384, 384]
 
+    config.debug.show_models = False
     config.debug.write_imgs = True
     config.debug.img_out = '/home/stefano/Scuola/tud/_classes/4/thesis/logs/imgs'
     config.debug.dump_checkpoints = False
 
-    config.opt.n_epochs = 2
+    config.opt.n_epochs = 1
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
     config.opt.batch_size = 8
@@ -53,16 +54,18 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
+    config.cam2cam.using_gt = True
     config.cam2cam.using_heatmaps = False  # KPs seem to work much better
-    config.cam2cam.model.init_weights = False
+    config.cam2cam.model.init_weights = True
+    config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
 
-    config.cam2cam.mlp.n_inner_layers = 1
+    config.cam2cam.mlp.n_inner_layers = 5
     config.cam2cam.vgg = 'smallest'
     config.cam2cam.batch_norm = False
-    config.cam2cam.mlp.inner_size = 16
-    config.cam2cam.loss.geo_weight = 0.0
+    config.cam2cam.mlp.inner_size = 64
+    config.cam2cam.loss.roto_weight = 0.0
     config.cam2cam.loss.trans_weight = 0.0
-    config.cam2cam.loss.proj_weight = 0.1
+    config.cam2cam.loss.proj_weight = 1.0
     config.cam2cam.opt.lr = 2e-5
 
     config.model.backbone.init_weights = config.model.init_weights

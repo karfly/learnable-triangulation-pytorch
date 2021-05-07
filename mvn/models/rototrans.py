@@ -33,9 +33,9 @@ def compute_rotation_matrix_from_ortho6d(ortho6d):
     x_raw = ortho6d[:, 0: 3]
     y_raw = ortho6d[:, 3: 6]
 
-    x = nn.functional.normalize(x_raw)
+    x = normalize_vector(x_raw)
     z = cross_product(x, y_raw)
-    z = nn.functional.normalize(z)
+    z = normalize_vector(z)
 
     y = cross_product(z, x)
     x = x.view(-1, 3, 1)
@@ -61,7 +61,7 @@ def compute_geodesic_distance():
         m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
 
         cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
-        
+
         # bound [-1, 1]
         cos = torch.min(
             cos,
@@ -91,6 +91,7 @@ class RotoTransNetMLP(nn.Module):
 
             self.roto_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
+                nn.BatchNorm1d(sizes[0]),
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=config.cam2cam.batch_norm,
@@ -102,6 +103,7 @@ class RotoTransNetMLP(nn.Module):
 
             self.trans_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
+                nn.BatchNorm1d(sizes[0]),
                 MLP(
                     sizes + [3],  # 3D world
                     batch_norm=config.cam2cam.batch_norm,

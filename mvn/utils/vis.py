@@ -530,8 +530,8 @@ def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, conf
             current_batch_view = Image.fromarray(current_batch_view)
             canvas = np.asarray(current_batch_view)
 
-            radius = 2
-            thickness = 1
+            radius = 5
+            thickness = 3
 
             # draw circles where GT keypoints are
             for pt in proj_gts[batch_i][view_i].numpy():
@@ -548,7 +548,7 @@ def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, conf
                 
                 cv2.rectangle(
                     canvas, start_point, end_point,
-                    color=(0, 0, 255), thickness=thickness
+                    color=(255, 0, 0), thickness=thickness
                 )  # red (BGR)
 
             f_out = os.path.join(pred_2d_folder, camera + '.jpg')

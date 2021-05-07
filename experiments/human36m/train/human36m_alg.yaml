@@ -7,6 +7,7 @@ image_shape: [384, 384]
 # `[128, 128]` does not work with pretrained weights (not even BB)
 
 debug:
+  show_models: true
   img_out: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/dumps"
   write_imgs: false
 # `write_imgs: true` will break dataloader (use only in extreme cases of debug)
@@ -40,8 +41,8 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  scale_trans2trans: 3000
-
+  using_gt: false
+  scale_trans2trans: 1000
   using_heatmaps: false
 
   batch_norm: false
@@ -54,6 +55,7 @@ cam2cam:
     n_inner_layers: 5
 
   loss:
+    roto_weight: 0.0
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 1.0
@@ -63,7 +65,7 @@ cam2cam:
 
   model:
     init_weights: false
-    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@05.05.2021-23:06:29/checkpoints/1995"
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@05.05.2021-23:06:29/checkpoints/1995/weights_cam2cam_model.pth"
 
 model:
   name: "alg"

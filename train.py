@@ -424,16 +424,6 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     )
     heatmap_w, heatmap_h = heatmaps_pred.shape[-2], heatmaps_pred.shape[-1]
 
-    # misc.live_debug_log(_iter_tag, 'I\'m using 2D GT KP for cam2cam estimation')
-    # keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
-    # for batch_i in range(batch_size):
-    #     for view_i in range(n_views):
-    #         cam = batch['cameras'][view_i][batch_i]
-    #         kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
-    #         kp_original = cam.world2cam()(kp_world)  # in cam space
-    #         keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(kp_original)  # ~ (17, 2)
-    # keypoints_2d_pred.requires_grad = True  # to comply with torch graph
-
     minimon.leave('BB forward pass')
 
     # prepare GTs (cam2cam) and KP for forward

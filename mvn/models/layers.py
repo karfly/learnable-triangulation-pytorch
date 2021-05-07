@@ -40,7 +40,6 @@ class MLP(nn.Module):
 
     @staticmethod
     def _make_layers(sizes, with_skip_connections, batch_norm, drop_out, linear, activation):
-        # todo with_skip_connections https://github.com/pytorch/vision/blob/a9a8220e0bcb4ce66a733f8c03a1c2f6c68d22cb/torchvision/models/resnet.py#L56-L72
         ls = []
 
         for i, size in enumerate(sizes):

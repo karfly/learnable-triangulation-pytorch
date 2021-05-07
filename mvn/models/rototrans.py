@@ -78,36 +78,62 @@ def compute_geodesic_distance():
 
 
 class RotoTransNetMLP(nn.Module):
-    BN_MOMENTUM = 0.1
-
     def __init__(self, config):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
         inner_size = config.cam2cam.mlp.inner_size
         n_inner_layers = config.cam2cam.mlp.n_inner_layers
+        kiss = True  # https://people.apache.org/~fhanik/kiss.html
 
-        self.roto_extractor = nn.Sequential(*[
-            View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
-            MLPResNetBlock(
-                n_inner_layers,
-                2 * n_joints * 2,
-                inner_size,
-                6,  # need 6D parametrization of rotation matrix
-                batch_norm=config.cam2cam.batch_norm
-            )
-        ])
+        if kiss:
+            sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
-        self.trans_extractor = nn.Sequential(*[
-            View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
-            MLPResNetBlock(
-                n_inner_layers,
-                2 * n_joints * 2,
-                inner_size,
-                3,  # 3D world
-                batch_norm=config.cam2cam.batch_norm
-            )
-        ])
+            self.roto_extractor = nn.Sequential(*[
+                View((-1, sizes[0])),
+                MLP(
+                    sizes + [6],  # need 6D parametrization of rotation matrix
+                    batch_norm=config.cam2cam.batch_norm,
+                    drop_out=config.cam2cam.drop_out,  # todo only if training
+                    activation=nn.LeakyReLU,
+                    init_weights=False
+                )
+            ])
+
+            self.trans_extractor = nn.Sequential(*[
+                View((-1, sizes[0])),
+                MLP(
+                    sizes + [3],  # 3D world
+                    batch_norm=config.cam2cam.batch_norm,
+                    drop_out=config.cam2cam.drop_out,
+                    activation=nn.LeakyReLU,
+                    init_weights=False
+                )
+            ])
+        else:
+            self.roto_extractor = nn.Sequential(*[
+                View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
+                MLPResNetBlock(
+                    n_inner_layers,
+                    2 * n_joints * 2,
+                    inner_size,
+                    6,  # need 6D parametrization of rotation matrix
+                    batch_norm=config.cam2cam.batch_norm,
+                    mlp=lambda a, b: nn.Linear(a, b, bias=False),
+                )
+            ])
+
+            self.trans_extractor = nn.Sequential(*[
+                View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
+                MLPResNetBlock(
+                    n_inner_layers,
+                    2 * n_joints * 2,
+                    inner_size,
+                    3,  # 3D world
+                    batch_norm=config.cam2cam.batch_norm,
+                    mlp=lambda a, b: nn.Linear(a, b, bias=False)
+                )
+            ])
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
@@ -121,8 +147,6 @@ class RotoTransNetMLP(nn.Module):
 
 
 class RotoTransNetConv(nn.Module):
-    BN_MOMENTUM = 0.1
-
     def __init__(self, config):
         super().__init__()
 

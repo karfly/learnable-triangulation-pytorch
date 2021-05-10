@@ -41,7 +41,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  using_gt: false
+  using_gt: true
   scale_trans2trans: 1000
   using_heatmaps: false
 
@@ -96,6 +96,7 @@ dataset:
   kind: "human36m"
 
   train:
+    crop: true
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
 # `h36m_root.bak` used when scratch will go out of renewals (<100 days)
@@ -116,6 +117,7 @@ dataset:
 # `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:
+    crop: true
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
 # `h36m_root.bak` used when scratch will go out of renewals (<100 days)

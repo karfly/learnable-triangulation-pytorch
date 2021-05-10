@@ -4,7 +4,8 @@ from PIL import Image
 
 import torch
 
-IMAGENET_MEAN, IMAGENET_STD = np.array([0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
+IMAGENET_MEAN, IMAGENET_STD = np.array(
+    [0.485, 0.456, 0.406]), np.array([0.229, 0.224, 0.225])
 
 
 def crop_image(image, bbox):
@@ -26,7 +27,6 @@ def crop_image(image, bbox):
 
 def resize_image(image, shape):
     return cv2.resize(image, (shape[1], shape[0]), interpolation=cv2.INTER_AREA)
-
 
 def get_square_bbox(bbox):
     """Makes square bbox from any bbox by stretching of minimal length side
@@ -89,12 +89,12 @@ def to_torch(ndarray):
 
 def image_batch_to_numpy(image_batch):
     image_batch = to_numpy(image_batch)
-    image_batch = np.transpose(image_batch, (0, 2, 3, 1)) # BxCxHxW -> BxHxWxC
+    image_batch = np.transpose(image_batch, (0, 2, 3, 1))  # BxCxHxW -> BxHxWxC
     return image_batch
 
 
 def image_batch_to_torch(image_batch):
-    image_batch = np.transpose(image_batch, (0, 3, 1, 2)) # BxHxWxC -> BxCxHxW
+    image_batch = np.transpose(image_batch, (0, 3, 1, 2))  # BxHxWxC -> BxCxHxW
     image_batch = to_torch(image_batch).float()
     return image_batch
 
@@ -113,3 +113,100 @@ def normalize_image(image):
 def denormalize_image(image):
     """Reverse to normalize_image() function"""
     return np.clip(255.0 * (image * IMAGENET_STD + IMAGENET_MEAN), 0, 255)
+
+
+def resample_channel(image, target_intrinsics, intrinsics, padding_size=10):
+    y_ = np.arange(0, image.shape[0])[:, np.newaxis].repeat(
+        image.shape[1], 1
+    ).reshape(-1, 1) + 0.5
+    x_ = np.arange(0, image.shape[1])[:, np.newaxis].repeat(
+        image.shape[0], 1
+    ).T.reshape(-1, 1) + 0.5
+    uv1 = np.concatenate((x_, y_, np.ones_like(x_)), 1)
+
+    # map them to original image
+    uv1_orig = (intrinsics @ np.linalg.inv(target_intrinsics) @ uv1.T).T
+
+    # grid centers mapped to original image
+    x = np.clip(
+        uv1_orig[:, 0].astype(int),
+        0 - padding_size,
+        padding_size + image.shape[1] - 1
+    )
+    y = np.clip(
+        uv1_orig[:, 1].astype(int),
+        0 - padding_size,
+        padding_size + image.shape[0] - 1
+    )
+
+    # pad image and look up values
+    padded_image = np.ones(
+        (
+            2 * padding_size + image.shape[0],
+            2 * padding_size + image.shape[1]
+        )
+    ) * 255
+    padded_image[padding_size:-padding_size,
+                 padding_size:-padding_size] = image
+
+    q = padded_image[padding_size+y, padding_size+x]
+
+    resampled_img = q.reshape(image.shape[0], image.shape[1])
+    resampled_img = resampled_img[
+        0:2 * (target_intrinsics[0, 2].astype(int) + 1),
+        0:2 * (target_intrinsics[1, 2].astype(int) + 1)
+    ]
+
+    return resampled_img
+
+
+# thanks to @edo
+def resample_image(image, target_intrinsics, intrinsics):
+    r_img = resample_channel(image[:,:,0], target_intrinsics, intrinsics)
+    g_img = resample_channel(image[:,:,1], target_intrinsics, intrinsics)
+    b_img = resample_channel(image[:,:,2], target_intrinsics, intrinsics)
+
+    return np.concatenate(
+        (
+            r_img[:,:,np.newaxis],
+            g_img[:,:,np.newaxis],
+            b_img[:,:,np.newaxis],
+        ),
+        2
+    )
+
+
+def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
+    height, width = image.shape[:2]
+
+    f_x = intrinsics[0, 0]
+    f_x1 = target_intrinsics[0, 0]
+    scale_w = f_x1 / f_x
+    new_w = width * scale_w
+
+    f_y = intrinsics[1, 1]
+    f_y1 = target_intrinsics[1, 1]
+    scale_h = f_y1 / f_y
+    new_h = height * scale_h
+
+    x_new = intrinsics[0, 2] * scale_w
+    crop_left = x_new - target_intrinsics[0, 2]
+
+    y_new = intrinsics[1, 2] * scale_h
+    crop_upper = y_new - target_intrinsics[1, 2]
+
+    scaling = list(map(
+        int,
+        (new_w, new_h)
+    ))
+    cropping = list(map(
+        int,
+        (
+            crop_left,
+            crop_upper,
+            width * scale_w,  # no cropping right
+            height * scale_h  # no cropping bottom
+        )
+    ))
+
+    return scaling, cropping

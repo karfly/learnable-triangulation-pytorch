@@ -58,9 +58,9 @@ class Camera:
         self.name = name
 
     def update_after_crop(self, bbox):
-        left, upper, right, lower = bbox
+        left, upper, _, _ = bbox  # unpack
 
-        cx, cy = self.K[0, 2], self.K[1, 2]
+        cx, cy = self.K[0, 2], self.K[1, 2]  # 
 
         new_cx = cx - left
         new_cy = cy - upper
@@ -68,7 +68,7 @@ class Camera:
         self.K[0, 2], self.K[1, 2] = new_cx, new_cy
 
     def update_after_resize(self, image_shape, new_image_shape):
-        height, width = image_shape
+        height, width = image_shape  # original image resolution
         new_height, new_width = new_image_shape
 
         fx, fy, cx, cy = self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2]
@@ -129,8 +129,8 @@ class Camera:
         def _f(x):
             device = x.device
             
-            proj = torch.FloatTensor(self.projection.T).to(device)
             homo = euclidean_to_homogeneous(x).type('torch.FloatTensor').to(device)
+            proj = torch.FloatTensor(self.projection.T).to(device)
 
             return homogeneous_to_euclidean(homo @ proj)
 
@@ -180,6 +180,14 @@ class Camera:
             # return x @ m.T
 
         return _f
+
+
+def build_intrinsics(translation=(0, 0), f=(1, 1), shear=1):
+    return np.array([
+        [f[0], shear / f[0], translation[0]],
+        [0   , f[1]        , translation[1]],
+        [0.  , 0.          , 1.            ]
+    ])
 
 
 def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, convert_back_to_euclidean=True):

@@ -91,19 +91,19 @@ class RotoTransNetMLP(nn.Module):
 
             self.roto_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
-                nn.BatchNorm1d(sizes[0]),
+                nn.LayerNorm((sizes[0])),
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,  # todo only if training
-                    activation=nn.LeakyReLU,
+                    drop_out=config.cam2cam.drop_out,
+                    activation=nn.ReLU,
                     init_weights=False
                 )
             ])
 
             self.trans_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
-                nn.BatchNorm1d(sizes[0]),
+                nn.LayerNorm((sizes[0])),
                 MLP(
                     sizes + [3],  # 3D world
                     batch_norm=config.cam2cam.batch_norm,

@@ -127,7 +127,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             kind=config.kind,
             undistort_images=config.dataset.train.undistort_images,
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
-            crop=config.dataset.train.crop if hasattr(config.dataset.train, "crop") else True,
+            crop=config.dataset.train.crop and config.model.cam2cam_estimation,
+            resample=config.model.cam2cam_estimation
         )
         print("  training dataset length:", len(train_dataset))
 
@@ -163,7 +164,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         kind=config.kind,
         undistort_images=config.dataset.val.undistort_images,
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
-        crop=config.dataset.val.crop if hasattr(config.dataset.val, "crop") else True,
+        crop=config.dataset.val.crop and config.model.cam2cam_estimation,
+        resample=config.model.cam2cam_estimation
     )
     print("  validation dataset length:", len(val_dataset))
 
@@ -421,7 +423,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     minimon.enter()
 
     if config.cam2cam.using_gt:
-        misc.live_debug_log(_iter_tag, 'I\'m using GT data')
+        misc.live_debug_log(_iter_tag, 'I\'m using GT 2D keypoints')
 
         keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
         for batch_i in range(batch_size):

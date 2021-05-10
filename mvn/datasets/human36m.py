@@ -10,10 +10,15 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-from mvn.utils.multiview import Camera
-from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_image, scale_bbox
+from mvn.utils.multiview import Camera, build_intrinsics
+from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_image, scale_bbox, resample_image, make_with_target_intrinsics
 from mvn.utils import volumetric
 
+TARGET_INTRINSICS = build_intrinsics(
+    translation=(4e2, 5e2),
+    f=(1.6e3, 1.6e3),
+    shear=0
+)
 
 class Human36MMultiViewDataset(Dataset):
     """
@@ -35,7 +40,8 @@ class Human36MMultiViewDataset(Dataset):
                  kind="mpii",
                  undistort_images=False,
                  ignore_cameras=[],
-                 crop=True
+                 crop=True,
+                 resample=False
                  ):
         """
             h36m_root:
@@ -68,6 +74,7 @@ class Human36MMultiViewDataset(Dataset):
         self.undistort_images = undistort_images
         self.ignore_cameras = ignore_cameras
         self.crop = crop
+        self.do_resample = resample
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
@@ -171,24 +178,12 @@ class Human36MMultiViewDataset(Dataset):
             subject_name, action_name, camera_name, frame_idx
         )
 
-    def _load_image(self, subject, action, camera_name, frame_idx, max_attempts=10):
+    def _load_image(self, subject, action, camera_name, frame_idx):
         image_path = self._get_view_path(
             subject, action, camera_name, frame_idx
         )
-        
-        attempt_counter = 0
 
-        while attempt_counter < max_attempts:
-            try:  # todo try with .npy salvato su disco (@edo)
-                attempt_counter += 1
-
-                image = cv2.imread(image_path)  # try read from disk
-                Image.fromarray(image)  # check if we can work on this image
-
-                return image
-            except:
-                timeout_seconds = 10
-                time.sleep(timeout_seconds)
+        return cv2.imread(image_path)  # try read from disk
 
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
@@ -220,12 +215,31 @@ class Human36MMultiViewDataset(Dataset):
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
             retval_camera = Camera(
-                shot_camera['R'], shot_camera['t'], shot_camera['K'], shot_camera['dist'], camera_name
+                shot_camera['R'],
+                shot_camera['t'],
+                shot_camera['K'],
+                shot_camera['dist'],
+                camera_name
             )
 
             if self.crop:  # crop image
                 image = crop_image(image, bbox)
                 retval_camera.update_after_crop(bbox)
+
+            if self.do_resample:
+                new_shape, cropping_box = make_with_target_intrinsics(
+                    image,
+                    retval_camera.K,
+                    TARGET_INTRINSICS
+                )
+                image_shape_before_resize = image.shape[:2]
+                image = resize_image(image, new_shape)
+                retval_camera.update_after_resize(
+                    image_shape_before_resize, new_shape
+                )
+
+                image = crop_image(image, cropping_box)
+                retval_camera.update_after_crop(cropping_box)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
@@ -234,13 +248,11 @@ class Human36MMultiViewDataset(Dataset):
                     image_shape_before_resize, self.image_shape
                 )
 
-                sample['image_shapes_before_resize'].append(image_shape_before_resize)
-
             if self.norm_image:
                 image = normalize_image(image)
 
             sample['images'].append(image)
-            sample['detections'].append(bbox + (1.0,))  # TODO add real confidences
+            # sample['detections'].append(bbox + (1.0,))  # TODO add real confidences
             sample['cameras'].append(retval_camera)
             sample['proj_matrices'].append(retval_camera.projection)
 

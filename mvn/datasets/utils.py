@@ -27,14 +27,16 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
             ], axis=0)
             for i in indexes
         ], axis=0).swapaxes(0, 1)
-        batch['detections'] = np.array(
-            [
-                [
-                    item['detections'][i] for item in items
-                ]
-                for i in indexes
-            ]
-        ).swapaxes(0, 1)
+
+        # batch['detections'] = np.array(
+        #     [
+        #         [
+        #             item['detections'][i] for item in items
+        #         ]
+        #         for i in indexes
+        #     ]
+        # ).swapaxes(0, 1)
+
         batch['cameras'] = [
             [
                 item['cameras'][i]

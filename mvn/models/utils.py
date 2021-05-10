@@ -100,7 +100,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
             }
         ]
 
-        if not config.cam2cam.using_gt:  # predicting KP and HM
+        if not config.cam2cam.using_gt:  # predicting KP and HM -> need to opt
             params.append(
                 {
                     'params': get_grad_params(model.backbone),

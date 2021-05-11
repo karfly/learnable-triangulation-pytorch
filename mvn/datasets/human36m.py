@@ -1,4 +1,5 @@
 import os
+import time
 from collections import defaultdict
 
 import numpy as np
@@ -180,7 +181,20 @@ class Human36MMultiViewDataset(Dataset):
             subject, action, camera_name, frame_idx
         )
 
-        return cv2.imread(image_path)  # try read from disk
+        image = cv2.imread(image_path)
+
+        curr_attempt = 0
+        max_attempts = 10
+        while curr_attempt < max_attempts:
+            if not (image is None):
+                return image
+
+            sleep_minutes = 10
+            time.sleep(sleep_minutes * 60)
+
+            curr_attempt += 1
+
+        raise IOError('fix that cluster !!!')
 
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value

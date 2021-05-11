@@ -416,7 +416,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     minimon.enter()
 
     if config.cam2cam.using_gt:
-        misc.live_debug_log(_iter_tag, 'I\'m using GT 2D keypoints')
+        # misc.live_debug_log(_iter_tag, 'I\'m using GT 2D keypoints')
 
         keypoints_2d_pred = torch.cat([
             torch.cat([

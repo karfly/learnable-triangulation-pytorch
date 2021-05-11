@@ -24,8 +24,6 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', leg
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
-    else:
-        xrange = list(range(xrange[0], xrange[-1] + 1))
 
     axis.plot(
         xrange, metrics, label=label, color=color, marker=marker
@@ -57,7 +55,7 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', leg
 
 
 def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 30], eval_ylim=[0, 100]):
-    legend_loc='upper left'
+    legend_loc = 'upper left'
     _xrange = plot_metric(
         axis,
         train_metrics,
@@ -70,7 +68,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
 
     axis = axis.twinx()
 
-    legend_loc='upper right'
+    legend_loc = 'upper right'
     _xrange = plot_metric(
         axis,
         eval_metrics,
@@ -102,12 +100,15 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         ])
 
         if np.mean(loss_history) > 0.0:
-            _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
+            _min, _max = np.min(drop_na(loss_history)), np.max(
+                drop_na(loss_history))
             _last = loss_history[-1]
             label = '{} (min = {:.1f}, max = {:.1f}, last = {:.1f})'.format(
                 key.replace('loss / batch', '').strip(), _min, _max, _last
             )
-            loss_history = normalize_transformation(normalize_loss)(loss_history) if normalize_loss else loss_history
+            loss_history = normalize_transformation(normalize_loss)(
+                loss_history) if normalize_loss else loss_history
+
             plot_metric(
                 axis,
                 loss_history,
@@ -151,7 +152,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         marker='o'
     )
 
-    plot_SOTA(axis, [0, len(epochs) - 1])
+    # plot_SOTA(axis, [0, len(epochs) - 1])
 
     axis.legend(loc=legend_loc)
     axis.set_xlim([0, len(epochs) - 1])
@@ -162,14 +163,12 @@ def make_axis_great_again(ax, xlim=None, ylim=None, hide_y=False):
     if ylim:
         ax.set_ylim(ylim)
 
-    if xlim:
+    if not (xlim is None):
         xlim = [xlim[0], xlim[-1]]
         ax.set_xlim(xlim)
 
     if hide_y:
         ax.yaxis.set_ticks([])
-
-    ax.legend()
 
 
 def get_figsize(n_rows, n_cols, row_size=8, column_size=24):

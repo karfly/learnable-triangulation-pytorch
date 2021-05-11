@@ -123,6 +123,7 @@ def find_min(lst):
     return m, list(lst).index(m)
 
 
+# todo use pythonic logger
 def live_debug_log(tag, message, master_only=True):
     can_print = (not master_only) or (master_only and is_master())
     if can_print:

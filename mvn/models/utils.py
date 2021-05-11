@@ -93,6 +93,10 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:
+        print('cam2cam estimation => adding {:.0f} params to grad ...'.format(
+            count_grad_params(cam2cam_model)
+        ))
+
         params = [
             {
                 'params': get_grad_params(cam2cam_model),
@@ -101,6 +105,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
         ]
 
         if not config.cam2cam.using_gt:  # predicting KP and HM -> need to opt
+            print('using predicted KPs => adding model.backbone to grad ...')
             params.append(
                 {
                     'params': get_grad_params(model.backbone),
@@ -110,6 +115,12 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
 
         return base_optim(params)
     elif config.model.name == "vol":
+        print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
+            'backbone',
+            'process_features',
+            'volume_net'
+        ))
+
         return base_optim(
             [
                 {
@@ -128,6 +139,10 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
             lr=config.opt.lr
         )
     else:
+        print('standard method => adding model.backbone {:.0f} params to grad ...'.format(
+            count_grad_params(model.backbone)
+        ))
+        
         return base_optim(
             get_grad_params(model.backbone),
             lr=1e-6  # BB already optimized

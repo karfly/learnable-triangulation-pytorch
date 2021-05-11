@@ -91,7 +91,6 @@ class RotoTransNetMLP(nn.Module):
 
             self.roto_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
-                nn.LayerNorm((sizes[0])),
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=config.cam2cam.batch_norm,
@@ -103,7 +102,6 @@ class RotoTransNetMLP(nn.Module):
 
             self.trans_extractor = nn.Sequential(*[
                 View((-1, sizes[0])),
-                nn.LayerNorm((sizes[0])),
                 MLP(
                     sizes + [3],  # 3D world
                     batch_norm=config.cam2cam.batch_norm,

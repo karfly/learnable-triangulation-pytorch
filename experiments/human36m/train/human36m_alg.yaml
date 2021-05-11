@@ -42,7 +42,7 @@ svd:
 
 cam2cam:
   using_gt: true
-  scale_trans2trans: 1000
+  scale_trans2trans: 1000.0
   using_heatmaps: false
 
   batch_norm: false
@@ -96,7 +96,7 @@ dataset:
   kind: "human36m"
 
   train:
-    crop: true
+    crop: false
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
 # `h36m_root.bak` used when scratch will go out of renewals (<100 days)
@@ -117,7 +117,7 @@ dataset:
 # `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
 
   val:
-    crop: true
+    crop: false
     h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
     h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
 # `h36m_root.bak` used when scratch will go out of renewals (<100 days)

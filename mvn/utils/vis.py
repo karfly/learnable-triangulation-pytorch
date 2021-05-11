@@ -534,22 +534,32 @@ def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, conf
             thickness = 3
 
             # draw circles where GT keypoints are
-            for pt in proj_gts[batch_i][view_i].numpy():
+            for i, pt in enumerate(proj_gts[batch_i][view_i].numpy()):
+                color = (0, 255, 0)  # green
+
+                if i == 6:  # pelvis
+                    color = (0, 0, 255)  # red
+
                 cv2.circle(
                     canvas, tuple(pt.astype(int)),
-                    radius, color=(0, 255, 0), thickness=thickness
+                    radius, color=color, thickness=thickness
                 )  # green
 
             # draw square where predicted keypoints are
-            for pt in proj_preds[batch_i][view_i].numpy():
+            for i, pt in enumerate(proj_preds[batch_i][view_i].numpy()):
+                color = (0, 255, 0)  # green
+
+                if i == 6:  # pelvis
+                    color = (0, 0, 255)  # red
+                
                 center = tuple(pt.astype(int))
                 start_point = (center[0] - radius, center[1] - radius)
                 end_point = (center[0] + radius, center[1] + radius)
                 
                 cv2.rectangle(
                     canvas, start_point, end_point,
-                    color=(255, 0, 0), thickness=thickness
-                )  # red (BGR)
+                    color=color, thickness=thickness
+                )
 
             f_out = os.path.join(pred_2d_folder, camera + '.jpg')
             cv2.imwrite(f_out, canvas)  # 2D KP: GT VS pred

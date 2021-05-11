@@ -1,21 +1,16 @@
 import os
 from collections import defaultdict
-import pickle
-import time
 
 import numpy as np
 import cv2
-from PIL import Image
 
-import torch
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
-from mvn.utils.img import get_square_bbox, resize_image, crop_image, normalize_image, scale_bbox, resample_image, make_with_target_intrinsics
-from mvn.utils import volumetric
+from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(4e2, 5e2),
+    translation=(5e2, 5e2),
     f=(1.6e3, 1.6e3),
     shear=0
 )
@@ -41,7 +36,8 @@ class Human36MMultiViewDataset(Dataset):
                  undistort_images=False,
                  ignore_cameras=[],
                  crop=True,
-                 resample=False
+                 resample=False,
+                 look_at_pelvis=False
                  ):
         """
             h36m_root:
@@ -75,6 +71,7 @@ class Human36MMultiViewDataset(Dataset):
         self.ignore_cameras = ignore_cameras
         self.crop = crop
         self.do_resample = resample
+        self.look_at_pelvis = look_at_pelvis
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
@@ -227,6 +224,7 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.do_resample:
+                # have same intrinsics
                 new_shape, cropping_box = make_with_target_intrinsics(
                     image,
                     retval_camera.K,
@@ -240,6 +238,20 @@ class Human36MMultiViewDataset(Dataset):
 
                 image = crop_image(image, cropping_box)
                 retval_camera.update_after_crop(cropping_box)
+
+            if self.look_at_pelvis:
+                kp_in_world = shot['keypoints'][:self.num_keypoints]
+                kp_in_cam = retval_camera.world2cam()(kp_in_world)
+
+                pelvis_index = 6  # H36M dataset, not CMU
+                pelvis_vector = kp_in_cam[pelvis_index, ...]
+
+                # ... => find rotation matrix pelvis to z ...
+                z_axis = [0.055, 0.06, 1]  # todo why?
+                Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
+
+                # ... and update E <- R.dot(E)
+                retval_camera.update_roto_extrsinsics(Rt)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
@@ -271,7 +283,8 @@ class Human36MMultiViewDataset(Dataset):
         # add dummy confidences
         sample['keypoints_3d'] = np.pad(
             shot['keypoints'][:self.num_keypoints],
-            ((0,0), (0,1)), 'constant', constant_values=1.0)
+            ((0,0), (0,1)), 'constant', constant_values=1.0
+        )
 
         # build cuboid
         # base_point = sample['keypoints_3d'][6, :3]

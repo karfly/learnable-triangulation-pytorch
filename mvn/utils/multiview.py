@@ -42,11 +42,9 @@ def homogeneous_to_euclidean(points):
 
 class Camera:
     def __init__(self, R, t, K, dist=None, name=""):
-        self.R = np.array(R).copy()
-        assert self.R.shape == (3, 3)
+        self.R = np.array(R).copy()  # 3 x 3
 
         self.t = np.array(t).copy()
-        assert self.t.size == 3
         self.t = self.t.reshape(3, 1)
 
         self.K = np.array(K).copy()  # intrinsic ~ 3 x 3
@@ -79,6 +77,11 @@ class Camera:
         new_cy = cy * (new_height / height)
 
         self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
+
+    def update_roto_extrsinsics(self, Rt):
+        E = Rt.copy().dot(self.extrinsics)
+        self.R = E[:3, :3]
+        self.t = E[:3, 3].reshape(3, 1)
 
     @property
     def extrinsics(self):  # 3D world -> 3D camera space

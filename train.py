@@ -2,38 +2,29 @@ import os
 import shutil
 import argparse
 import shutil
-import time
 import json
 from datetime import datetime
 from collections import defaultdict
-from itertools import islice, combinations
+from itertools import islice
 import pickle
-import copy
-import traceback
 
 import numpy as np
-import cv2
-from PIL import Image
 
 import torch
-from torch import nn
 from torch import autograd
-import torch.nn.functional as F
-import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
-from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss, element_by_element
-from mvn.models.utils import build_opt, get_grad_params, freeze_backbone, show_params, load_checkpoint
+from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, VolumetricCELoss
+from mvn.models.utils import build_opt, show_params, load_checkpoint
 
-from mvn.utils import img, multiview, op, vis, misc, cfg
+from mvn.utils import multiview, vis, misc, cfg
 from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
-from mvn.utils.multiview import project_3d_points_to_image_plane_without_distortion
 
 from mvn.utils.minimon import MiniMon
-from mvn.models.rototrans import RotoTransNetMLP, RotoTransNetConv, compute_geodesic_distance, l2_loss
+from mvn.models.rototrans import RotoTransNetMLP, RotoTransNetConv, compute_geodesic_distance
 
 
 def make_sample_prediction():
@@ -127,8 +118,9 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             kind=config.kind,
             undistort_images=config.dataset.train.undistort_images,
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
-            crop=config.dataset.train.crop and config.model.cam2cam_estimation,
-            resample=config.model.cam2cam_estimation
+            crop=config.dataset.train.crop,
+            resample=config.model.cam2cam_estimation,
+            look_at_pelvis=config.model.cam2cam_estimation
         )
         print("  training dataset length:", len(train_dataset))
 
@@ -164,8 +156,9 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         kind=config.kind,
         undistort_images=config.dataset.val.undistort_images,
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
-        crop=config.dataset.val.crop and config.model.cam2cam_estimation,
-        resample=config.model.cam2cam_estimation
+        crop=config.dataset.val.crop,
+        resample=config.model.cam2cam_estimation,
+        look_at_pelvis=config.model.cam2cam_estimation
     )
     print("  validation dataset length:", len(val_dataset))
 
@@ -425,21 +418,21 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
     if config.cam2cam.using_gt:
         misc.live_debug_log(_iter_tag, 'I\'m using GT 2D keypoints')
 
-        keypoints_2d_pred = torch.zeros(batch_size, n_views, 17, 2)
-        for batch_i in range(batch_size):
-            for view_i in range(n_views):
-                cam = batch['cameras'][view_i][batch_i]
-                kp_world = keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
-                kp_original = cam.world2cam()(kp_world)  # in cam space
-                keypoints_2d_pred[batch_i, view_i] = cam.cam2proj()(
-                    kp_original
-                )  # ~ (17, 2)
-        keypoints_2d_pred.requires_grad = False  # to comply with torch graph
+        keypoints_2d_pred = torch.cat([
+            torch.cat([
+                batch['cameras'][view_i][batch_i].world2proj()(
+                    keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])  # ~ (batch_size, n_views, 17, 2)
+        keypoints_2d_pred.requires_grad = False
 
         heatmaps_pred = torch.zeros(
             (batch_size, n_views, n_joints, 32, 32)
         )  # todo fake heatmaps_pred from GT KP: ~ N
-        heatmaps_pred.requires_grad = False  # to comply with torch graph
+        heatmaps_pred.requires_grad = False
 
         confidences_pred = torch.ones(
             (batch_size, n_views, n_joints)
@@ -501,8 +494,12 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         rot2rot, trans2trans = cam2cam_model(
             keypoints_forward[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
         )
-
         trans2trans *= scale_trans2trans
+
+        # todo GT
+        # rot2rot = cam2cam_gts[batch_i, :, :3, :3].cuda().detach().clone()
+        # trans2trans = cam2cam_gts[batch_i, :, :3, 3].cuda().detach().clone()
+
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
         pred = torch.cat([
             rot2rot, trans2trans
@@ -524,11 +521,12 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         [None] + list(cam2cam_preds[batch_i].cuda())
         for batch_i in range(batch_size)
     ]  # `None` for cam_0 -> cam_0
-    master_cams = [0] * batch_size  # todo random
+    
+    # todo random master cam
     full_cam2cam = torch.cat([
         torch.cat([
             dataset_utils.cam2cam_precomputed_batch(
-                master_cams[batch_i], view_i, batch['cameras'], batch_i, full_cam2cam
+                0, view_i, batch['cameras'], batch_i, full_cam2cam
             ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)
@@ -544,7 +542,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
 
     # ... they're in master cam space => cam2world
     keypoints_3d_pred = torch.cat([
-        batch['cameras'][master_cams[batch_i]][batch_i].cam2world()(
+        batch['cameras'][0][batch_i].cam2world()(
             keypoints_3d_pred[batch_i]
         ).unsqueeze(0)
         for batch_i in range(batch_size)
@@ -627,7 +625,14 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
         minimon.enter()
 
         opt.zero_grad()
-        total_loss.backward()  # backward foreach batch
+
+        try:
+            total_loss.backward()  # backward foreach batch
+        except:
+            misc.live_debug_log(
+                _iter_tag,
+                'cannot backpropagate ... are you cheating?'
+            )
 
         if hasattr(config.opt, "grad_clip"):
             torch.nn.utils.clip_grad_norm_(
@@ -698,7 +703,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
             dataloader,
             config,
             batch_out=f_out,
-            with_originals=True
+            with_originals=False
         )
 
     return results

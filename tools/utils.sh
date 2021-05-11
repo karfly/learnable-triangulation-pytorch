@@ -63,7 +63,7 @@ function backupScratchData () {
 }
 
 # usage: showClusterUsageInMonth "p_humanpose"
-function showClusterUsageInMonth () {
+function slurmShowUsageInMonth () {
     account=$1
     allocated_cpu_hours=3500
 

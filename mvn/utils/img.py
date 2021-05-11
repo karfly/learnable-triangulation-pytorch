@@ -210,3 +210,19 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     ))
 
     return scaling, cropping
+
+
+def rotation_matrix_from_vectors(vec1, vec2):
+    """ https://stackoverflow.com/a/59204638/7643222 """
+    
+    a, b = (
+        (vec1 / np.linalg.norm(vec1)).reshape(3),  # normalize
+        (vec2 / np.linalg.norm(vec2)).reshape(3)
+    )
+
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+    return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))  # 3 x 3

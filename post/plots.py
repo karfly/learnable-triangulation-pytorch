@@ -84,7 +84,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
     axis.legend(loc=legend_loc)
 
 
-def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None):
+def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None, xlabel='# epoch'):
     loss_keys = list(filter(
         lambda x: 'loss / batch' in x and 'training' not in x,
         epochs[0].keys()
@@ -112,6 +112,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
                 axis,
                 loss_history,
                 label=label,
+                xrange=xrange,
                 color=color,
                 legend_loc='lower left',
                 show_min=False,
@@ -119,7 +120,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
             )
 
     axis.set_xlim([0, len(epochs) - 1])
-    axis.set_xlabel('# epoch')
+    axis.set_xlabel(xlabel)
     axis.set_title(title)
     axis.set_ylabel('loss')
 
@@ -130,6 +131,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         axis,
         [epoch['training metrics'] for epoch in epochs],
         'training metrics',
+        xrange=xrange,
         ylim=train_metric_ylim,
         color='aquamarine',
         legend_loc=legend_loc,
@@ -141,6 +143,7 @@ def plot_epochs(axis, epochs, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1],
         axis,
         [epoch['eval metrics'] for epoch in epochs],
         'eval metrics',
+        xrange=xrange,
         ylim=eval_metric_ylim,
         color='blue',
         legend_loc=legend_loc,
@@ -160,10 +163,13 @@ def make_axis_great_again(ax, xlim=None, ylim=None, hide_y=False):
         ax.set_ylim(ylim)
 
     if xlim:
+        xlim = [xlim[0], xlim[-1]]
         ax.set_xlim(xlim)
 
     if hide_y:
         ax.yaxis.set_ticks([])
+
+    ax.legend()
 
 
 def get_figsize(n_rows, n_cols, row_size=8, column_size=24):

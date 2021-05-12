@@ -98,25 +98,25 @@ def parse_job_log(f_path, verbose=True):
             try:
                 if len(tokens) > 2:
                     loss = parse_fp_number(tokens[1].split(',')[0])
-                    key = 'geo loss / batch'
+                    key = 'geodesic loss / batch'
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)
 
                     loss = parse_fp_number(tokens[2].split(',')[0])
-                    key = 'trans loss / batch'
+                    key = 'L2 on T loss / batch'
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)
 
                     loss = parse_fp_number(tokens[3].split(',')[0])
-                    key = 'pose loss / batch'
+                    key = 'L2 proj pose loss / batch'
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)
 
                     loss = parse_fp_number(tokens[4].split(',')[0])
-                    key = 'roto loss / batch'
+                    key = 'L2 on R loss / batch'
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)

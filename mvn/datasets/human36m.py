@@ -176,7 +176,7 @@ class Human36MMultiViewDataset(Dataset):
             subject_name, action_name, camera_name, frame_idx
         )
 
-    def _load_image(self, subject, action, camera_name, frame_idx):
+    def _load_image(self, subject, action, camera_name, frame_idx, sleep_minutes=5, max_attempts=10):
         image_path = self._get_view_path(
             subject, action, camera_name, frame_idx
         )
@@ -184,15 +184,24 @@ class Human36MMultiViewDataset(Dataset):
         image = cv2.imread(image_path)
 
         curr_attempt = 0
-        max_attempts = 10
         while curr_attempt < max_attempts:
+            curr_attempt += 1
             if not (image is None):
                 return image
 
-            sleep_minutes = 10
-            time.sleep(sleep_minutes * 60)
+            print('failed loading {} from disk for the # {} time'.format(
+                image_path,
+                curr_attempt
+            ))
 
-            curr_attempt += 1
+            if curr_attempt < max_attempts:  # will re-do cycle
+                print('=> sleeping {} minutes ...'.format(sleep_minutes))
+                time.sleep(sleep_minutes * 60)
+                print(
+                    '... AWAKE! retrying (for the # {} time)'.format(
+                        curr_attempt + 1
+                    )
+                )
 
         raise IOError('fix that cluster !!!')
 

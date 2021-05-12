@@ -50,10 +50,6 @@ cam2cam:
 
   vgg: "16"
 
-  mlp:
-    inner_size: 64
-    n_inner_layers: 5
-
   loss:
     roto_weight: 0.0
     geo_weight: 0.0
@@ -64,6 +60,11 @@ cam2cam:
     lr: 0.00002
 
   model:
+    name: martinet
+
+    inner_size: 64
+    n_inner_layers: 5
+  
     init_weights: false
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@05.05.2021-23:06:29/checkpoints/1995/weights_cam2cam_model.pth"
 

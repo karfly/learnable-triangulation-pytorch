@@ -5,8 +5,8 @@ from torch.autograd import Variable
 import numpy as np
 
 from mvn.models.vgg import make_virgin_vgg
-from mvn.models.layers import ExtractEverythingLayer, MLP, View
-from mvn.models.resnet import MLPResNetBlock
+from mvn.models.layers import MLP, View
+from mvn.models.resnet import MLPResNetBlock, MartiNet
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
@@ -82,15 +82,15 @@ class RotoTransNetMLP(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
-        inner_size = config.cam2cam.mlp.inner_size
-        n_inner_layers = config.cam2cam.mlp.n_inner_layers
-        kiss = True  # https://people.apache.org/~fhanik/kiss.html
+        model = config.cam2cam.model.name
+        inner_size = config.cam2cam.model.inner_size
+        n_inner_layers = config.cam2cam.model.n_inner_layers
 
-        if kiss:
+        if model == 'kiss':  # https://people.apache.org/~fhanik/kiss.html
             sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
             self.roto_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),
+                View((-1, sizes[0])),  # will be fed into a MLP
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=config.cam2cam.batch_norm,
@@ -101,7 +101,7 @@ class RotoTransNetMLP(nn.Module):
             ])
 
             self.trans_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),
+                View((-1, sizes[0])),  # will be fed into a MLP
                 MLP(
                     sizes + [3],  # 3D world
                     batch_norm=config.cam2cam.batch_norm,
@@ -110,30 +110,34 @@ class RotoTransNetMLP(nn.Module):
                     init_weights=False
                 )
             ])
-        else:
+        elif model == 'martinet':
             self.roto_extractor = nn.Sequential(*[
-                View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
-                MLPResNetBlock(
-                    n_inner_layers,
+                View((-1, 2 * n_joints * 2)),  # will be fed into a MLP
+                MartiNet(
                     2 * n_joints * 2,
-                    inner_size,
                     6,  # need 6D parametrization of rotation matrix
-                    batch_norm=config.cam2cam.batch_norm,
-                    mlp=lambda a, b: nn.Linear(a, b, bias=False),
+                    n_units=1024,
+                    n_blocks=2,
+                    mlp=nn.Linear,
+                    batch_norm=True,
+                    dropout=0.5
                 )
             ])
 
             self.trans_extractor = nn.Sequential(*[
-                View((-1, 2 * n_joints * 2)),  # because it will be fed into a MLP
-                MLPResNetBlock(
-                    n_inner_layers,
+                View((-1, 2 * n_joints * 2)),  # will be fed into a MLP
+                MartiNet(
                     2 * n_joints * 2,
-                    inner_size,
                     3,  # 3D world
-                    batch_norm=config.cam2cam.batch_norm,
-                    mlp=lambda a, b: nn.Linear(a, b, bias=False)
+                    n_units=1024,
+                    n_blocks=2,
+                    mlp=nn.Linear,
+                    batch_norm=True,
+                    dropout=0.5
                 )
             ])
+        else:
+            raise ValueError('YOU HAVE TO SPECIFY A cam2cam MODEL!')
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
@@ -151,8 +155,8 @@ class RotoTransNetConv(nn.Module):
         super().__init__()
 
         n_joints = config.model.backbone.num_joints
-        inner_size = config.cam2cam.mlp.inner_size
-        n_inner_layers = config.cam2cam.mlp.n_inner_layers
+        inner_size = config.cam2cam.model.inner_size
+        n_inner_layers = config.cam2cam.model.n_inner_layers
         sizes = (n_inner_layers + 1) * [inner_size]
 
         self.roto_extractor = nn.Sequential(*[

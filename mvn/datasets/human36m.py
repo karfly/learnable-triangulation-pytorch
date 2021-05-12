@@ -247,6 +247,7 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.do_resample:
+                # todo get rid of 1k + eps
                 # have same intrinsics
                 new_shape, cropping_box = make_with_target_intrinsics(
                     image,

@@ -213,7 +213,7 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
 
 
 def rotation_matrix_from_vectors(vec1, vec2):
-    """ https://stackoverflow.com/a/59204638/7643222 """
+    """ https://stackoverflow.com/a/59204638/7643222 based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula"""
     
     a, b = (
         (vec1 / np.linalg.norm(vec1)).reshape(3),  # normalize

@@ -24,7 +24,10 @@ class ResNetBlock(nn.Module):
 
         self.downsample = downsample
 
-        self.activation = activation(inplace=False)
+        try:
+            self.activation = activation(inplace=False)
+        except:
+            self.activation = activation()
 
         if dropout > 0:
             self.dropout = nn.Dropout(p=dropout, inplace=False)
@@ -74,7 +77,7 @@ class MLPResNetBlock(nn.Module):
 
         layers = [
             mlp(in_features, n_units),
-            activation(inplace=False)
+            activation
         ]  # input
         layers += [
             ResNetBlock(
@@ -106,7 +109,7 @@ class MartiNet(nn.Module):
 
         layers = [
             mlp(in_features, n_units),
-            activation(inplace=False)
+            activation
         ]  # input
         layers += [
             ResNetBlock(

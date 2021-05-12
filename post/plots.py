@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
-LOSS_C = ['magenta', 'gold', 'lawngreen', 'red']
+LOSS_C = ['violet', 'gold', 'lawngreen', 'red']
 
 
 def plot_SOTA(axis, _xrange):
@@ -98,6 +98,8 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
             np.mean(epoch[key])
             for epoch in epochs
         ])
+        nan = np.mean(drop_na(loss_history))
+        loss_history = np.nan_to_num(loss_history, nan=nan)
 
         if np.mean(loss_history) > 0.0:
             _min, _max = np.min(drop_na(loss_history)), np.max(
@@ -117,13 +119,22 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
                 color=color,
                 legend_loc='lower left',
                 show_min=False,
-                marker='+'
+                marker='+',
+                verbose=False
             )
 
     axis.set_xlim([0, len(epochs) - 1])
     axis.set_xlabel(xlabel)
-    axis.set_title(title)
-    axis.set_ylabel('loss')
+
+    if title:
+        axis.set_title(title)
+
+    label = '{}loss'.format(
+        '[{:.1f}, {:.1f}]-normalized '.format(
+            normalize_loss[0], normalize_loss[1]
+        ) if normalize_loss else ''
+    )
+    axis.set_ylabel(label)
 
     axis = axis.twinx()  # on the right
 
@@ -137,7 +148,8 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         color='aquamarine',
         legend_loc=legend_loc,
         show_min=True,
-        marker='o'
+        marker='o',
+        verbose=False
     )
 
     plot_metric(
@@ -149,7 +161,8 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         color='blue',
         legend_loc=legend_loc,
         show_min=True,
-        marker='o'
+        marker='o',
+        verbose=False
     )
 
     # plot_SOTA(axis, [0, len(epochs) - 1])

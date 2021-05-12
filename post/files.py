@@ -53,7 +53,7 @@ def parse_metrics_log(f_path, verbose=True):
     return train_metrics, eval_metrics
 
 
-def parse_job_log(f_path, verbose=True):
+def parse_job_log(f_path, verbose=False):
     """ parses 14034239.out """
 
     lines = get_lines(f_path)
@@ -110,7 +110,7 @@ def parse_job_log(f_path, verbose=True):
                     current_epoch_details[key].append(loss)
 
                     loss = parse_fp_number(tokens[3].split(',')[0])
-                    key = 'L2 proj pose loss / batch'
+                    key = 'L2 proj loss / batch'
                     if key not in current_epoch_details:
                         current_epoch_details[key] = []
                     current_epoch_details[key].append(loss)

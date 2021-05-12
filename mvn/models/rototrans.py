@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import numpy as np
+from torch.nn.modules.activation import GELU
 
 from mvn.models.vgg import make_virgin_vgg
 from mvn.models.layers import MLP, View
@@ -85,56 +86,61 @@ class RotoTransNetMLP(nn.Module):
         model = config.cam2cam.model.name
         inner_size = config.cam2cam.model.inner_size
         n_inner_layers = config.cam2cam.model.n_inner_layers
+        batch_norm = config.cam2cam.batch_norm
+        drop_out = config.cam2cam.drop_out
 
         if model == 'kiss':  # https://people.apache.org/~fhanik/kiss.html
             sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
 
+            # best so far: 5Lx512U, no BN
             self.roto_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),  # will be fed into a MLP
+                nn.Flatten(),  # will be fed into a MLP
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,  # 0.0
                     activation=nn.ReLU,
                     init_weights=False
                 )
             ])
 
             self.trans_extractor = nn.Sequential(*[
-                View((-1, sizes[0])),  # will be fed into a MLP
+                nn.Flatten(),  # will be fed into a MLP
                 MLP(
                     sizes + [3],  # 3D world
-                    batch_norm=config.cam2cam.batch_norm,
-                    drop_out=config.cam2cam.drop_out,
-                    activation=nn.LeakyReLU,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.ReLU,
                     init_weights=False
                 )
             ])
         elif model == 'martinet':
+            initial_units = 2 * n_joints * 2  # coming from a pair of 2D KPs
+
             self.roto_extractor = nn.Sequential(*[
-                View((-1, 2 * n_joints * 2)),  # will be fed into a MLP
+                nn.Flatten(),  # will be fed into a MLP
                 MartiNet(
-                    2 * n_joints * 2,
+                    initial_units,
                     6,  # need 6D parametrization of rotation matrix
-                    n_units=1024,
-                    n_blocks=2,
-                    mlp=nn.Linear,
-                    batch_norm=True,
-                    dropout=0.5
-                )
+                    n_units=inner_size,
+                    n_blocks=n_inner_layers,
+                    batch_norm=batch_norm,
+                    dropout=drop_out
+                ),
+                nn.LeakyReLU(inplace=False)
             ])
 
             self.trans_extractor = nn.Sequential(*[
-                View((-1, 2 * n_joints * 2)),  # will be fed into a MLP
+                nn.Flatten(),  # will be fed into a MLP
                 MartiNet(
-                    2 * n_joints * 2,
+                    initial_units,
                     3,  # 3D world
-                    n_units=1024,
-                    n_blocks=2,
-                    mlp=nn.Linear,
-                    batch_norm=True,
-                    dropout=0.5
-                )
+                    n_units=inner_size,
+                    n_blocks=n_inner_layers,
+                    batch_norm=batch_norm,
+                    dropout=drop_out
+                ),
+                nn.LeakyReLU(inplace=False)
             ])
         else:
             raise ValueError('YOU HAVE TO SPECIFY A cam2cam MODEL!')

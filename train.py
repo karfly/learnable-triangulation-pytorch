@@ -406,7 +406,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
     ])
 
 
-def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def cam2cam_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     _iter_tag = 'cam2cam'
 
     scale_trans2trans = config.cam2cam.scale_trans2trans  # L2 loss on trans vectors is poor -> scale
@@ -556,6 +556,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_bat
         geodesic_loss = 0.0
         trans_loss = 0.0
         pose_loss = 0.0
+        loss_3d = 0.0
         total_loss = 0.0  # real loss, the one grad is applied to
 
         minimon.enter()
@@ -588,6 +589,18 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_bat
             if config.cam2cam.loss.trans_weight > 0:
                 total_loss += config.cam2cam.loss.trans_weight * loss
 
+            # 3D KP in world loss
+            scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
+
+            loss = criterion(
+                keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+                keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+            )
+            loss_3d += loss
+            if config.cam2cam.loss.loss_3d_weight > 0:
+                total_loss += config.cam2cam.loss.loss_3d_weight * loss
+
             # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
             gts = torch.cat([
                 batch['cameras'][view_i][batch_i].world2proj()(
@@ -611,13 +624,14 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_bat
 
         minimon.leave('calc loss')
 
-        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item() / batch_size,  # normalize per each sample
             trans_loss.item() / batch_size,
             pose_loss.item() / batch_size,
             roto_loss.item() / batch_size,
+            loss_3d.item() / batch_size,
             total_loss.item() / batch_size,
         )  # just a little bit of live debug
         misc.live_debug_log(_iter_tag, message)
@@ -634,14 +648,14 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_bat
                 'cannot backpropagate ... are you cheating?'
             )
 
-        if hasattr(config.opt, "grad_clip"):
+        if hasattr(config.opt, "grad_clip"):  # clipping
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
                 config.opt.grad_clip / config.opt.lr
             )
 
         opt.step()
-        scheduler.step(total_loss.item())
+        scheduler.step(total_loss.item() / batch_size)
 
         minimon.leave('backward pass')
 
@@ -656,7 +670,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+            batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world

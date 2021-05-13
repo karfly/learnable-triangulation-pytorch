@@ -67,6 +67,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.loss.roto_weight = 0.0
     config.cam2cam.loss.trans_weight = 0.0
     config.cam2cam.loss.proj_weight = 1.0
+    config.cam2cam.loss.loss_3d_weight = 0.0
     config.cam2cam.opt.lr = 2e-5
 
     config.model.backbone.init_weights = config.model.init_weights

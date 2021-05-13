@@ -97,29 +97,50 @@ def parse_job_log(f_path, verbose=False):
 
             try:
                 if len(tokens) > 2:
-                    loss = parse_fp_number(tokens[1].split(',')[0])
-                    key = 'geodesic loss / batch'
-                    if key not in current_epoch_details:
-                        current_epoch_details[key] = []
-                    current_epoch_details[key].append(loss)
+                    try:
+                        loss = parse_fp_number(tokens[1].split(',')[0])
+                        key = 'geodesic loss / batch'
+                        if key not in current_epoch_details:
+                            current_epoch_details[key] = []
+                        current_epoch_details[key].append(loss)
+                    except:
+                        pass
 
-                    loss = parse_fp_number(tokens[2].split(',')[0])
-                    key = 'L2 on T loss / batch'
-                    if key not in current_epoch_details:
-                        current_epoch_details[key] = []
-                    current_epoch_details[key].append(loss)
+                    try:
+                        loss = parse_fp_number(tokens[2].split(',')[0])
+                        key = 'L2 on T loss / batch'
+                        if key not in current_epoch_details:
+                            current_epoch_details[key] = []
+                        current_epoch_details[key].append(loss)
+                    except:
+                        pass
 
-                    loss = parse_fp_number(tokens[3].split(',')[0])
-                    key = 'L2 proj loss / batch'
-                    if key not in current_epoch_details:
-                        current_epoch_details[key] = []
-                    current_epoch_details[key].append(loss)
-
-                    loss = parse_fp_number(tokens[4].split(',')[0])
-                    key = 'L2 on R loss / batch'
-                    if key not in current_epoch_details:
-                        current_epoch_details[key] = []
-                    current_epoch_details[key].append(loss)
+                    try:
+                        loss = parse_fp_number(tokens[3].split(',')[0])
+                        key = 'L2 proj loss / batch'
+                        if key not in current_epoch_details:
+                            current_epoch_details[key] = []
+                        current_epoch_details[key].append(loss)
+                    except:
+                        pass
+                    
+                    try:
+                        loss = parse_fp_number(tokens[4].split(',')[0])
+                        key = 'L2 on R loss / batch'
+                        if key not in current_epoch_details:
+                            current_epoch_details[key] = []
+                        current_epoch_details[key].append(loss)
+                    except:
+                        pass
+                    
+                    try:
+                        loss = parse_fp_number(tokens[5].split(',')[0])
+                        key = 'L2 on 3D loss / batch'
+                        if key not in current_epoch_details:
+                            current_epoch_details[key] = []
+                        current_epoch_details[key].append(loss)
+                    except:
+                        pass
             except:
                 pass  # old version of live debugs don't have much losses
 

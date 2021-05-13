@@ -149,5 +149,5 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
             lr=1e-6  # BB already optimized
         )
 
-    scheduler = ReduceLROnPlateau(opt, factor=2e-1, patience=10, min_lr=1e-8, verbose=True)
+    scheduler = ReduceLROnPlateau(opt, factor=7e-1, patience=20, min_lr=1e-8, verbose=True)
     return opt, scheduler

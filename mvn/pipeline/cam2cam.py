@@ -10,14 +10,19 @@ from mvn.models.loss import geo_R_loss, L2_R_loss, t_loss, tred_loss, twod_proj_
 _ITER_TAG = 'cam2cam'
 
 
-def _normalize_kp(keypoints_2d, img_size=384):
+def _normalize_to_pelvis(keypoints_2d, pelvis_i=6):
     """ pelvis -> (0, 0), corners -> (1, 1) """
 
-    # 1: be sure, every pixel is in the image -> normalize
-    keypoints_2d = keypoints_2d / img_size
+    n_joints = keypoints_2d.shape[2]
+    pelvis_point = keypoints_2d[:, :, pelvis_i, :]
 
-    # 2: center @ pelvis
-    keypoints_2d = keypoints_2d - 0.5  # assuming image is being centered
+    keypoints_2d = keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
+
+    m, _ = keypoints_2d.min(dim=1, keepdim=True)
+    M, _ = keypoints_2d.max(dim=1, keepdim=True)
+    diff = M - m
+    diff = diff + torch.ones_like(diff) * 1e-8  # avoid / 0
+    keypoints_2d = keypoints_2d / diff
 
     # > 0 KP => up and to the right of the pelvis
     # < 0 KP => down and to the left of the pelvis
@@ -119,7 +124,7 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[2]]
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
-        
+
         # ... perform DLT in master cam space, but since ...
         keypoints_3d_pred[batch_i] = triangulate_points_in_camspace(
             keypoints_2d_pred[batch_i],
@@ -142,7 +147,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
         [0, 2],
         [0, 3]
     ]  # todo use `master_cam`
-    
+
     total_loss = 0.0  # real loss, the one grad is applied to
 
     roto_loss = L2_R_loss(cam2cam_gts, cam2cam_preds, _pairs)
@@ -152,7 +157,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     geodesic_loss = geo_R_loss(cam2cam_gts, cam2cam_preds, _pairs)
     if config.cam2cam.loss.geo_weight > 0:
         total_loss += config.cam2cam.loss.geo_weight * geodesic_loss
-    
+
     scale_trans2trans = config.cam2cam.scale_trans2trans
     trans_loss = t_loss(
         cam2cam_gts, cam2cam_preds, _pairs, scale_trans2trans
@@ -227,7 +232,7 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
 
     minimon.enter()
     keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
-    keypoints_2d_pred = _normalize_kp(keypoints_2d_pred)
+    keypoints_2d_pred = _normalize_to_pelvis(keypoints_2d_pred)
     minimon.leave('BB forward')
 
     cam2cam_gts, pairs = _get_cam2cam_gt(batch['cameras'])
@@ -266,7 +271,7 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
             criterion,
             config
         )
-        
+
         message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,

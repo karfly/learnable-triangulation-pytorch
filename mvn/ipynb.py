@@ -39,8 +39,8 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.opt.n_epochs = 2
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
-    config.opt.batch_size = 4
-    config.opt.val_batch_size = 4
+    config.opt.batch_size = 3
+    config.opt.val_batch_size = 3
 
     config.opt.loss_3d = False
     config.opt.loss_2d = not config.opt.loss_3d

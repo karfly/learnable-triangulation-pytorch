@@ -84,7 +84,7 @@ def build_env(config, device):
         show_params(cam2cam_model, verbose=config.debug.show_models)
 
     # ... and opt ...
-    opt = build_opt(model, cam2cam_model, config)
+    opt, scheduler = build_opt(model, cam2cam_model, config)
 
     # ... and loss criterion
     criterion_class = {
@@ -98,7 +98,7 @@ def build_env(config, device):
     else:
         criterion = criterion_class()
 
-    return model, cam2cam_model, criterion, opt
+    return model, cam2cam_model, criterion, opt, scheduler
 
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
@@ -406,7 +406,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
     ])
 
 
-def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def cam2cam_iter(batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     _iter_tag = 'cam2cam'
 
     scale_trans2trans = config.cam2cam.scale_trans2trans  # L2 loss on trans vectors is poor -> scale
@@ -641,13 +641,14 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, model_type, criterion, opt
             )
 
         opt.step()
+        scheduler.step(total_loss.item())
 
         minimon.leave('backward pass')
 
     return keypoints_3d_pred.detach()
 
 
-def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloader, device, epoch, minimon, is_train, cam2cam_model=None):
+def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train, cam2cam_model=None):
     images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = dataset_utils.prepare_batch(
         batch, device, config
     )
@@ -655,14 +656,16 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, config, dataloa
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            batch, iter_i, model, cam2cam_model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+            batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world
+            # todo use scheduler
             results = original_iter(
                 batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon
             )
         elif config.model.triangulate_in_cam_space:  # predict KP in camspace
+            # todo use scheduler
             results = triangulate_in_cam_iter(
                 batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
             )
@@ -716,7 +719,7 @@ def set_model_state(model, is_train):
         model.eval()
 
 
-def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None, cam2cam_model=None):
+def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None, cam2cam_model=None):
     _iter_tag = 'epoch'
     model_type = config.model.name
 
@@ -742,12 +745,12 @@ def one_epoch(model, criterion, opt, config, dataloader, device, epoch, minimon,
             if config.opt.torch_anomaly_detection:
                 with autograd.detect_anomaly():  # about x2s time
                     results_pred = iter_batch(
-                        batch, iter_i, model, model_type, criterion, opt, config, dataloader, device,
+                        batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
                         epoch, minimon, is_train, cam2cam_model=cam2cam_model
                     )
             else:
                 results_pred = iter_batch(
-                    batch, iter_i, model, model_type, criterion, opt, config, dataloader, device,
+                    batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
                     epoch, minimon, is_train, cam2cam_model=cam2cam_model
                 )
 
@@ -806,7 +809,7 @@ def init_distributed(args):
 
 def do_train(config_path, logdir, config, device, is_distributed, master):
     _iter_tag = 'do_train'
-    model, cam2cam_model, criterion, opt = build_env(config, device)
+    model, cam2cam_model, criterion, opt, scheduler = build_env(config, device)
     if is_distributed:  # multi-gpu
         model = DistributedDataParallel(model, device_ids=[device])
 
@@ -842,14 +845,14 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
 
         minimon.enter()
         one_epoch(
-            model, criterion, opt, config, train_dataloader, device, epoch,
+            model, criterion, opt, scheduler, config, train_dataloader, device, epoch,
             minimon, is_train=True, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
         )
         minimon.leave('do train')
 
         minimon.enter()
         one_epoch(
-            model, criterion, opt, config, val_dataloader, device, epoch,
+            model, criterion, opt, scheduler, config, val_dataloader, device, epoch,
             minimon, is_train=False, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
         )
         minimon.leave('do eval')

@@ -98,7 +98,7 @@ class RotoTransNetMLP(nn.Module):
                 MLP(
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=batch_norm,
-                    drop_out=drop_out,  # 0.0
+                    drop_out=drop_out,
                     activation=nn.ReLU,
                     init_weights=False
                 )

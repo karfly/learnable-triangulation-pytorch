@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def get_params(layer, as_list=True):
@@ -113,7 +114,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
                 }
             )
 
-        return base_optim(params)
+        opt = base_optim(params)
     elif config.model.name == "vol":
         print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
             'backbone',
@@ -121,7 +122,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
             'volume_net'
         ))
 
-        return base_optim(
+        opt = base_optim(
             [
                 {
                     'params': get_grad_params(model.backbone),
@@ -143,7 +144,10 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
             count_grad_params(model.backbone)
         ))
         
-        return base_optim(
+        opt = base_optim(
             get_grad_params(model.backbone),
             lr=1e-6  # BB already optimized
         )
+
+    scheduler = ReduceLROnPlateau(opt, factor=2e-1, patience=10, min_lr=1e-8, verbose=True)
+    return opt, scheduler

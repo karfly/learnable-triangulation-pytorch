@@ -60,9 +60,9 @@ cam2cam:
     lr: 0.00002
 
   model:
-    name: martinet
+    name: kiss
 
-    inner_size: 64
+    inner_size: 512
     n_inner_layers: 5
   
     init_weights: false

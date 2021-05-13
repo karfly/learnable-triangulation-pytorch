@@ -7,24 +7,26 @@ from mvn.models.layers import linear_with_activation
 class MLUNet(nn.Module):
     """ https://arxiv.org/abs/1505.04597 with MLPs """
 
-    def __init__(self, in_features, out_features, batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU):  #todo use bn, drop
+    def __init__(self, in_features, out_features, batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU):  #todo use bn, drop, glob avg pool?
         super().__init__()
 
-        self.encoder_0 = self._make_inner_block(in_features, 64, activation)
-        self.encoder_1 = self._make_inner_block(64, 128, activation)
-        self.encoder_2 = self._make_inner_block(128, 256, activation)
-        self.encoder_3 = self._make_inner_block(256, 512, activation)
+        units = [64, 128, 256, 512]
 
-        self.maxpool = nn.MaxPool1d(2)
+        self.encoder_0 = self._make_inner_block(in_features, units[0], activation)
+        self.encoder_1 = self._make_inner_block(units[0], units[1], activation)
+        self.encoder_2 = self._make_inner_block(units[1], units[2], activation)
+        self.encoder_3 = self._make_inner_block(units[2], units[3], activation)
+
+        # self.maxpool = nn.MaxPool1d(2)
         self.upsample = nn.Upsample(
             scale_factor=2, mode='bilinear', align_corners=True
         )
 
-        self.decoder_2 = self._make_inner_block(256 + 512, 256, activation)
-        self.decoder_1 = self._make_inner_block(128 + 256, 128, activation)
-        self.decoder_0 = self._make_inner_block(128 + 64, 64, activation)
+        self.decoder_2 = self._make_inner_block(units[2] + units[3], units[2], activation)
+        self.decoder_1 = self._make_inner_block(units[1] + units[2], units[1], activation)
+        self.decoder_0 = self._make_inner_block(units[0] + units[1], units[0], activation)
 
-        self.head = nn.Linear(64, out_features)
+        self.head = nn.Linear(units[0], out_features)
 
     @staticmethod
     def _make_inner_block(in_features, out_features, activation):

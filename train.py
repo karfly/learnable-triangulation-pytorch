@@ -24,7 +24,8 @@ from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
 
 from mvn.utils.minimon import MiniMon
-from mvn.models.rototrans import RotoTransNet, compute_geodesic_distance
+from mvn.models.rototrans import RototransNet
+from mvn.models.layers import R6DBlock
 
 
 def make_sample_prediction():
@@ -62,7 +63,7 @@ def build_env(config, device):
         if config.cam2cam.using_heatmaps:
             roto_net = None  # todo
         else:
-            roto_net = RotoTransNet
+            roto_net = RototransNet
 
         cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
     else:
@@ -80,7 +81,7 @@ def build_env(config, device):
         if config.cam2cam.model.init_weights:
             load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
 
-        print('cam2cam model:')
+        print('cam2cam model ({}):'.format(config.cam2cam.model.name))
         show_params(cam2cam_model, verbose=config.debug.show_models)
 
     # ... and opt ...
@@ -574,7 +575,7 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler,
                 total_loss += config.cam2cam.loss.roto_weight * loss
 
             # geodesic loss on rotation matrix
-            loss = compute_geodesic_distance()(
+            loss = R6DBlock.compute_geodesic_distance(
                 cam2cam_preds[batch_i, :, :3, :3].cuda(),
                 cam2cam_gts[batch_i, :, :3, :3].cuda()
             )  # ~ (len(pairs), )
@@ -600,8 +601,8 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler,
                 keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
             )
             loss_3d += loss
-            if config.cam2cam.loss.loss_3d_weight > 0:
-                total_loss += config.cam2cam.loss.loss_3d_weight * loss
+            if config.cam2cam.loss.tred_weight > 0:
+                total_loss += config.cam2cam.loss.tred_weight * loss
 
             # 2D KP projections loss, as in https://arxiv.org/abs/1905.10711
             gts = torch.cat([

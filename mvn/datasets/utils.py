@@ -28,15 +28,6 @@ def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
             for i in indexes
         ], axis=0).swapaxes(0, 1)
 
-        # batch['detections'] = np.array(
-        #     [
-        #         [
-        #             item['detections'][i] for item in items
-        #         ]
-        #         for i in indexes
-        #     ]
-        # ).swapaxes(0, 1)
-
         batch['cameras'] = [
             [
                 item['cameras'][i]
@@ -89,9 +80,8 @@ def cam2cam_precomputed_batch(src, target, cameras_batch, batch_i, cam2cams):
         return torch.cuda.FloatTensor(cam.intrinsics_padded)  # 3 x 4
 
     K = cameras_batch[target][batch_i].intrinsics_padded
-    K = torch.cuda.FloatTensor(K)
     return torch.mm(
-        K,
+        torch.cuda.FloatTensor(K),
         cam2cams[batch_i][target]  # cam2cam from src -> target
     )  # 3 x 4
 

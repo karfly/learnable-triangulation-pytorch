@@ -104,12 +104,12 @@ class MLPResNetBlock(nn.Module):
 class MartiNet(nn.Module):
     """ https://arxiv.org/abs/1705.03098 """
 
-    def __init__(self, in_features, out_features, n_units=1024, n_blocks=2, mlp=nn.Linear, batch_norm=True, activation=nn.ReLU, dropout=0.5):
+    def __init__(self, in_features, out_features, n_units=1024, n_blocks=2, mlp=nn.Linear, activation=nn.ReLU, batch_norm=True, dropout=0.5):
         super().__init__()
 
         layers = [
             mlp(in_features, n_units),
-            activation
+            activation(inplace=False)
         ]  # input
         layers += [
             ResNetBlock(

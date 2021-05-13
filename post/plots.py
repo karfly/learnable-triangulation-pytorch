@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
-LOSS_C = ['violet', 'gold', 'lawngreen', 'red']
+LOSS_C = ['violet', 'gold', 'lawngreen', 'red', 'brown']
 
 
 def plot_SOTA(axis, _xrange):
@@ -82,6 +82,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
     axis.legend(loc=legend_loc)
 
 
+# todo split into `plot_losses / plot_metrics`
 def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None, xlabel='# epoch'):
     loss_keys = list(filter(
         lambda x: 'loss / batch' in x and 'training' not in x,
@@ -123,7 +124,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
                 verbose=False
             )
 
-    axis.set_xlim([0, len(epochs) - 1])
+    axis.set_xlim([xrange[0], xrange[-1]])
     axis.set_xlabel(xlabel)
 
     if title:
@@ -165,11 +166,29 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         verbose=False
     )
 
-    # plot_SOTA(axis, [0, len(epochs) - 1])
+    plot_SOTA(axis, [xrange[0], xrange[-1]])
 
     axis.legend(loc=legend_loc)
-    axis.set_xlim([0, len(epochs) - 1])
+    axis.set_xlim([xrange[0], xrange[-1]])
     axis.set_ylabel(metric_ylabel)
+
+
+def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
+    for lr_reduction in lr_reductions:
+        epoch = lr_reduction['epoch']
+        batch_its = epoch * batch_amount_per_epoch
+
+        new_lr = lr_reduction['lr']
+
+        axis.vlines(
+            x=batch_its,
+            ymin=0, ymax=1,
+            label='new lr: {:.3E}'.format(new_lr),
+            color='magenta',
+            linestyle=':'
+        )
+
+    # axis.legend(loc='upper center')
 
 
 def make_axis_great_again(ax, xlim=None, ylim=None, hide_y=False):

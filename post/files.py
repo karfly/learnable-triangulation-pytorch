@@ -74,6 +74,7 @@ def parse_job_log(f_path, verbose=False):
         'training metrics': None,
         'eval metrics': None
     }  # tmp epoch details
+    lr_reductions = []
 
     for line in lines:
         if 'training dataset length:' in line:
@@ -95,54 +96,42 @@ def parse_job_log(f_path, verbose=False):
         if 'training batch iter' in line:  # batch loss
             tokens = line.split('~')
 
-            try:
-                if len(tokens) > 2:
-                    try:
-                        loss = parse_fp_number(tokens[1].split(',')[0])
-                        key = 'geodesic loss / batch'
-                        if key not in current_epoch_details:
-                            current_epoch_details[key] = []
-                        current_epoch_details[key].append(loss)
-                    except:
-                        pass
+            # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627
 
-                    try:
-                        loss = parse_fp_number(tokens[2].split(',')[0])
-                        key = 'L2 on T loss / batch'
-                        if key not in current_epoch_details:
-                            current_epoch_details[key] = []
-                        current_epoch_details[key].append(loss)
-                    except:
-                        pass
+            if len(tokens) > 2:
+                loss = parse_fp_number(tokens[1].split(',')[0])
+                key = 'geodesic loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
 
-                    try:
-                        loss = parse_fp_number(tokens[3].split(',')[0])
-                        key = 'L2 proj loss / batch'
-                        if key not in current_epoch_details:
-                            current_epoch_details[key] = []
-                        current_epoch_details[key].append(loss)
-                    except:
-                        pass
-                    
-                    try:
-                        loss = parse_fp_number(tokens[4].split(',')[0])
-                        key = 'L2 on R loss / batch'
-                        if key not in current_epoch_details:
-                            current_epoch_details[key] = []
-                        current_epoch_details[key].append(loss)
-                    except:
-                        pass
-                    
-                    try:
-                        loss = parse_fp_number(tokens[5].split(',')[0])
-                        key = 'L2 on 3D loss / batch'
-                        if key not in current_epoch_details:
-                            current_epoch_details[key] = []
-                        current_epoch_details[key].append(loss)
-                    except:
-                        pass
-            except:
-                pass  # old version of live debugs don't have much losses
+            if len(tokens) > 3:
+                loss = parse_fp_number(tokens[2].split(',')[0])
+                key = 'L2 on T loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
+
+            if len(tokens) > 4:
+                loss = parse_fp_number(tokens[3].split(',')[0])
+                key = 'L2 proj loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
+                
+            if len(tokens) > 5:
+                loss = parse_fp_number(tokens[4].split(',')[0])
+                key = 'L2 on R loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
+                
+            if len(tokens) > 6:
+                loss = parse_fp_number(tokens[5].split(',')[0])
+                key = 'L2 on 3D loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
 
             total_loss = parse_fp_number(tokens[-1])
             current_epoch_details['training loss / batch'].append(total_loss)
@@ -157,6 +146,14 @@ def parse_job_log(f_path, verbose=False):
 
         if 'complete!' in line:  # end of epoch
             epochs.append(current_epoch_details.copy())
+
+        if 'reducing learning rate' in line:
+            tokens = line[:-1].split()
+
+            lr_reductions.append({
+                'epoch': current_epoch_details['epoch'],
+                'lr': parse_fp_number(tokens[-1])
+            })
 
     if verbose:
         print('{} (from {})'.format(exp_name, f_path))
@@ -184,4 +181,4 @@ def parse_job_log(f_path, verbose=False):
             np.max(drop_na(eval_metrics))
         ))
 
-    return exp_name, train_data_amount, eval_data_amount, epochs
+    return exp_name, train_data_amount, eval_data_amount, epochs, lr_reductions

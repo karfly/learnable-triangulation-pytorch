@@ -22,13 +22,11 @@ which python  # just to check
 CODE_FOLDER="/home/stfo194b/tesi/learnable-triangulation-pytorch"
 LOGS_FOLDER="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
-# EXP_CONFIG="experiments/human36m/train/human36m_vol_softmax.yaml"
 
 cd ${CODE_FOLDER}
 pwd  # just to check
 
 python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
-# python3 train.py --eval --eval_dataset val --config experiments/human36m/eval/human36m_alg.yaml --logdir ${LOGS_FOLDER}
 
 date +"%Y-%m-%d %H:%M:%S"
 

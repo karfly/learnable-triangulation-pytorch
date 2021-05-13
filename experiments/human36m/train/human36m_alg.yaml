@@ -61,9 +61,9 @@ cam2cam:
     lr: 0.00002
 
   model:
-    name: kiss
+    name: unet
 
-    inner_size: 512
+    inner_size: 1024
     n_inner_layers: 5
   
     init_weights: false

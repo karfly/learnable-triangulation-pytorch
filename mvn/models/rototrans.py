@@ -1,13 +1,9 @@
-import traceback
 import torch
 from torch import nn
-from torch.autograd import Variable
-import numpy as np
-from torch.nn.modules.activation import GELU
 
-from mvn.models.vgg import make_virgin_vgg
-from mvn.models.layers import MLP, View
-from mvn.models.resnet import MLPResNetBlock, MartiNet
+from mvn.models.mlp import MLP
+from mvn.models.unet import MLUNet
+from mvn.models.resnet import MartiNet
 
 
 # from 1812.07035 (https://github.com/papagina/RotationContinuity)
@@ -78,7 +74,7 @@ def compute_geodesic_distance():
     return _f
 
 
-class RotoTransNetMLP(nn.Module):
+class RotoTransNet(nn.Module):
     def __init__(self, config):
         super().__init__()
 
@@ -89,8 +85,10 @@ class RotoTransNetMLP(nn.Module):
         batch_norm = config.cam2cam.batch_norm
         drop_out = config.cam2cam.drop_out
 
+        initial_units = 2 * n_joints * 2  # coming from a pair of 2D KPs
+
         if model == 'kiss':  # https://people.apache.org/~fhanik/kiss.html
-            sizes = [2 * n_joints * 2] + (n_inner_layers + 1) * [inner_size]
+            sizes = [initial_units] + (n_inner_layers + 1) * [inner_size]
 
             # best so far: 5Lx512U, no BN
             self.roto_extractor = nn.Sequential(*[
@@ -99,7 +97,7 @@ class RotoTransNetMLP(nn.Module):
                     sizes + [6],  # need 6D parametrization of rotation matrix
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.ReLU,
+                    activation=nn.LeakyReLU,
                     init_weights=False
                 )
             ])
@@ -110,13 +108,33 @@ class RotoTransNetMLP(nn.Module):
                     sizes + [3],  # 3D world
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.ReLU,
+                    activation=nn.LeakyReLU,
                     init_weights=False
                 )
             ])
-        elif model == 'martinet':
-            initial_units = 2 * n_joints * 2  # coming from a pair of 2D KPs
+        elif model == 'unet':
+            self.roto_extractor = nn.Sequential(*[
+                nn.Flatten(),  # will be fed into a MLP
+                MLUNet(
+                    initial_units,
+                    6,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU
+                ),
+            ])
 
+            self.trans_extractor = nn.Sequential(*[
+                nn.Flatten(),  # will be fed into a MLP
+                MLUNet(
+                    initial_units,
+                    3,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU
+                ),
+            ])
+        elif model == 'martinet':
             self.roto_extractor = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
                 MartiNet(
@@ -124,6 +142,7 @@ class RotoTransNetMLP(nn.Module):
                     6,  # need 6D parametrization of rotation matrix
                     n_units=inner_size,
                     n_blocks=n_inner_layers,
+                    activation=nn.LeakyReLU,
                     batch_norm=batch_norm,
                     dropout=drop_out
                 ),
@@ -137,6 +156,7 @@ class RotoTransNetMLP(nn.Module):
                     3,  # 3D world
                     n_units=inner_size,
                     n_blocks=n_inner_layers,
+                    activation=nn.LeakyReLU,
                     batch_norm=batch_norm,
                     dropout=drop_out
                 ),
@@ -152,67 +172,5 @@ class RotoTransNetMLP(nn.Module):
         rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
 
         trans2trans = self.trans_extractor(batch)  # ~ (batch_size, 3)
-
-        return rot2rot, trans2trans
-
-
-class RotoTransNetConv(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        n_joints = config.model.backbone.num_joints
-        inner_size = config.cam2cam.model.inner_size
-        n_inner_layers = config.cam2cam.model.n_inner_layers
-        sizes = (n_inner_layers + 1) * [inner_size]
-
-        self.roto_extractor = nn.Sequential(*[
-            make_virgin_vgg(
-                config.cam2cam.vgg,
-                batch_norm=config.cam2cam.batch_norm,
-                in_channels=2 * n_joints,
-                kernel_size=3,
-                num_classes=sizes[0],
-                init_weights=False
-            ),  # ~ encoder
-            MLP(
-                sizes + [6],  # need 6D parametrization of rotation matrix
-                batch_norm=config.cam2cam.batch_norm,
-                drop_out=config.cam2cam.drop_out,
-                activation=nn.LeakyReLU,
-                init_weights=False
-            )  # ~ decoder
-        ])
-
-        self.trans_extractor = nn.Sequential(*[
-            make_virgin_vgg(
-                config.cam2cam.vgg,
-                batch_norm=config.cam2cam.batch_norm,
-                in_channels=2 * n_joints,
-                kernel_size=3,
-                num_classes=sizes[0],
-                init_weights=False
-            ),  # ~ encoder
-            MLP(
-                sizes + [3],  # 3D world
-                batch_norm=config.cam2cam.batch_norm,
-                drop_out=config.cam2cam.drop_out,
-                activation=nn.LeakyReLU,
-                init_weights=False
-            )  # ~ decoder
-        ])
-
-    def forward(self, batch):
-        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, width, height) """
-
-        # stack each view "vertically"
-        batch = torch.cat([
-            batch[:, 0, ...],
-            batch[:, 1, ...],
-        ], dim=1)  # ~ batch_size, 17 * 2, 32, 32
-
-        features = self.roto_extractor(batch)
-        rot2rot = compute_rotation_matrix_from_ortho6d(features)  # ~ (batch_size, 3, 3)
-
-        trans2trans = self.trans_extractor(batch)
 
         return rot2rot, trans2trans

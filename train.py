@@ -24,7 +24,7 @@ from mvn.datasets import human36m
 from mvn.datasets import utils as dataset_utils
 
 from mvn.utils.minimon import MiniMon
-from mvn.models.rototrans import RotoTransNetMLP, RotoTransNetConv, compute_geodesic_distance
+from mvn.models.rototrans import RotoTransNet, compute_geodesic_distance
 
 
 def make_sample_prediction():
@@ -60,9 +60,9 @@ def build_env(config, device):
     # ... and cam2cam ...
     if config.model.cam2cam_estimation:
         if config.cam2cam.using_heatmaps:
-            roto_net = RotoTransNetConv
+            roto_net = None  # todo
         else:
-            roto_net = RotoTransNetMLP
+            roto_net = RotoTransNet
 
         cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
     else:
@@ -322,7 +322,7 @@ def triangulate_in_cam_iter(batch, iter_i, model, model_type, criterion, opt, im
 
     minimon.enter()
 
-    keypoints_3d_pred, keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+    keypoints_3d_pred, _, _, _ = model(
         images_batch,
         proj_matricies_batch,  # ~ (batch_size=8, n_views=4, 3, 4)
         minimon
@@ -501,16 +501,18 @@ def cam2cam_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler,
         # trans2trans = cam2cam_gts[batch_i, :, :3, 3].cuda().detach().clone()
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
-        pred = torch.cat([
-            rot2rot, trans2trans
-        ], dim=2)  # `torch.hstack`, for compatibility with cluster
 
-        # add [0, 0, 0, 1] at the bottom -> 4 x 4
         for pair_i in range(len(pairs)):
+            R = rot2rot[pair_i]
+            t = trans2trans[pair_i]
+            extrinsic = torch.cat([  # `torch.hstack`, for compatibility with cluster
+                R, t
+            ], dim=1)
+
             cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
-                pred[pair_i],
+                extrinsic,
                 torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
-            ], dim=0)
+            ], dim=0)  # add [0, 0, 0, 1] at the bottom -> 4 x 4
 
     minimon.leave('cam2cam forward')
 

@@ -105,8 +105,9 @@ class RototransNet(nn.Module):
                     in_features,
                     6,
                     inner_size=inner_size,
-                    batch_norm=False,
-                    dropout=0.0, activation=nn.LeakyReLU
+                    batch_norm=batch_norm,
+                    dropout=drop_out,
+                    activation=nn.LeakyReLU
                 ),
                 R6DBlock()  # no params, just 6D -> R
             ])
@@ -117,8 +118,9 @@ class RototransNet(nn.Module):
                     in_features,
                     3,
                     inner_size=inner_size,
-                    batch_norm=False,
-                    dropout=0.0, activation=nn.LeakyReLU
+                    batch_norm=batch_norm,
+                    dropout=drop_out,
+                    activation=nn.LeakyReLU
                 ),
             ])
         else:

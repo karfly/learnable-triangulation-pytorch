@@ -84,6 +84,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
             batch_out=f_out,
             with_originals=False
         )
+        1/0
 
     return results
 

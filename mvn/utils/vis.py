@@ -547,10 +547,10 @@ def save_predictions(batch, images_batch, proj_gts, proj_preds, dataloader, conf
 
             # draw square where predicted keypoints are
             for i, pt in enumerate(proj_preds[batch_i][view_i].numpy()):
-                color = (0, 255, 0)  # green
+                color = (143, 39, 84)  # violet
 
                 if i == 6:  # pelvis
-                    color = (0, 0, 255)  # red
+                    color = (0, 179, 255)  # orange
                 
                 center = tuple(pt.astype(int))
                 start_point = (center[0] - radius, center[1] - radius)

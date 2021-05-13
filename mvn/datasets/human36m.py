@@ -11,7 +11,7 @@ from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(5e2, 5e2),
+    translation=(680, 690),
     f=(1.6e3, 1.6e3),
     shear=0
 )
@@ -21,8 +21,8 @@ class Human36MMultiViewDataset(Dataset):
         Human3.6M for multiview tasks.
     """
     def __init__(self,
-                 h36m_root='/Vol1/dbstore/datasets/Human3.6M/processed/',
-                 labels_path='/Vol1/dbstore/datasets/Human3.6M/extra/human36m-multiview-labels-SSDbboxes.npy',
+                 h36m_root,
+                 labels_path,
                  pred_results_path=None,
                  image_shape=(256, 256),
                  train=False,
@@ -247,6 +247,10 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.do_resample:
+                square = (0, 0, 1000, 1000)  # have same size
+                image = crop_image(image, square)
+                retval_camera.update_after_crop(square)
+
                 # todo get rid of 1k + eps
                 # have same intrinsics
                 new_shape, cropping_box = make_with_target_intrinsics(
@@ -271,7 +275,7 @@ class Human36MMultiViewDataset(Dataset):
                 pelvis_vector = kp_in_cam[pelvis_index, ...]
 
                 # ... => find rotation matrix pelvis to z ...
-                z_axis = [0.055, 0.06, 1]  # todo why?
+                z_axis = [0, 0, 1]
                 Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
 
                 # ... and update E <- R.dot(E)

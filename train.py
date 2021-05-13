@@ -836,19 +836,6 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
     else:
         experiment_dir = None
 
-    if config.model.cam2cam_estimation:
-        weights = ', '.join([
-            'geo: {:.1f}'.format(config.cam2cam.loss.roto_weight),
-            'trans: {:.1f}'.format(config.cam2cam.loss.trans_weight),
-            'proj: {:.1f}'.format(config.cam2cam.loss.proj_weight),
-        ])
-        misc.live_debug_log(_iter_tag, 'cam2cam loss weights: {}'.format(weights))
-    else:  # usual KP estimation
-        if config.model.triangulate_in_world_space:  # predict KP in world
-            misc.live_debug_log(_iter_tag, 'triang in world loss weights: {}'.format(''))  # todo print loss weights
-        elif config.model.triangulate_in_cam_space:  # predict KP in camspace
-            misc.live_debug_log(_iter_tag, 'triang in cam loss weights: {}'.format(''))  # todo print loss weights
-
     minimon = MiniMon()
 
     for epoch in range(config.opt.n_epochs):  # training

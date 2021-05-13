@@ -179,6 +179,7 @@ def resample_image(image, target_intrinsics, intrinsics):
 def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     height, width = image.shape[:2]
 
+    # compute new shape
     f_x = intrinsics[0, 0]
     f_x1 = target_intrinsics[0, 0]
     scale_w = f_x1 / f_x
@@ -189,6 +190,7 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     scale_h = f_y1 / f_y
     new_h = height * scale_h
 
+    # compute cropping after scaling
     x_new = intrinsics[0, 2] * scale_w
     crop_left = x_new - target_intrinsics[0, 2]
 

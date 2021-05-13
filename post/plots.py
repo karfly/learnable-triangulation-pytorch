@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
-LOSS_C = ['violet', 'gold', 'lawngreen', 'red', 'brown']
+LOSS_C = ['violet', 'gold', 'lawngreen', 'red', 'brown', 'gray', 'black']
 
 
 def plot_SOTA(axis, _xrange):
@@ -85,7 +85,7 @@ def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 
 # todo split into `plot_losses / plot_metrics`
 def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None, xlabel='# epoch'):
     loss_keys = list(filter(
-        lambda x: 'loss / batch' in x and 'training' not in x,
+        lambda x: 'loss / batch' in x,  # and 'training' not in x,
         epochs[0].keys()
     ))
     if len(loss_keys) == 0:  # at least just show the training loss

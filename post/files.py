@@ -70,7 +70,7 @@ def parse_job_log(f_path, verbose=False):
     epochs = []  # will be a  [] of {} with details about each epoch
     current_epoch_details = {
         'epoch': None,
-        'training loss / batch': [],
+        'total loss / batch': [],
         'training metrics': None,
         'eval metrics': None
     }  # tmp epoch details
@@ -132,9 +132,16 @@ def parse_job_log(f_path, verbose=False):
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                
+            if len(tokens) > 7:
+                loss = parse_fp_number(tokens[6].split(',')[0])
+                key = 'self-consistency loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
 
             total_loss = parse_fp_number(tokens[-1])
-            current_epoch_details['training loss / batch'].append(total_loss)
+            current_epoch_details['total loss / batch'].append(total_loss)
 
         if 'training MPJPE' in line:
             metric = parse_fp_number(line.split(':')[-1].split()[0])

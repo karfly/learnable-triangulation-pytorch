@@ -84,3 +84,17 @@ function slurmShowUsageInMonth () {
     echo "${cpu_hours} CPU-hours used (since ${firstOfThisMonth}, ${as_perc} % of max)"
     echo "${predicted_by_end} CPU-hours will be used (by EOM, at this rate, ${predicted_as_perc} % of max)"
 }
+
+# usage: backupJobViaSSH "hackme" "15719703"
+function backupJobViaSSH () {
+    password=$1
+    job_id=$2
+
+    url="stfo194b@taurus.hrsk.tu-dresden.de"
+    folder="/home/stfo194b/tesi/learnable-triangulation-pytorch/tools"
+
+    full_path="${url}:${folder}/${job_id}.out"
+
+    echo "${full_path} ----> ${PWD}"
+    sshpass -p ${password} scp ${full_path} .
+}

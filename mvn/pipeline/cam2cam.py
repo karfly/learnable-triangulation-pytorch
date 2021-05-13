@@ -2,6 +2,7 @@ import torch
 
 import numpy as np
 
+from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_points_in_camspace
 from mvn.models.loss import geo_R_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
@@ -14,32 +15,9 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     n_joints = config.model.backbone.num_joints
 
-    def _get_kp_gt():
-        keypoints_2d_pred = torch.cat([
-            torch.cat([
-                batch['cameras'][view_i][batch_i].world2proj()(
-                    keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])  # ~ (batch_size, n_views, 17, 2)
-        keypoints_2d_pred.requires_grad = False
-
-        heatmaps_pred = torch.zeros(
-            (batch_size, n_views, n_joints, 32, 32)
-        )  # todo fake heatmaps_pred from GT KP: ~ N
-        heatmaps_pred.requires_grad = False
-
-        confidences_pred = torch.ones(
-            (batch_size, n_views, n_joints)
-        )  # 100% confident in each view
-
-        return keypoints_2d_pred, heatmaps_pred, confidences_pred
-
     def _forward_kp():
         if config.cam2cam.using_gt:
-            return _get_kp_gt()
+            return get_kp_gt(keypoints_3d_gt, batch['cameras'])
         else:
             return model(
                 images_batch, None, minimon
@@ -217,31 +195,10 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
 
         return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss
 
-    def _backprop():
-        opt.zero_grad()
-
-        try:
-            total_loss.backward()  # backward foreach batch
-        except:
-            live_debug_log(
-                _ITER_TAG,
-                'cannot backpropagate ... are you cheating?'
-            )
-
-        if hasattr(config.opt, "grad_clip"):  # clipping
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(),
-                config.opt.grad_clip / config.opt.lr
-            )
-
-        opt.step()
-        scheduler.step(total_loss.item() / batch_size)
-
     minimon.enter()
     keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
     minimon.leave('BB forward')
 
-    # prepare batch
     cam2cam_gts, pairs = _get_cam2cam_gt()
     keypoints_forward = _prepare_cam2cam_batch(pairs)
 
@@ -279,7 +236,7 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
         minimon.leave('calc loss')
 
         minimon.enter()
-        _backprop()
+        backprop(opt, scheduler, total_loss, _ITER_TAG)
         minimon.leave('backward pass')
 
     return keypoints_3d_pred.detach()

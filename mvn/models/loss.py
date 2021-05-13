@@ -1,3 +1,5 @@
+from itertools import combinations
+
 import numpy as np
 
 import torch
@@ -93,15 +95,152 @@ class VolumetricCELoss(nn.Module):
         return loss / n_losses
 
 
-def element_by_element(A, B, as_percentage=False):
-    errs = np.float32([
-        np.linalg.norm(a - b)
-        for a, b in zip(A, B)  # each row is the error A - B
-    ])
-    
-    rel_errs = np.float32([
-        np.linalg.norm(a - b) / np.linalg.norm(a)
-        for a, b in zip(A, B)  # each row is the RELATIVE error: (A - B) / A
-    ])
+def geodesic_distance(m1, m2):
+    batch_size = m1.shape[0]
+    m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
 
-    return np.mean(errs), np.mean(rel_errs) * (100.0 if as_percentage else 1.0)
+    cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
+
+    # bound [-1, 1]
+    cos = torch.min(
+        cos,
+        torch.ones(batch_size).cuda()
+    )
+    cos = torch.max(
+        cos,
+        torch.ones(batch_size).cuda() * -1
+    )
+
+    theta = torch.acos(cos)
+    return theta.mean()  # ~ (batch_size,)
+
+
+def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
+    batch_size = cam2cam_gts.shape[0]
+    loss = 0.0
+    
+    for batch_i in range(batch_size):
+        cam2cam_gt = torch.cat([
+            cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+        cam2cam_pred = torch.cat([
+            cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+
+        loss += KeypointsMSESmoothLoss(threshold=0.5)(
+            cam2cam_pred[:, :3, :3].cuda(),  # just R
+            cam2cam_gt[:, :3, :3].cuda()
+        )  # ~ (len(pairs), )
+
+    return loss
+
+
+def geo_R_loss(cam2cam_gts, cam2cam_preds, pairs):
+    batch_size = cam2cam_gts.shape[0]
+    loss = 0.0
+    
+    for batch_i in range(batch_size):
+        cam2cam_gt = torch.cat([
+            cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+        cam2cam_pred = torch.cat([
+            cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+
+        loss += geodesic_distance(
+            cam2cam_pred[:, :3, :3].cuda(),  # just R
+            cam2cam_gt[:, :3, :3].cuda()
+        )  # ~ (len(pairs), )
+
+    return loss
+
+
+def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
+    batch_size = cam2cam_gts.shape[0]
+    loss = 0.0
+    
+    for batch_i in range(batch_size):
+        cam2cam_gt = torch.cat([
+            cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+        cam2cam_pred = torch.cat([
+            cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
+            for pair in pairs
+        ])
+        
+        loss += KeypointsMSESmoothLoss(threshold=400)(
+            cam2cam_pred[:, :3, 3].cuda() / scale_trans2trans,  # just t
+            cam2cam_gt[:, :3, 3].cuda() / scale_trans2trans
+        )
+
+    return loss
+
+
+def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, criterion, scale_keypoints_3d):
+    return criterion(
+        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
+        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
+    )
+
+
+def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras):
+    n_views = len(cameras)
+    batch_size = keypoints_3d_gt.shape[0]
+    loss = 0.0
+    
+    for batch_i in range(batch_size):
+        gt = torch.cat([
+            cameras[view_i][batch_i].world2proj()(
+                keypoints_3d_gt[batch_i]
+            ).unsqueeze(0)
+            for view_i in range(1, n_views)  # 0 is "master" cam
+        ])  # ~ n_views - 1, 17, 2
+        
+        pred = torch.cat([
+            cameras[view_i][batch_i].world2proj()(
+                keypoints_3d_pred[batch_i]
+            ).unsqueeze(0)
+            for view_i in range(1, n_views)  # 0 is "master" cam
+        ])  # ~ n_views - 1, 17, 2
+    
+        loss += KeypointsMSESmoothLoss(threshold=400)(
+            gt.cuda(),
+            pred.cuda(),
+        )
+
+    return loss
+
+
+def self_consistency_loss(cam2cam_preds):
+    batch_size = cam2cam_preds.shape[0]
+    n_views = cam2cam_preds.shape[1]
+    pairs = combinations(range(n_views), 2)
+    loss = 0.0
+
+    for batch_i in range(batch_size):  # todo speed-up
+        for i, j in pairs:
+            gt = torch.inverse(cam2cam_preds[batch_i, j, i])
+            pred = cam2cam_preds[batch_i, i, j]
+
+            loss += geodesic_distance(
+                gt.unsqueeze(0), pred.unsqueeze(0)
+            )
+
+        for i in range(n_views):
+            gt = torch.matmul(
+                cam2cam_preds[batch_i, j, i],
+                torch.inverse(cam2cam_preds[batch_i, j, i])
+            )
+            pred = cam2cam_preds[batch_i, i, i]
+
+            loss += geodesic_distance(
+                gt.unsqueeze(0), pred.unsqueeze(0)
+            )
+
+    return loss

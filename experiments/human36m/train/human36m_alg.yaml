@@ -51,6 +51,7 @@ cam2cam:
   vgg: "16"
 
   loss:
+    self_consistency_weight: 10.0
     roto_weight: 0.0
     geo_weight: 0.0
     trans_weight: 0.0
@@ -61,7 +62,7 @@ cam2cam:
     lr: 0.00002
 
   model:
-    name: canonpose
+    name: kiss
 
     inner_size: 1024
     n_inner_layers: 5

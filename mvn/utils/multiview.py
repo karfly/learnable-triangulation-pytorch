@@ -344,8 +344,40 @@ def triangulate_batch_of_points_using_gpu_friendly_svd(proj_matricies_batch, poi
     return point_3d_batch
 
 
+def triangulate_points_in_camspace(points_batch, matrices_batch, confidences_batch=None):
+    n_joints = points_batch.shape[1]
+    triangulator = triangulate_point_from_multiple_views_linear_torch
+
+    point_3d_batch = torch.zeros(
+        n_joints,
+        3,
+        dtype=torch.float32
+    )  # ~ (batch_size=8, n_joints=17, 3D)
+
+    for joint_i in range(n_joints):  # triangulate joint
+        points = points_batch[:, joint_i]  # ~ (n_views=4, 2)
+
+        if not (confidences_batch is None):
+            confidences = confidences_batch[:, joint_i]
+
+            point_3d = triangulator(
+                matrices_batch.cpu(),
+                points.cpu(),
+                confidences=confidences.cpu()  # todo check grad
+            )
+        else:
+            point_3d = triangulator(
+                matrices_batch,
+                points
+            )
+
+        point_3d_batch[joint_i] = point_3d
+
+    return point_3d_batch
+
+
 def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, triangulator=triangulate_point_from_multiple_views_linear_torch, confidences_batch=None):
-    batch_size, n_views, n_joints = points_batch.shape[0: 2 + 1]
+    batch_size, _, n_joints = points_batch.shape[0: 2 + 1]
 
     point_3d_batch = torch.zeros(
         batch_size,
@@ -355,23 +387,11 @@ def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, trian
     )  # ~ (batch_size=8, n_joints=17, 3D)
 
     for batch_i in range(batch_size):
-        for joint_i in range(n_joints):  # triangulate joint
-            points = points_batch[batch_i, :, joint_i]  # ~ (n_views=4, 2)
-
-            if not (confidences_batch is None):
-                confidences = confidences_batch[batch_i, :, joint_i]
-                point_3d = triangulator(
-                    matrices_batch[batch_i],
-                    points,
-                    confidences=torch.FloatTensor(confidences)
-                )
-            else:
-                point_3d = triangulator(
-                    matrices_batch[batch_i],
-                    points
-                )
-
-            point_3d_batch[batch_i, joint_i] = point_3d
+        point_3d_batch[batch_i] = triangulate_points_in_camspace(
+            points_batch[batch_i],
+            matrices_batch[batch_i],
+            confidences_batch[batch_i] if not (confidences_batch is None) else None
+        )
 
     return point_3d_batch
 

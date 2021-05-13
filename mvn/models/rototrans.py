@@ -104,7 +104,7 @@ class RototransNet(nn.Module):
                 CanonPose(
                     in_features,
                     6,
-                    inner_size=1024,
+                    inner_size=inner_size,
                     batch_norm=False,
                     dropout=0.0, activation=nn.LeakyReLU
                 ),
@@ -116,7 +116,7 @@ class RototransNet(nn.Module):
                 CanonPose(
                     in_features,
                     3,
-                    inner_size=1024,
+                    inner_size=inner_size,
                     batch_norm=False,
                     dropout=0.0, activation=nn.LeakyReLU
                 ),

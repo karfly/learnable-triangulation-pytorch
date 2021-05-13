@@ -105,26 +105,6 @@ class R6DBlock(nn.Module):
         out = torch.cat((i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1)
         return out
 
-    @staticmethod
-    def compute_geodesic_distance(m1, m2):
-        batch_size = m1.shape[0]
-        m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
-
-        cos = (m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2] - 1) / 2
-
-        # bound [-1, 1]
-        cos = torch.min(
-            cos,
-            torch.ones(batch_size).cuda()
-        )
-        cos = torch.max(
-            cos,
-            torch.ones(batch_size).cuda() * -1
-        )
-
-        theta = torch.acos(cos)
-        return theta.mean()  # ~ (batch_size,)
-
     def forward(self, x):
         x_raw = x[:, 0: 3]
         y_raw = x[:, 3: 6]

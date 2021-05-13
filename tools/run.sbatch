@@ -26,7 +26,7 @@ EXP_CONFIG="experiments/human36m/train/human36m_alg.yaml"
 cd ${CODE_FOLDER}
 pwd  # just to check
 
-python3 train.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
+python3 main.py --config ${EXP_CONFIG} --logdir ${LOGS_FOLDER}
 
 date +"%Y-%m-%d %H:%M:%S"
 

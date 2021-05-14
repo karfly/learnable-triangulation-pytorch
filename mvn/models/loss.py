@@ -216,7 +216,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
     return loss
 
 
-def self_consistency_loss(cam2cam_preds):
+def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=400):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))
@@ -242,13 +242,17 @@ def self_consistency_loss(cam2cam_preds):
             )
 
     # translation
-    criterion = KeypointsMSESmoothLoss(threshold=400)
     for batch_i in range(batch_size):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            cij = cam2cam_preds[batch_i, i, j]
-            cji = torch.inverse(cam2cam_preds[batch_i, j, i])
-            sum_of_norms = torch.norm(cij, 2) + torch.norm(cji, 2)  # todo to comply with cluster
+            cij = cam2cam_preds[batch_i, i, j][:3, 3] / scale_trans2trans  # just t
+            cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3] / scale_trans2trans  # just t
+            
+            sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')  # todo to comply with cluster
 
-            loss_t += criterion(cij, cji) / sum_of_norms  # normalize
+            diff = (cij - cji) ** 2
+            diff = diff / sum_of_norms
+            diff[diff > threshold] = torch.pow(diff[diff > threshold], 0.1) * (threshold ** 0.9)  # soft version
+
+            loss_t += diff.sum()  # normalize
 
     return loss_R, loss_t

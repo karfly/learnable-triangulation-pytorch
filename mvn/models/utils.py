@@ -152,7 +152,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     scheduler = ReduceLROnPlateau(
         opt,
         factor=8e-1,  # new lr = x * lr
-        patience=120,  # n max iterations from optimum
+        patience=100,  # n max iterations from optimum
         threshold=1,  # monitoring MPJPE => mm
         min_lr=1e-7,
         verbose=True

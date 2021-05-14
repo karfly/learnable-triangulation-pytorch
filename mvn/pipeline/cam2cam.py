@@ -166,7 +166,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * pose_loss
 
-    loss_R, loss_t = self_consistency_loss(cam2cam_preds)
+    loss_R, loss_t = self_consistency_loss(cam2cam_preds, config.cam2cam.scale_trans2trans)
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += config.cam2cam.loss.self_consistency.R * loss_R
     if config.cam2cam.loss.self_consistency.t > 0:

@@ -56,7 +56,7 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, len(pairs), 3, 3)
 
 
-def _forward_cam2cam(cam2cam_model, keypoints_forward, pairs, scale_trans2trans, gts=None):
+def _forward_cam2cam(cam2cam_model, keypoints_forward, pairs, scale_trans2trans=1e3, gts=None):
     batch_size = keypoints_forward.shape[0]
     cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
 
@@ -64,15 +64,11 @@ def _forward_cam2cam(cam2cam_model, keypoints_forward, pairs, scale_trans2trans,
         rot2rot, trans2trans = cam2cam_model(
             keypoints_forward[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
         )
-        trans2trans *= scale_trans2trans
+        trans2trans = trans2trans * scale_trans2trans
 
         if not (gts is None):  # use them!
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
-
-            # add some uncertainty
-            rot2rot += torch.rand_like(rot2rot) / 500.0
-            trans2trans += torch.rand_like(trans2trans) / 500.0
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
 
@@ -158,9 +154,8 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.geo_weight > 0:
         total_loss += config.cam2cam.loss.geo_weight * geodesic_loss
 
-    scale_trans2trans = config.cam2cam.scale_trans2trans
     trans_loss = t_loss(
-        cam2cam_gts, cam2cam_preds, _pairs, scale_trans2trans
+        cam2cam_gts, cam2cam_preds, _pairs, config.cam2cam.scale_trans2trans
     )
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
@@ -180,7 +175,6 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
         keypoints_3d_gt,
         keypoints_3d_pred,
         keypoints_3d_binary_validity_gt,
-        criterion,
         scale_keypoints_3d
     )
     if config.cam2cam.loss.tred_weight > 0:
@@ -230,6 +224,38 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
 
         return keypoints_forward.cuda()
 
+    def _backprop():
+        minimon.enter()
+        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss = _compute_losses(
+            cam2cam_preds,
+            cam2cam_gts,
+            keypoints_3d_pred,
+            keypoints_3d_gt,
+            keypoints_3d_binary_validity_gt,
+            batch['cameras'],
+            criterion,
+            config
+        )
+
+        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+            'training' if is_train else 'validation',
+            iter_i,
+            geodesic_loss.item(),  # normalize per each sample
+            trans_loss.item(),
+            pose_loss.item(),
+            roto_loss.item(),
+            loss_3d.item(),
+            selfc_loss.item(),
+            total_loss.item(),
+        )
+        live_debug_log(_ITER_TAG, message)
+
+        minimon.leave('calc loss')
+
+        minimon.enter()
+        backprop(opt, scheduler, total_loss, _ITER_TAG)
+        minimon.leave('backward pass')
+
     minimon.enter()
     keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
     keypoints_2d_pred = _normalize_to_pelvis(keypoints_2d_pred)
@@ -243,7 +269,7 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
         cam2cam_model,
         keypoints_forward,
         pairs,
-        config.cam2cam.scale_trans2trans
+        config.cam2cam.scale_trans2trans,
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)
@@ -260,35 +286,6 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
     minimon.leave('cam2cam DLT')
 
     if is_train:
-        minimon.enter()
-        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss = _compute_losses(
-            cam2cam_preds,
-            cam2cam_gts,
-            keypoints_3d_pred,
-            keypoints_3d_gt,
-            keypoints_3d_binary_validity_gt,
-            batch['cameras'],
-            criterion,
-            config
-        )
-
-        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
-            'training' if is_train else 'validation',
-            iter_i,
-            geodesic_loss.item() / batch_size,  # normalize per each sample
-            trans_loss.item() / batch_size,
-            pose_loss.item() / batch_size,
-            roto_loss.item() / batch_size,
-            loss_3d.item() / batch_size,
-            selfc_loss.item() / batch_size,
-            total_loss.item() / batch_size,
-        )
-        live_debug_log(_ITER_TAG, message)
-
-        minimon.leave('calc loss')
-
-        minimon.enter()
-        backprop(opt, scheduler, total_loss, _ITER_TAG)
-        minimon.leave('backward pass')
+        _backprop()
 
     return keypoints_3d_pred.detach()

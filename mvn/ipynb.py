@@ -1,13 +1,10 @@
 import torch
 import numpy as np
-from pathlib import Path
 
-from mvn.utils import multiview, cfg
+from mvn.utils import cfg
 from mvn.utils.dicts import NestedNamespace
 from mvn.models.utils import build_opt
 
-from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
-from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss, KeypointsL2Loss, VolumetricCELoss, element_weighted_loss
 
 
 def get_args():
@@ -64,12 +61,6 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.vgg = 'smallest'
     config.cam2cam.batch_norm = False
     config.cam2cam.model.inner_size = 16
-    config.cam2cam.loss.self_consistency_weight = 10.0
-    config.cam2cam.loss.roto_weight = 0.0
-    config.cam2cam.loss.trans_weight = 0.0
-    config.cam2cam.loss.proj_weight = 0.0
-    config.cam2cam.loss.tred_weight = 1.0
-    config.cam2cam.opt.lr = 2e-5
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

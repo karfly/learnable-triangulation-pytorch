@@ -181,7 +181,7 @@ def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     return loss
 
 
-def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, criterion, scale_keypoints_3d):
+def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=400)):
     return criterion(
         keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
         keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
@@ -189,7 +189,7 @@ def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_g
     )
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras):
+def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=400)):
     n_views = len(cameras)
     batch_size = keypoints_3d_gt.shape[0]
     loss = 0.0
@@ -209,7 +209,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras):
             for view_i in range(1, n_views)  # 0 is "master" cam
         ])  # ~ n_views - 1, 17, 2
     
-        loss += KeypointsMSESmoothLoss(threshold=400)(
+        loss += criterion(
             gt.cuda(),
             pred.cuda(),
         )
@@ -218,6 +218,8 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras):
 
 
 def self_consistency_loss(cam2cam_preds):
+    device = cam2cam_preds.device
+
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = combinations(range(n_views), 2)
@@ -233,11 +235,8 @@ def self_consistency_loss(cam2cam_preds):
             )
 
         for i in range(n_views):
-            gt = torch.matmul(
-                cam2cam_preds[batch_i, j, i],
-                torch.inverse(cam2cam_preds[batch_i, j, i])
-            )
             pred = cam2cam_preds[batch_i, i, i]
+            gt = torch.eye(4).to(device)  # Ei * Ei^-1 => I
 
             loss += geodesic_distance(
                 gt.unsqueeze(0), pred.unsqueeze(0)

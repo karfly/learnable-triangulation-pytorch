@@ -102,7 +102,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         nan = np.mean(drop_na(loss_history))
         loss_history = np.nan_to_num(loss_history, nan=nan)
 
-        if np.mean(loss_history) > 0.0:
+        if np.mean(loss_history) > 1e-2:
             _min, _max = np.min(drop_na(loss_history)), np.max(
                 drop_na(loss_history))
             _last = loss_history[-1]

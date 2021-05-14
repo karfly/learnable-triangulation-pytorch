@@ -32,7 +32,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+            batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world
@@ -84,7 +84,6 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
             batch_out=f_out,
             with_originals=False
         )
-        1/0
 
     return results
 
@@ -133,7 +132,8 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
         results['preds'] = np.vstack(results['preds'])
         scalar_metric, full_metric = dataloader.dataset.evaluate(
             results['preds'],
-            indices_predicted=results['indexes']
+            indices_predicted=results['indexes'],
+            split_by_subject=True
         )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
         message = '{} MPJPE relative to pelvis: {:.3f} mm'.format(

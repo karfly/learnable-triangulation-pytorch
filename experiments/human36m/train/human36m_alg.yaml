@@ -43,7 +43,9 @@ svd:
 cam2cam:
   using_gt: true
   scale_trans2trans: 1000.0
+
   using_heatmaps: false
+  normalize_kp_to_pelvis: true
 
   batch_norm: false
   drop_out: 0
@@ -59,7 +61,7 @@ cam2cam:
     tred_weight: 1.0
 
   opt:
-    lr: 0.00002
+    lr: 0.0001
 
   model:
     name: "kiss"

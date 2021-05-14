@@ -45,7 +45,7 @@ class RototransNet(nn.Module):
                     activation=nn.LeakyReLU,
                     init_weights=False
                 ),
-                # nn.Linear(3, 3, bias=True),
+                nn.Linear(3, 3, bias=True),
             ])
         elif model == 'martinet':
             self.R_backbone = nn.Sequential(*[
@@ -123,6 +123,7 @@ class RototransNet(nn.Module):
                     dropout=drop_out,
                     activation=nn.LeakyReLU
                 ),
+                nn.Linear(3, 3, bias=True)
             ])
         else:
             raise ValueError('YOU HAVE TO SPECIFY A cam2cam MODEL!')

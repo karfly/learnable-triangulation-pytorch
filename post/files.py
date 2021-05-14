@@ -93,7 +93,7 @@ def parse_job_log(f_path, verbose=False):
                 if 'loss' in key:
                     current_epoch_details[key] = []
 
-        if 'training batch iter' in line:  # batch loss
+        if 'training batch iter' in line and (not 'MPJPE' in line):  # batch loss
             tokens = line.split('~')
 
             # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627

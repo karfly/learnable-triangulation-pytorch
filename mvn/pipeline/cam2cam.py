@@ -137,7 +137,7 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
     ])
 
 
-def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, criterion, config):
+def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
     _pairs = [
         [0, 1],
         [0, 2],
@@ -183,7 +183,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss
 
 
-def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     n_joints = config.model.backbone.num_joints
 
@@ -211,7 +211,7 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
             ])  # ~ (3, 2, 17, 32, 32)
 
         return detections.cuda()
-    
+
     def _prepare_cam2cam_keypoints_batch(keypoints, pairs):
         detections = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
 
@@ -227,7 +227,6 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
         return detections.cuda()
 
     def _backprop():
-        minimon.enter()
         geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
@@ -235,11 +234,10 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
             keypoints_3d_gt,
             keypoints_3d_binary_validity_gt,
             batch['cameras'],
-            criterion,
             config
         )
 
-        message = '{} batch iter {:d} avg per sample loss: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
@@ -252,10 +250,20 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
         )
         live_debug_log(_ITER_TAG, message)
 
-        minimon.leave('calc loss')
+        scalar_metric, _ = dataloader.dataset.evaluate(
+            keypoints_3d_pred.detach().cpu().numpy(),
+            batch['indexes'],
+            split_by_subject=True
+        )  # MPJPE
+        message = '{} batch iter {:d} MPJPE: ~ {:.3f} mm'.format(
+            'training' if is_train else 'validation',
+            iter_i,
+            scalar_metric
+        )
+        live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
-        backprop(opt, scheduler, total_loss, _ITER_TAG)
+        backprop(opt, total_loss, scheduler, scalar_metric, _ITER_TAG)
         minimon.leave('backward pass')
 
     minimon.enter()
@@ -266,8 +274,11 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
     if config.cam2cam.using_heatmaps:
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
-        kps = _normalize_to_pelvis(keypoints_2d_pred)
-        detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
+        if config.cam2cam.normalize_kp_to_pelvis:
+            kps = _normalize_to_pelvis(keypoints_2d_pred)
+            detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
+        else:
+            detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)
 
     minimon.enter()
     cam2cam_preds = _forward_cam2cam(

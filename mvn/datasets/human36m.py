@@ -374,15 +374,15 @@ class Human36MMultiViewDataset(Dataset):
 
         return meshgrids
 
-    def evaluate_using_per_pose_error(self, per_pose_error, split_by_subject):
-        def evaluate_by_actions(self, per_pose_error, mask=None):
-            if mask is None:
-                mask = np.ones_like(per_pose_error, dtype=bool)
-
-            action_scores = {
-                'Average': {'total_loss': per_pose_error[mask].sum(), 'frame_count': np.count_nonzero(mask)}
+    def evaluate_by_actions(self, per_pose_error, mask, split_by_subject):
+        action_scores = {
+            'Average': {
+                'total_loss': per_pose_error[mask].sum(),
+                'frame_count': np.count_nonzero(mask)
             }
+        }
 
+        if split_by_subject:
             for action_idx in range(len(self.labels['action_names'])):
                 action_mask = (self.labels['table']['action_idx'] == action_idx) & mask
                 action_per_pose_error = per_pose_error[action_mask]
@@ -407,16 +407,28 @@ class Human36MMultiViewDataset(Dataset):
             for k, v in action_scores.items():
                 action_scores[k] = float('nan') if v['frame_count'] == 0 else (v['total_loss'] / v['frame_count'])
 
-            return action_scores
+        return action_scores
+
+    def evaluate_using_per_pose_error(self, per_pose_error, indices_predicted, split_by_subject):
+        mask = np.zeros(len(self.labels['table']))
+        mask[indices_predicted] = 1.0
+        mask = mask > 0  # boolean
+
+        per_pose_errors = np.zeros(len(self.labels['table']))
+        per_pose_errors[indices_predicted] = per_pose_error
+        per_pose_error = per_pose_errors
 
         subject_scores = {
-            'Average': evaluate_by_actions(self, per_pose_error)
+            'Average': self.evaluate_by_actions(per_pose_error, mask, split_by_subject)
         }
 
-        for subject_idx in range(len(self.labels['subject_names'])):
-            subject_mask = self.labels['table']['subject_idx'] == subject_idx
-            subject_scores[self.labels['subject_names'][subject_idx]] = \
-                evaluate_by_actions(self, per_pose_error, subject_mask)
+        if split_by_subject:
+            for subject_idx in range(len(self.labels['subject_names'])):
+                subject_mask = self.labels['table']['subject_idx'] == subject_idx
+                
+                subject_scores[self.labels['subject_names'][subject_idx]] = self.evaluate_by_actions(
+                    per_pose_error, subject_mask, split_by_subject
+                )
 
         return subject_scores
 
@@ -456,8 +468,9 @@ class Human36MMultiViewDataset(Dataset):
         per_pose_error_relative = np.sqrt(((keypoints_gt_relative - keypoints_3d_predicted_relative) ** 2).sum(2)).mean(1)  # should be (alg, vol) = (22.6, 20.8), excluding 'with_damaged_actions' frames
 
         result = {
-            'per_pose_error': self.evaluate_using_per_pose_error(per_pose_error, split_by_subject),
-            'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, split_by_subject)
+            'per_pose_error': self.evaluate_using_per_pose_error(per_pose_error, indices_predicted, split_by_subject),
+            'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, indices_predicted, split_by_subject)
         }
 
-        return result['per_pose_error_relative']['Average']['Average'], result
+        scalar_metric = result['per_pose_error_relative']['Average']['Average']
+        return scalar_metric, result

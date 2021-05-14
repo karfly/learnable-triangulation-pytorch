@@ -29,7 +29,7 @@ def get_kp_gt(keypoints_3d_gt, cameras):
     return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
 
-def backprop(opt, scheduler, total_loss, tag):
+def backprop(opt, total_loss, scheduler, scheduler_metric, tag):
     opt.zero_grad()
 
     try:
@@ -41,4 +41,4 @@ def backprop(opt, scheduler, total_loss, tag):
         )
 
     opt.step()
-    scheduler.step(total_loss.item())
+    scheduler.step(scheduler_metric)

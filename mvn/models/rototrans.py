@@ -2,7 +2,7 @@ from torch import nn
 
 from mvn.models.mlp import MLP
 from mvn.models.unet import MLUNet
-from mvn.models.resnet import MartiNet
+from mvn.models.resnet import MLPResNet
 from mvn.models.canonpose import CanonPose
 from mvn.models.layers import R6DBlock
 
@@ -31,7 +31,6 @@ class RototransNet(nn.Module):
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
-                    init_weights=False
                 ),
                 R6DBlock()  # no params, just 6D -> R
             ])
@@ -43,38 +42,33 @@ class RototransNet(nn.Module):
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
-                    init_weights=False
                 ),
                 nn.Linear(3, 3, bias=True),
             ])
-        elif model == 'martinet':
+        elif model == 'res':
+            sizes = [in_features] + (n_inner_layers + 1) * [inner_size]
+
             self.R_backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
-                MartiNet(
-                    in_features,
+                MLPResNet(
+                    in_features, inner_size, n_inner_layers,
                     6,  # need 6D parametrization of rotation matrix
-                    n_units=inner_size,
-                    n_blocks=n_inner_layers,
-                    activation=nn.LeakyReLU,
                     batch_norm=batch_norm,
-                    dropout=drop_out
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU,
                 ),
-                nn.LeakyReLU(inplace=False),
                 R6DBlock()  # no params, just 6D -> R
             ])
 
             self.t_backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
-                MartiNet(
-                    in_features,
-                    3,  # 3D world
-                    n_units=inner_size,
-                    n_blocks=n_inner_layers,
-                    activation=nn.LeakyReLU,
+                MLPResNet(
+                    in_features, inner_size, n_inner_layers,
+                    3,
                     batch_norm=batch_norm,
-                    dropout=drop_out
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU,
                 ),
-                nn.LeakyReLU(inplace=False)
             ])
         elif model == 'unet':
             self.R_backbone = nn.Sequential(*[

@@ -56,7 +56,6 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.model.init_weights = False
     # config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
 
-    config.cam2cam.model.name = 'kiss'
     config.cam2cam.model.n_inner_layers = 2
     config.cam2cam.vgg = 'smallest'
     config.cam2cam.batch_norm = False

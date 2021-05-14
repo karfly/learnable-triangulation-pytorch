@@ -20,13 +20,13 @@ def plot_SOTA(axis, _xrange):
     # )
 
 
-def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', legend_loc=None, show_min=False, marker=',', verbose=True):
+def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', alpha=1.0, legend_loc=None, show_min=False, marker=',', verbose=True):
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
 
     axis.plot(
-        xrange, metrics, label=label, color=color, marker=marker
+        xrange, metrics, label=label, color=color, marker=marker, alpha=alpha
     )
 
     if show_min:
@@ -106,8 +106,8 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
             _min, _max = np.min(drop_na(loss_history)), np.max(
                 drop_na(loss_history))
             _last = loss_history[-1]
-            label = '{} (min = {:.1f}, max = {:.1f}, last = {:.1f})'.format(
-                key.replace('loss / batch', '').strip(), _min, _max, _last
+            label = '{} = {:.0f} ({:.0f} / {:.0f})'.format(
+                key.replace('loss / batch', '').strip(), _last, _min, _max
             )
             loss_history = normalize_transformation(normalize_loss)(
                 loss_history) if normalize_loss else loss_history
@@ -118,6 +118,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
                 label=label,
                 xrange=xrange,
                 color=color,
+                alpha=0.8 if 'total' in label else 0.3,
                 legend_loc='lower left',
                 show_min=False,
                 marker='+',

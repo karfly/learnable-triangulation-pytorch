@@ -2,7 +2,7 @@ from torch import nn
 
 
 class MLP(nn.Module):
-    def __init__(self, sizes, batch_norm=False, drop_out=0.0, linear=nn.Linear, activation=nn.LeakyReLU, init_weights=True):
+    def __init__(self, sizes, batch_norm=False, drop_out=0.0, linear=nn.Linear, activation=nn.LeakyReLU, init_weights=False):
         super().__init__()
 
         self.backbone = self._make_layers(sizes, batch_norm, drop_out, linear, activation)

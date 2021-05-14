@@ -1,67 +1,56 @@
 from torch import nn
 
-from mvn.models.layers import ResNetBlock
+linear = nn.Linear
 
 
-class MLPResNetBlock(nn.Module):
-    def __init__(self, n_layers, in_features, n_units, out_features, batch_norm=False, mlp=nn.Linear, activation=nn.LeakyReLU):
+class MLPResNet(nn.Module):
+    def __init__(self, in_features, inner_size, n_inner_layers, out_features, batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=False):
         super().__init__()
 
-        layers = [
-            mlp(in_features, n_units),
-            activation
-        ]  # input
-        layers += [
-            ResNetBlock(
-                mlp(n_units, n_units),
-                mlp(n_units, n_units),
-                batch_norm=[
-                    nn.BatchNorm1d(n_units),
-                    nn.BatchNorm1d(n_units),
-                ] if batch_norm else None,
-                activation=activation,
-            )
-            for _ in range(n_layers)
-        ]  # bottleneck
-        layers += [
-            mlp(n_units, out_features)
-        ]  # output
+        sizes = (n_inner_layers + 1) * [ inner_size ]
 
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.model(x)
-
-
-class MartiNet(nn.Module):
-    """ https://arxiv.org/abs/1705.03098 """
-
-    def __init__(self, in_features, out_features, n_units=1024, n_blocks=2, mlp=nn.Linear, activation=nn.ReLU, batch_norm=True, dropout=0.5):
-        super().__init__()
-
-        layers = [
-            mlp(in_features, n_units),
+        self.up = nn.Linear(in_features, inner_size, bias=True)
+        self.linears = nn.ModuleList([
+            linear(sizes[i], sizes[i + 1], bias=True)
+            for i in range(len(sizes) - 1)
+        ])
+        self.bns = nn.ModuleList([
+            nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
+            for i in range(len(sizes) - 1)
+        ])
+        # todo dropout
+        self.activations = nn.ModuleList([
             activation(inplace=False)
-        ]  # input
-        layers += [
-            ResNetBlock(
-                mlp(n_units, n_units),
-                mlp(n_units, n_units),
-                batch_norm=[
-                    nn.BatchNorm1d(n_units),
-                    nn.BatchNorm1d(n_units),
-                ] if batch_norm else None,
-                activation=activation,
-                dropout=dropout,
-                final_activation_before_residual=True
-            )
-            for _ in range(n_blocks)
-        ]  # bottleneck
-        layers += [
-            mlp(n_units, out_features)
-        ]  # output
+            for _ in range(len(sizes) - 1)
+        ])
+        
+        self.head = linear(inner_size, out_features, bias=True)
 
-        self.model = nn.Sequential(*layers)
+        if init_weights:
+            for m in self.modules():
+                if isinstance(m, nn.Linear):
+                    nn.init.normal_(m.weight, 0, 1)
+                    nn.init.constant_(m.bias, 0)
+                elif isinstance(m, nn.BatchNorm1d):
+                    nn.init.constant_(m.weight, 1)
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        return self.model(x)
+        x = self.up(x)
+        residual = x
+
+        for i in range(len(self.linears)):
+            l, b, a = self.linears[i], self.bns[i], self.activations[i]
+
+            x = l(x)
+
+            if not (b is None):
+                x = b(x)
+
+            x = x + residual
+            x = a(x)  # activation AFTER residual
+
+            residual = x  # save for next layer
+
+        x = self.head(x)
+        return x

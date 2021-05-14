@@ -64,7 +64,7 @@ cam2cam:
     lr: 0.0001
 
   model:
-    name: "kiss"
+    name: "res"
 
     inner_size: 1024
     n_inner_layers: 5

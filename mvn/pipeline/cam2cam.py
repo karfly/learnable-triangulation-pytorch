@@ -166,9 +166,11 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * pose_loss
 
-    selfc_loss = self_consistency_loss(cam2cam_preds)
-    if config.cam2cam.loss.self_consistency_weight > 0:
-        total_loss += config.cam2cam.loss.self_consistency_weight * selfc_loss
+    loss_R, loss_t = self_consistency_loss(cam2cam_preds)
+    if config.cam2cam.loss.self_consistency.R > 0:
+        total_loss += config.cam2cam.loss.self_consistency.R * loss_R
+    if config.cam2cam.loss.self_consistency.t > 0:
+        total_loss += config.cam2cam.loss.self_consistency.t * loss_t
 
     scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
     loss_3d = tred_loss(
@@ -180,7 +182,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.tred_weight > 0:
         total_loss += config.cam2cam.loss.tred_weight * loss_3d
 
-    return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss
+    return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss
 
 
 def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
@@ -227,7 +229,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         return detections.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, selfc_loss, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_3d_pred,
@@ -237,7 +239,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
@@ -245,7 +247,8 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             pose_loss.item(),
             roto_loss.item(),
             loss_3d.item(),
-            selfc_loss.item(),
+            loss_R.item(),
+            loss_t.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)

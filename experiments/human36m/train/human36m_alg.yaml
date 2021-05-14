@@ -47,18 +47,20 @@ cam2cam:
   using_heatmaps: false
   normalize_kp_to_pelvis: true
 
-  batch_norm: false
+  batch_norm: true
   drop_out: 0
 
   vgg: "16"
 
   loss:
-    self_consistency_weight: 5.0
     roto_weight: 0.0
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
     tred_weight: 1.0
+    self_consistency:
+      R: 0.5
+      t: 5.0
 
   opt:
     lr: 0.0001

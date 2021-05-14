@@ -114,7 +114,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
                 }
             )
 
-        opt = base_optim(params, weight_decay=0.1)  # just a tiny bit doesn't hurt
+        opt = base_optim(params, weight_decay=1e1)  # doesn't hurt
     elif config.model.name == "vol":
         print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
             'backbone',
@@ -152,10 +152,10 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
     scheduler = ReduceLROnPlateau(
         opt,
         factor=8e-1,  # new lr = x * lr
-        patience=80,  # 2-batch / epoch => 40 epochs
+        patience=120,  # n max iterations from optimum
         threshold=1,  # monitoring MPJPE => mm
-        min_lr=1e-8,
+        min_lr=1e-7,
         verbose=True
-    )
+    )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
 
     return opt, scheduler

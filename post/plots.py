@@ -186,7 +186,8 @@ def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
             ymin=0, ymax=1,
             label='new lr: {:.3E}'.format(new_lr),
             color='magenta',
-            linestyle=':'
+            linestyle=':',
+            alpha=0.2
         )
 
     # axis.legend(loc='upper center')

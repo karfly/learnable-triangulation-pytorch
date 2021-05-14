@@ -220,8 +220,9 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
 def self_consistency_loss(cam2cam_preds):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
-    pairs = combinations(range(n_views), 2)
-    loss = 0.0
+    pairs = list(combinations(range(n_views), 2))
+
+    loss_R, loss_t = 0.0, 0.0
 
     # rotation
     for batch_i in range(batch_size):
@@ -229,7 +230,7 @@ def self_consistency_loss(cam2cam_preds):
             gt = torch.inverse(cam2cam_preds[batch_i, j, i, :3, :3])
             pred = cam2cam_preds[batch_i, i, j, :3, :3]
 
-            loss += geodesic_distance(
+            loss_R += geodesic_distance(
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
 
@@ -237,13 +238,18 @@ def self_consistency_loss(cam2cam_preds):
             pred = cam2cam_preds[batch_i, i, i, :3, :3]
             gt = torch.eye(3).to(cam2cam_preds.device)
 
-            loss += geodesic_distance(
+            loss_R += geodesic_distance(
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
 
     # translation
+    criterion = KeypointsMSESmoothLoss(threshold=400)
     for batch_i in range(batch_size):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            pass
+            cij = cam2cam_preds[batch_i, i, j]
+            cji = torch.inverse(cam2cam_preds[batch_i, j, i])
+            sum_of_norms = torch.linalg.norm(cij, 2) + torch.linalg.norm(cji, 2)
 
-    return loss
+            loss_t += criterion(cij, cji) / sum_of_norms  # normalize
+
+    return loss_R, loss_t

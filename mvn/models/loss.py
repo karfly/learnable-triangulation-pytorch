@@ -218,28 +218,32 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
 
 
 def self_consistency_loss(cam2cam_preds):
-    device = cam2cam_preds.device
-
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = combinations(range(n_views), 2)
     loss = 0.0
 
-    for batch_i in range(batch_size):  # todo speed-up
-        for i, j in pairs:
-            gt = torch.inverse(cam2cam_preds[batch_i, j, i])
-            pred = cam2cam_preds[batch_i, i, j]
+    # rotation
+    for batch_i in range(batch_size):
+        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
+            gt = torch.inverse(cam2cam_preds[batch_i, j, i, :3, :3])
+            pred = cam2cam_preds[batch_i, i, j, :3, :3]
 
             loss += geodesic_distance(
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
 
-        for i in range(n_views):
-            pred = cam2cam_preds[batch_i, i, i]
-            gt = torch.eye(4).to(device)  # Ei * Ei^-1 => I
+        for i in range(n_views):  # cam i -> i should be I
+            pred = cam2cam_preds[batch_i, i, i, :3, :3]
+            gt = torch.eye(3).to(cam2cam_preds.device)
 
             loss += geodesic_distance(
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
+
+    # translation
+    for batch_i in range(batch_size):
+        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
+            pass
 
     return loss

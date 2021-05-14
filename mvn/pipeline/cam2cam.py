@@ -56,17 +56,17 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, len(pairs), 3, 3)
 
 
-def _forward_cam2cam(cam2cam_model, keypoints_forward, pairs, scale_trans2trans=1e3, gts=None):
-    batch_size = keypoints_forward.shape[0]
+def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gts=None):
+    batch_size = detections.shape[0]
     cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
 
     for batch_i in range(batch_size):
         rot2rot, trans2trans = cam2cam_model(
-            keypoints_forward[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
+            detections[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
         )
         trans2trans = trans2trans * scale_trans2trans
 
-        if not (gts is None):  # use them!
+        if not (gts is None):  # GTs have been provided => use them
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
 
@@ -195,34 +195,36 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
                 images_batch, None, minimon
             )
 
-    def _prepare_cam2cam_batch(pairs):
-        if config.cam2cam.using_heatmaps:
-            heatmap_w, heatmap_h = heatmaps_pred.shape[-2], heatmaps_pred.shape[-1]
-            keypoints_forward = torch.empty(
-                batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h
-            )
-        else:
-            keypoints_forward = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
+    def _prepare_cam2cam_heatmaps_batch(heatmaps, pairs):
+        heatmap_w, heatmap_h = heatmaps.shape[-2], heatmaps.shape[-1]
+        detections = torch.empty(
+            batch_size, len(pairs), 2, n_joints, heatmap_w, heatmap_h
+        )
 
         for batch_i in range(batch_size):
-            if config.cam2cam.using_heatmaps:
-                keypoints_forward[batch_i] = torch.cat([
-                    torch.cat([
-                        heatmaps_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 32, 32)
-                        heatmaps_pred[batch_i, j].unsqueeze(0)
-                    ]).unsqueeze(0)  # ~ (1, 2, 17, 32, 32)
-                    for (i, j) in pairs
-                ])  # ~ (3, 2, 17, 32, 32)
-            else:
-                keypoints_forward[batch_i] = torch.cat([
-                    torch.cat([
-                        keypoints_2d_pred[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
-                        keypoints_2d_pred[batch_i, j].unsqueeze(0)
-                    ]).unsqueeze(0)  # ~ (1, 2, 17, 2)
-                    for (i, j) in pairs
-                ])  # ~ (3, 2, 17, 2)
+            detections[batch_i] = torch.cat([
+                torch.cat([
+                    heatmaps[batch_i, i].unsqueeze(0),  # ~ (1, 17, 32, 32)
+                    heatmaps[batch_i, j].unsqueeze(0)
+                ]).unsqueeze(0)  # ~ (1, 2, 17, 32, 32)
+                for (i, j) in pairs
+            ])  # ~ (3, 2, 17, 32, 32)
 
-        return keypoints_forward.cuda()
+        return detections.cuda()
+    
+    def _prepare_cam2cam_keypoints_batch(keypoints, pairs):
+        detections = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
+
+        for batch_i in range(batch_size):
+            detections[batch_i] = torch.cat([
+                torch.cat([
+                    keypoints[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
+                    keypoints[batch_i, j].unsqueeze(0)
+                ]).unsqueeze(0)  # ~ (1, 2, 17, 2)
+                for (i, j) in pairs
+            ])  # ~ (3, 2, 17, 2)
+
+        return detections.cuda()
 
     def _backprop():
         minimon.enter()
@@ -258,18 +260,22 @@ def batch_iter(batch, iter_i, model, cam2cam_model, criterion, opt, scheduler, i
 
     minimon.enter()
     keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
-    keypoints_2d_pred = _normalize_to_pelvis(keypoints_2d_pred)
     minimon.leave('BB forward')
 
     cam2cam_gts, pairs = _get_cam2cam_gt(batch['cameras'])
-    keypoints_forward = _prepare_cam2cam_batch(pairs)
+    if config.cam2cam.using_heatmaps:
+        detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
+    else:
+        kps = _normalize_to_pelvis(keypoints_2d_pred)
+        detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
 
     minimon.enter()
     cam2cam_preds = _forward_cam2cam(
         cam2cam_model,
-        keypoints_forward,
+        detections,
         pairs,
         config.cam2cam.scale_trans2trans,
+        # cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

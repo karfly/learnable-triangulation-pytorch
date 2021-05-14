@@ -45,7 +45,7 @@ class RototransNet(nn.Module):
                     activation=nn.LeakyReLU,
                     init_weights=False
                 ),
-                nn.Linear(3, 3, bias=True),
+                # nn.Linear(3, 3, bias=True),
             ])
         elif model == 'martinet':
             self.R_backbone = nn.Sequential(*[

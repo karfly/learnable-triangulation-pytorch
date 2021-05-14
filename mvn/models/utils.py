@@ -153,7 +153,6 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
         opt,
         factor=8e-1,  # new lr = x * lr
         patience=100,  # n max iterations from optimum
-        threshold=1,  # monitoring MPJPE => mm
         min_lr=1e-7,
         verbose=True
     )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615

@@ -51,10 +51,13 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
             os.makedirs(checkpoint_dir, exist_ok=True)
 
             if epoch % config.opt.save_every_n_epochs == 0:
-                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
-
                 if config.model.cam2cam_estimation:
-                    torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "weights_cam2cam_model.pth"))
+                    torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "cam2cam_model.pth"))
+
+                    if not config.cam2cam.using_gt:  # model was actually trained
+                        torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
+                else:  # usual algebraic / vol model
+                    torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
 
         train_time_avg = 'do train'
         train_time_avg = minimon.store[train_time_avg].get_avg()

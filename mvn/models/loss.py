@@ -216,7 +216,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
     return loss
 
 
-def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=400):
+def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=1e2):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))
@@ -237,7 +237,7 @@ def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=400):
             pred = cam2cam_preds[batch_i, i, i, :3, :3]
             gt = torch.eye(3).to(cam2cam_preds.device)
 
-            loss_R += geodesic_distance(
+            loss_R += geodesic_distance(  # todo L2
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
 
@@ -254,5 +254,7 @@ def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=400):
             diff[diff > threshold] = torch.pow(diff[diff > threshold], 0.1) * (threshold ** 0.9)  # soft version
 
             loss_t += diff.sum()  # normalize
+
+    # todo pose projection
 
     return loss_R, loss_t

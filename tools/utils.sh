@@ -65,7 +65,8 @@ function backupScratchData () {
 # usage: showClusterUsageInMonth "p_humanpose"
 function slurmShowUsageInMonth () {
     account=$1
-    allocated_cpu_hours=3500
+    resource=${2}
+    max_hours=${3}
 
     day=$(date +"%d")
     month=$(date +"%m")
@@ -75,15 +76,17 @@ function slurmShowUsageInMonth () {
 
     bc_precision="scale=3"
 
-    cpu_minutes=$(sreport cluster AccountUtilizationByUser Accounts=${account} Start=${firstOfThisMonth} | tail -n1 | awk '{print $5}')
+    raw=$(sreport cluster AccountUtilizationByUser Accounts=${account} Start=${firstOfThisMonth} --tres=${resource})
+    cpu_minutes=$(echo ${raw} | tail -n1 | awk '{print $6}')
     cpu_hours=$(echo "${bc_precision};${cpu_minutes}/60.0" | bc)
-    as_perc=$(echo "${bc_precision};${cpu_hours}/${allocated_cpu_hours}*100.0" | bc)
+    as_perc=$(echo "${bc_precision};${cpu_hours}/${max_hours}*100.0" | bc)
     predicted_by_end=$(echo "${bc_precision};${daysInMonth}/${day}*${cpu_hours}" | bc)
-    predicted_as_perc=$(echo "${bc_precision};${predicted_by_end}/${allocated_cpu_hours}*100.0" | bc)
+    predicted_as_perc=$(echo "${bc_precision};${predicted_by_end}/${max_hours}*100.0" | bc)
 
-    echo "${cpu_hours} CPU-hours used (since ${firstOfThisMonth}, ${as_perc} % of max)"
-    echo "${predicted_by_end} CPU-hours will be used (by EOM, at this rate, ${predicted_as_perc} % of max)"
+    echo "${cpu_hours} ${resource}-hours used (since ${firstOfThisMonth}, ${as_perc} % of max)"
+    echo "${predicted_by_end} ${resource}-hours will be used (by EOM, at this rate, ${predicted_as_perc} % of max)"
 }
+alias showClusterUsageInMonth='slurmShowUsageInMonth p_humanpose cpu 3500 && echo && slurmShowUsageInMonth p_humanpose gres/gpu 250'
 
 # usage: backupJobViaSSH "hackme" "15719703"
 function backupJobViaSSH () {

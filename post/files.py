@@ -141,7 +141,7 @@ def parse_job_log(f_path, verbose=False):
                 current_epoch_details[key].append(loss)
                 
             if len(tokens) > 8:
-                loss = parse_fp_number(tokens[6].split(',')[0])
+                loss = parse_fp_number(tokens[7].split(',')[0])
                 key = 'self-consistency t loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []

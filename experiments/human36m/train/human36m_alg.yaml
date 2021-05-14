@@ -59,8 +59,8 @@ cam2cam:
     proj_weight: 0.0
     tred_weight: 1.0
     self_consistency:
-      R: 0.5
-      t: 5.0
+      R: 1.0
+      t: 10.0
 
   opt:
     lr: 0.0001

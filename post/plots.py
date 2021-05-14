@@ -1,9 +1,10 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.colors as mcolors
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
-LOSS_C = ['violet', 'gold', 'lawngreen', 'red', 'brown', 'gray', 'black']
+LOSS_C = mcolors.TABLEAU_COLORS
 
 
 def plot_SOTA(axis, _xrange):
@@ -24,6 +25,9 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', alp
     if xrange is None:
         done = len(metrics)
         xrange = list(range(done))
+
+    if len(xrange) > len(metrics):
+        xrange = xrange[:len(metrics)]
 
     axis.plot(
         xrange, metrics, label=label, color=color, marker=marker, alpha=alpha
@@ -112,14 +116,15 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
             loss_history = normalize_transformation(normalize_loss)(
                 loss_history) if normalize_loss else loss_history
 
+            legend_loc = 'upper left'
             plot_metric(
                 axis,
                 loss_history,
                 label=label,
                 xrange=xrange,
                 color=color,
-                alpha=0.8 if 'total' in label else 0.3,
-                legend_loc='lower left',
+                alpha=0.9 if 'total' in label else 0.5,
+                legend_loc=legend_loc,
                 show_min=False,
                 marker='+',
                 verbose=False
@@ -187,7 +192,7 @@ def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
             label='new lr: {:.3E}'.format(new_lr),
             color='magenta',
             linestyle=':',
-            alpha=0.2
+            alpha=0.3
         )
 
     # axis.legend(loc='upper center')

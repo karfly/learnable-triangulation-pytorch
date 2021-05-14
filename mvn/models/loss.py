@@ -6,11 +6,6 @@ import torch
 from torch import nn
 
 
-def element_weighted_loss(losses, weights):
-    weights = np.float32(weights / np.sum(weights))  # normalize
-    return torch.sum(losses[0] * weights[0] + losses[1] * weights[1])  # todo naive
-
-
 class KeypointsMSELoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -20,6 +15,7 @@ class KeypointsMSELoss(nn.Module):
         loss = torch.sum((keypoints_gt - keypoints_pred) ** 2 * keypoints_binary_validity)
         loss = loss / (dimension * max(1, torch.sum(keypoints_binary_validity).item()))
         return loss
+
 
 class KeypointsMSESmoothLoss(nn.Module):
     def __init__(self, threshold=400):
@@ -159,24 +155,27 @@ def geo_R_loss(cam2cam_gts, cam2cam_preds, pairs):
     return loss
 
 
-def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
+def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans, threshold=1e2):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
     
     for batch_i in range(batch_size):
-        cam2cam_gt = torch.cat([
+        gts = torch.cat([
             cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
             for pair in pairs
-        ])
-        cam2cam_pred = torch.cat([
+        ])[:, :3, 3] / scale_trans2trans
+        preds = torch.cat([
             cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
             for pair in pairs
-        ])
-        
-        loss += KeypointsMSESmoothLoss(threshold=400)(
-            cam2cam_pred[:, :3, 3].cuda() / scale_trans2trans,  # just t
-            cam2cam_gt[:, :3, 3].cuda() / scale_trans2trans
-        )
+        ])[:, :3, 3] / scale_trans2trans
+        sum_of_norms = torch.norm(gts, p='fro', dim=1) + torch.norm(preds, p='fro', dim=1)  # todo to comply with cluster
+
+        diff = (gts - preds) ** 2
+        diff = diff / sum_of_norms
+
+        diff[diff > threshold] = torch.pow(diff[diff > threshold], 0.1) * (threshold ** 0.9)  # soft version
+
+        loss += diff.sum()
 
     return loss
 
@@ -248,7 +247,7 @@ def self_consistency_loss(cam2cam_preds):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
             cij = cam2cam_preds[batch_i, i, j]
             cji = torch.inverse(cam2cam_preds[batch_i, j, i])
-            sum_of_norms = torch.linalg.norm(cij, 2) + torch.linalg.norm(cji, 2)
+            sum_of_norms = torch.norm(cij, 2) + torch.norm(cji, 2)  # todo to comply with cluster
 
             loss_t += criterion(cij, cji) / sum_of_norms  # normalize
 

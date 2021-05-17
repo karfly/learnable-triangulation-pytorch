@@ -11,11 +11,11 @@ class MLPResNet(nn.Module):
         self.up = nn.Linear(in_features, inner_size, bias=True)
 
         self.linears = nn.ModuleList([
-            nn.Linear(sizes[i], sizes[i + 1], bias=False)
+            nn.Linear(sizes[i], sizes[i + 1], bias=True)
             for i in range(len(sizes) - 1)
         ])
         self.second_linears = nn.ModuleList([
-            nn.Linear(sizes[i + 1], sizes[i + 1], bias=False)
+            nn.Linear(sizes[i + 1], sizes[i + 1], bias=True)
             for i in range(len(sizes) - 1)
         ])
 
@@ -27,7 +27,7 @@ class MLPResNet(nn.Module):
         # todo dropout
         self.activation = activation(inplace=False)
 
-        self.head = nn.Linear(inner_size, out_features, bias=False)
+        self.head = nn.Linear(inner_size, out_features, bias=True)
 
         if init_weights:
             for m in self.modules():

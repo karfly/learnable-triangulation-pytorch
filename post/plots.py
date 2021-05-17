@@ -30,10 +30,10 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', alp
         xrange = xrange[:len(metrics)]
 
     axis.plot(
-        xrange, metrics, label=label, color=color, marker=marker, alpha=alpha
+        xrange[:900], metrics[:900], label=label, color=color, marker=marker, alpha=alpha
     )
 
-    if show_min:
+    if False:  # show_min:
         m, m_i = find_min(metrics)
         axis.plot(
             xrange[m_i],

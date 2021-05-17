@@ -128,6 +128,27 @@ class RototransNet(nn.Module):
                     activation=nn.LeakyReLU,
                 ),
             ])
+        elif model == 'shared':
+            n_features = 512
+            self.backbone = nn.Sequential(*[
+                nn.Flatten(),  # will be fed into a MLP
+                MLPResNet(
+                    in_features, inner_size, n_inner_layers,
+                    n_features,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU,
+                ),
+            ])
+
+            self.R_backbone = nn.Sequential(*[
+                nn.Linear(n_features, 6, bias=True),
+                R6DBlock()
+            ])
+
+            self.t_backbone = nn.Sequential(*[
+                nn.Linear(n_features, 3, bias=True),
+            ])
         elif model == 'unet':
             self.R_backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
@@ -183,7 +204,8 @@ class RototransNet(nn.Module):
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
-        rot2rot = self.R_backbone(batch)  # ~ (batch_size, 6)
-        trans2trans = self.t_backbone(batch)  # ~ (batch_size, 3)
+        features = self.backbone(batch)
+        rot2rot = self.R_backbone(features)  # ~ (batch_size, 6)
+        trans2trans = self.t_backbone(features)  # ~ (batch_size, 3)
 
         return rot2rot, trans2trans

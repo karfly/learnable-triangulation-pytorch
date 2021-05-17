@@ -1,7 +1,7 @@
 from torch import nn
 
 
-activation = lambda _: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
+activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
 
 
 class MLPResNet(nn.Module):

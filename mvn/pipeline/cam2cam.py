@@ -307,8 +307,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if config.cam2cam.normalize_kp_to_pelvis:
-            # kps = _normalize_to_pelvis(keypoints_2d_pred)
-            kps = _normalize_per_view(keypoints_2d_pred)
+            kps = _normalize_per_view(keypoints_2d_pred)  # _normalize_to_pelvis
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)
@@ -319,7 +318,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections,
         pairs,
         config.cam2cam.scale_trans2trans,
-        cam2cam_gts
+        # cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

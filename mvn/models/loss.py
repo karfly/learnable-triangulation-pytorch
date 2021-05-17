@@ -225,22 +225,28 @@ def self_consistency_loss(cam2cam_preds):
 
     # rotation
     criterion = KeypointsMSESmoothLoss(threshold=3.0)
-    for batch_i in range(batch_size):
-        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            gt = torch.inverse(cam2cam_preds[batch_i, j, i, :3, :3])
-            pred = cam2cam_preds[batch_i, i, j, :3, :3]
+    for batch_i in range(batch_size):  # todo Tensor
+        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
+            cij = cam2cam_preds[batch_i, i, j, :3, :3]
+            cji = cam2cam_preds[batch_i, j, i, :3, :3]
 
-            loss_R += criterion(
-                gt.unsqueeze(0), pred.unsqueeze(0)
+            pred = torch.bmm(
+                cij.unsqueeze(0),
+                cji.unsqueeze(0)
             )
 
-        # for i in range(n_views):  # cam i -> i should be I
-        #     pred = cam2cam_preds[batch_i, i, i, :3, :3]
-        #     gt = torch.eye(3).to(cam2cam_preds.device)
+            # comparing VS eye ...
+            # ... makes autograd cry
+            norm = torch.norm(pred, p='fro')
+            diff = norm - np.sqrt(3)  # norm of I(3)
+            loss_R += torch.square(diff)
 
-        #     loss_R += criterion(  # todo L2
-        #         gt.unsqueeze(0), pred.unsqueeze(0)
-        #     )
+        for i in range(n_views):  # cam i -> i should be I
+            pred = cam2cam_preds[batch_i, i, i, :3, :3]
+            norm = torch.norm(pred, p='fro')
+            diff = norm - np.sqrt(3)  # norm of I(3)
+
+            loss_R += torch.square(diff)
 
     # translation
     criterion = KeypointsMSESmoothLoss(threshold=400)

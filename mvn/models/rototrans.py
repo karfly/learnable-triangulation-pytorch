@@ -132,7 +132,7 @@ class RototransNet(nn.Module):
         elif model == 'shared':
             n_features = 512
             n_out_features = 256
-            activation = lambda _: nn.LeakyReLU(negative_slope=1e-1, inplace=False)
+            activation = nn.ReLU
 
             self.backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
@@ -146,13 +146,13 @@ class RototransNet(nn.Module):
 
             self.R_backbone = nn.Sequential(*[
                 MLPResNet(
-                    n_features, n_features, 5, n_out_features,
+                    n_features, n_features, 8, n_out_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=activation,
                 ),
                 MLPResNet(
-                    n_out_features, n_out_features, 5, 6,
+                    n_out_features, n_out_features, 8, 6,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=activation,

@@ -43,9 +43,18 @@ def _normalize_per_view(keypoints_2d):
     """ pelvis -> (0, 0), corners -> (1, 1) """
 
     keypoints_2d = _center_to_pelvis(keypoints_2d)
+    frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
-    # divided by its Frobenius norm in the preprocessing
-    keypoints_2d = keypoints_2d / torch.norm(keypoints_2d, p='fro', dim=(2, 3))
+    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
+
+    # "divided by its Frobenius norm in the preprocessing"
+    keypoints_2d = torch.cat([
+        torch.cat([
+            (keypoints_2d[batch_i, view_i] / frobenius_norm[batch_i, view_i]).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
     return keypoints_2d
 
@@ -298,7 +307,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if config.cam2cam.normalize_kp_to_pelvis:
-            kps = _normalize_to_pelvis(keypoints_2d_pred)
+            # kps = _normalize_to_pelvis(keypoints_2d_pred)
             # kps = _normalize_per_view(keypoints_2d_pred)
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:

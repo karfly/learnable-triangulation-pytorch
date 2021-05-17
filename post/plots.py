@@ -116,7 +116,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
             loss_history = normalize_transformation(normalize_loss)(
                 loss_history) if normalize_loss else loss_history
 
-            legend_loc = 'upper left'
+            legend_loc = 'upper center'
             plot_metric(
                 axis,
                 loss_history,

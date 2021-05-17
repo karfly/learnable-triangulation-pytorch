@@ -1,9 +1,12 @@
 from torch import nn
 
 
+activation = lambda _: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
+
+
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=False):
+    batch_norm=False, drop_out=0.0, activation=activation, init_weights=False):
         super().__init__()
 
         sizes = (n_inner_layers + 1) * [inner_size]
@@ -25,7 +28,7 @@ class MLPResNet(nn.Module):
         ])
 
         # todo dropout
-        self.activation = activation(inplace=False)
+        self.activation = activation()
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
 

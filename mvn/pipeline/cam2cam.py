@@ -319,7 +319,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections,
         pairs,
         config.cam2cam.scale_trans2trans,
-        # cam2cam_gts
+        cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

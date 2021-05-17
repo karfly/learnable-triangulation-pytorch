@@ -1,4 +1,5 @@
 from torch import nn
+from torch.nn.modules import activation
 
 from mvn.models.mlp import MLP
 from mvn.models.unet import MLUNet
@@ -131,6 +132,7 @@ class RototransNet(nn.Module):
         elif model == 'shared':
             n_features = 512
             n_out_features = 256
+            activation = lambda _: nn.LeakyReLU(negative_slope=1e-1, inplace=False)
 
             self.backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
@@ -138,22 +140,22 @@ class RototransNet(nn.Module):
                     in_features, inner_size, 2, n_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.LeakyReLU,
+                    activation=activation,
                 ),
             ])
 
             self.R_backbone = nn.Sequential(*[
                 MLPResNet(
-                    n_features, n_features, n_inner_layers, n_out_features,
+                    n_features, n_features, 5, n_out_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.LeakyReLU,
+                    activation=activation,
                 ),
                 MLPResNet(
-                    n_out_features, n_out_features, n_inner_layers, 6,
+                    n_out_features, n_out_features, 5, 6,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.LeakyReLU,
+                    activation=activation,
                 ),
                 R6DBlock()
             ])
@@ -163,13 +165,13 @@ class RototransNet(nn.Module):
                     n_features, n_features, 2, n_out_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.LeakyReLU,
+                    activation=activation,
                 ),
                 MLPResNet(
                     n_out_features, n_out_features, 2, 3,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
-                    activation=nn.LeakyReLU,
+                    activation=activation,
                 ),
             ])
         elif model == 'unet':

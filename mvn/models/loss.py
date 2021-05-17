@@ -114,7 +114,8 @@ def geodesic_distance(m1, m2):
 def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    
+    criterion = KeypointsMSESmoothLoss(threshold=3.0)
+
     for batch_i in range(batch_size):
         cam2cam_gt = torch.cat([
             cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
@@ -125,7 +126,7 @@ def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
             for pair in pairs
         ])
 
-        loss += KeypointsMSESmoothLoss(threshold=0.5)(
+        loss += criterion(
             cam2cam_pred[:, :3, :3].cuda(),  # just R
             cam2cam_gt[:, :3, :3].cuda()
         )  # ~ (len(pairs), )
@@ -218,27 +219,28 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
 def self_consistency_loss(cam2cam_preds):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
-    pairs = list(combinations(range(n_views), 2))
+    pairs = list(combinations(range(n_views), 2))  # on all pairs
 
     loss_R, loss_t = 0.0, 0.0
 
     # rotation
+    criterion = KeypointsMSESmoothLoss(threshold=3.0)
     for batch_i in range(batch_size):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
             gt = torch.inverse(cam2cam_preds[batch_i, j, i, :3, :3])
             pred = cam2cam_preds[batch_i, i, j, :3, :3]
 
-            loss_R += geodesic_distance(
+            loss_R += criterion(
                 gt.unsqueeze(0), pred.unsqueeze(0)
             )
 
-        for i in range(n_views):  # cam i -> i should be I
-            pred = cam2cam_preds[batch_i, i, i, :3, :3]
-            gt = torch.eye(3).to(cam2cam_preds.device)
+        # for i in range(n_views):  # cam i -> i should be I
+        #     pred = cam2cam_preds[batch_i, i, i, :3, :3]
+        #     gt = torch.eye(3).to(cam2cam_preds.device)
 
-            loss_R += geodesic_distance(  # todo L2
-                gt.unsqueeze(0), pred.unsqueeze(0)
-            )
+        #     loss_R += criterion(  # todo L2
+        #         gt.unsqueeze(0), pred.unsqueeze(0)
+        #     )
 
     # translation
     criterion = KeypointsMSESmoothLoss(threshold=400)

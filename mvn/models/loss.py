@@ -188,10 +188,30 @@ def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_g
     )
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=400)):
+from mvn.utils.multiview import euclidean_to_homogeneous, homogeneous_to_euclidean
+
+def twod_proj_loss(keypoints_3d_gt, cameras, keypoints_in_cam_pred, cam2cam_preds, criterion=KeypointsMSESmoothLoss(threshold=400)):
     n_views = len(cameras)
     batch_size = keypoints_3d_gt.shape[0]
     loss = 0.0
+
+    # x = [0]  # ~ n_joints x 3D (master camspace)
+    # x = x)
+
+    # gt = torch.matmul(
+    #     torch.FloatTensor(cameras[1][0].extrinsics_padded),
+    #     torch.inverse(torch.FloatTensor(cameras[0][0].extrinsics_padded)),
+    # )
+    # pred = 
+
+    # proj_gt = cameras[0][0].cam2other(cameras[1][0])(x)
+    # print(proj_gt[:5])
+
+    # in_other_proj = 
+
+    # print(in_other_proj[:5])
+
+    # 1/0
     
     for batch_i in range(batch_size):
         gt = torch.cat([
@@ -202,8 +222,13 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
         ])  # ~ n_views - 1, 17, 2
         
         pred = torch.cat([
-            cameras[view_i][batch_i].world2proj()(
-                keypoints_3d_pred[batch_i]
+            homogeneous_to_euclidean(
+                (
+                    euclidean_to_homogeneous(keypoints_in_cam_pred[batch_i]).cuda()
+                    @
+                    cam2cam_preds[batch_i, 0, view_i].T)  # cam 0 -> i
+                @
+                torch.cuda.FloatTensor(cameras[view_i][batch_i].intrinsics_padded.T)
             ).unsqueeze(0)
             for view_i in range(1, n_views)  # 0 is "master" cam
         ])  # ~ n_views - 1, 17, 2

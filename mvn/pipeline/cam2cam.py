@@ -140,15 +140,17 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
         )
 
     # ... they're in master cam space => cam2world
-    return torch.cat([
+    in_world_pred = torch.cat([
         cameras[master_cam_i][batch_i].cam2world()(
             keypoints_3d_pred[batch_i]
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
 
+    return keypoints_3d_pred, in_world_pred  # in master camspace, in world
 
-def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
+
+def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_in_world_pred, keypoints_in_cam_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
     _pairs = [
         [0, 1],
         [0, 2],
@@ -172,7 +174,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
 
     pose_loss = twod_proj_loss(
-        keypoints_3d_gt, keypoints_3d_pred, cameras
+        keypoints_3d_gt, cameras, keypoints_in_cam_pred, cam2cam_preds
     )
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * pose_loss
@@ -186,7 +188,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
     loss_3d = tred_loss(
         keypoints_3d_gt,
-        keypoints_3d_pred,
+        keypoints_in_world_pred,
         keypoints_3d_binary_validity_gt,
         scale_keypoints_3d
     )
@@ -243,7 +245,8 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
-            keypoints_3d_pred,
+            in_world_pred,
+            in_cam_pred,
             keypoints_3d_gt,
             keypoints_3d_binary_validity_gt,
             batch['cameras'],
@@ -265,7 +268,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         live_debug_log(_ITER_TAG, message)
 
         scalar_metric, _ = dataloader.dataset.evaluate(
-            keypoints_3d_pred.detach().cpu().numpy(),
+            in_world_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
@@ -308,7 +311,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     minimon.leave('cam2cam forward')
 
     minimon.enter()
-    keypoints_3d_pred = _do_dlt(
+    in_cam_pred, in_world_pred = _do_dlt(
         cam2cam_preds,
         keypoints_2d_pred,
         confidences_pred,
@@ -319,4 +322,4 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     if is_train:
         _backprop()
 
-    return keypoints_3d_pred.detach()
+    return in_world_pred.detach()

@@ -10,14 +10,23 @@ from mvn.models.loss import geo_R_loss, L2_R_loss, t_loss, tred_loss, twod_proj_
 _ITER_TAG = 'cam2cam'
 
 
-def _normalize_to_pelvis(keypoints_2d, pelvis_i=6):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
+def _center_to_pelvis(keypoints_2d, pelvis_i=6):
+    """ pelvis -> (0, 0) """
 
     n_joints = keypoints_2d.shape[2]
     pelvis_point = keypoints_2d[:, :, pelvis_i, :]
 
     keypoints_2d = keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
 
+    return keypoints_2d
+
+
+def _normalize_to_pelvis(keypoints_2d):
+    """ pelvis -> (0, 0), corners -> (1, 1) """
+
+    keypoints_2d = _center_to_pelvis(keypoints_2d)
+
+    # divide by largest (smallest) coord in each sample (4 views)
     m, _ = keypoints_2d.min(dim=1, keepdim=True)
     M, _ = keypoints_2d.max(dim=1, keepdim=True)
     diff = M - m
@@ -26,6 +35,17 @@ def _normalize_to_pelvis(keypoints_2d, pelvis_i=6):
 
     # > 0 KP => up and to the right of the pelvis
     # < 0 KP => down and to the left of the pelvis
+
+    return keypoints_2d
+
+
+def _normalize_per_view(keypoints_2d):
+    """ pelvis -> (0, 0), corners -> (1, 1) """
+
+    keypoints_2d = _center_to_pelvis(keypoints_2d)
+
+    # divided by its Frobenius norm in the preprocessing
+    keypoints_2d = keypoints_2d / torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
     return keypoints_2d
 
@@ -279,6 +299,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     else:
         if config.cam2cam.normalize_kp_to_pelvis:
             kps = _normalize_to_pelvis(keypoints_2d_pred)
+            # kps = _normalize_per_view(keypoints_2d_pred)
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)

@@ -11,18 +11,25 @@ class MLPResNet(nn.Module):
         sizes = (n_inner_layers + 1) * [inner_size]
 
         self.up = nn.Linear(in_features, inner_size, bias=True)
+
         self.linears = nn.ModuleList([
             linear(sizes[i], sizes[i + 1], bias=True)
             for i in range(len(sizes) - 1)
         ])
-        self.double_linears = nn.ModuleList([
+        self.second_linears = nn.ModuleList([
             linear(sizes[i + 1], sizes[i + 1], bias=True)
             for i in range(len(sizes) - 1)
         ])
+
         self.bns = nn.ModuleList([
             nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
             for i in range(len(sizes) - 1)
         ])
+        self.second_bns = nn.ModuleList([
+            nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
+            for i in range(len(sizes) - 1)
+        ])
+
         # todo dropout
         self.activation = activation(inplace=False)
 
@@ -43,17 +50,17 @@ class MLPResNet(nn.Module):
 
         for i in range(len(self.linears)):
             l, b = self.linears[i], self.bns[i]
-            d = self.double_linears[i]
+            l2, b2 = self.second_linears[i], self.second_bns[i]
 
             x = l(x)
-
             if not (b is None):
                 x = b(x)
 
             x = self.activation(x)
 
-            x = d(x)
-            # todo BN after second weight
+            x = l2(x)
+            if not (b is None):
+                x = b2(x)
 
             x = x + residual
             x = self.activation(x)  # activation AFTER residual

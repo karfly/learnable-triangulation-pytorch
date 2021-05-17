@@ -4,14 +4,19 @@ linear = nn.Linear
 
 
 class MLPResNet(nn.Module):
-    def __init__(self, in_features, inner_size, n_inner_layers, out_features, batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=False):
+    def __init__(self, in_features, inner_size, n_inner_layers, out_features,
+    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=False):
         super().__init__()
 
-        sizes = (n_inner_layers + 1) * [ inner_size ]
+        sizes = (n_inner_layers + 1) * [inner_size]
 
         self.up = nn.Linear(in_features, inner_size, bias=True)
         self.linears = nn.ModuleList([
             linear(sizes[i], sizes[i + 1], bias=True)
+            for i in range(len(sizes) - 1)
+        ])
+        self.double_linears = nn.ModuleList([
+            linear(sizes[i + 1], sizes[i + 1], bias=True)
             for i in range(len(sizes) - 1)
         ])
         self.bns = nn.ModuleList([
@@ -19,11 +24,8 @@ class MLPResNet(nn.Module):
             for i in range(len(sizes) - 1)
         ])
         # todo dropout
-        self.activations = nn.ModuleList([
-            activation(inplace=False)
-            for _ in range(len(sizes) - 1)
-        ])
-        
+        self.activation = activation(inplace=False)
+
         self.head = linear(inner_size, out_features, bias=True)
 
         if init_weights:
@@ -40,15 +42,21 @@ class MLPResNet(nn.Module):
         residual = x
 
         for i in range(len(self.linears)):
-            l, b, a = self.linears[i], self.bns[i], self.activations[i]
+            l, b = self.linears[i], self.bns[i]
+            d = self.double_linears[i]
 
             x = l(x)
 
             if not (b is None):
                 x = b(x)
 
+            x = self.activation(x)
+
+            x = d(x)
+            # todo BN after second weight
+
             x = x + residual
-            x = a(x)  # activation AFTER residual
+            x = self.activation(x)  # activation AFTER residual
 
             residual = x  # save for next layer
 

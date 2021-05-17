@@ -21,24 +21,6 @@ def _center_to_pelvis(keypoints_2d, pelvis_i=6):
     return keypoints_2d
 
 
-def _normalize_to_pelvis(keypoints_2d):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
-
-    keypoints_2d = _center_to_pelvis(keypoints_2d)
-
-    # divide by largest (smallest) coord in each sample (4 views)
-    m, _ = keypoints_2d.min(dim=1, keepdim=True)
-    M, _ = keypoints_2d.max(dim=1, keepdim=True)
-    diff = M - m
-    diff = diff + torch.ones_like(diff) * 1e-8  # avoid / 0
-    keypoints_2d = keypoints_2d / diff
-
-    # > 0 KP => up and to the right of the pelvis
-    # < 0 KP => down and to the left of the pelvis
-
-    return keypoints_2d
-
-
 def _normalize_per_view(keypoints_2d):
     """ pelvis -> (0, 0), corners -> (1, 1) """
 

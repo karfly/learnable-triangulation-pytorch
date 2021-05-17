@@ -8,66 +8,6 @@ from mvn.models.canonpose import CanonPose
 from mvn.models.layers import R6DBlock
 
 
-# todo split
-class RotoNet(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        n_joints = config.model.backbone.num_joints
-        inner_size = config.cam2cam.model.inner_size
-        n_inner_layers = config.cam2cam.model.n_inner_layers
-        batch_norm = config.cam2cam.batch_norm
-        drop_out = config.cam2cam.drop_out
-
-        in_features = 2 * n_joints * 2  # coming from a pair of 2D KPs
-
-        self.backbone = nn.Sequential(*[
-            nn.Flatten(),  # will be fed into a MLP
-            MLPResNet(
-                in_features, inner_size, n_inner_layers,
-                6,  # need 6D parametrization of rotation matrix
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            R6DBlock()  # no params, just 6D -> R
-        ])
-
-    def forward(self, batch):
-        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
-
-        return self.backbone(batch)
-
-
-class TransNet(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        n_joints = config.model.backbone.num_joints
-        inner_size = config.cam2cam.model.inner_size
-        n_inner_layers = config.cam2cam.model.n_inner_layers
-        batch_norm = config.cam2cam.batch_norm
-        drop_out = config.cam2cam.drop_out
-
-        in_features = 2 * n_joints * 2  # coming from a pair of 2D KPs
-
-        self.backbone = nn.Sequential(*[
-            nn.Flatten(),  # will be fed into a MLP
-            MLPResNet(
-                in_features, inner_size, n_inner_layers,
-                3,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
-
-    def forward(self, batch):
-        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
-
-        return self.backbone(batch)
-
-
 class RototransNet(nn.Module):
     def __init__(self, config):
         super().__init__()

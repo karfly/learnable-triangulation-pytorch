@@ -4,8 +4,6 @@ import matplotlib.colors as mcolors
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
-LOSS_C = mcolors.TABLEAU_COLORS
-
 
 def plot_SOTA(axis, _xrange):
     # show original paper results
@@ -21,20 +19,20 @@ def plot_SOTA(axis, _xrange):
     # )
 
 
-def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', alpha=1.0, legend_loc=None, show_min=False, marker=',', verbose=True):
+def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=1.0, legend_loc=None, show_min=False, marker=',', verbose=True):
     if xrange is None:
-        done = len(metrics)
+        done = len(stuff)
         xrange = list(range(done))
 
-    if len(xrange) > len(metrics):
-        xrange = xrange[:len(metrics)]
+    if len(xrange) > len(stuff):
+        xrange = xrange[:len(stuff)]
 
     axis.plot(
-        xrange, metrics, label=label, color=color, marker=marker, alpha=alpha
+        xrange, stuff, label=label, color=color, marker=marker, alpha=alpha
     )
 
     if show_min:
-        m, m_i = find_min(metrics)
+        m, m_i = find_min(stuff)
         axis.plot(
             xrange[m_i],
             m,
@@ -51,43 +49,30 @@ def plot_metric(axis, metrics, label, xrange=None, ylim=None, color='black', alp
     if verbose:
         print('- plotted "{}" metrics [{:.1f}, {:.1f}] in epochs [{:.0f}, {:.0f}]'.format(
             label,
-            np.min(drop_na(metrics)), np.max(drop_na(metrics)),
+            np.min(drop_na(stuff)), np.max(drop_na(stuff)),
             xrange[0], xrange[-1]
         ))
 
     return xrange
 
 
-def plot_metrics(axis, train_metrics, eval_metrics, xrange=None, train_ylim=[0, 30], eval_ylim=[0, 100]):
-    legend_loc = 'upper left'
-    _xrange = plot_metric(
+def plot_loss(axis, loss_history, label, xrange, color):
+    legend_loc = 'upper center'
+    plot_stuff(
         axis,
-        train_metrics,
-        'on TRAIN set (S1, S6, S7, S8)',
+        loss_history,
+        label=label,
         xrange=xrange,
-        ylim=train_ylim,
-        color='red',
-        legend_loc=legend_loc
+        color=color,
+        alpha=0.9 if 'total' in label else 0.5,
+        legend_loc=legend_loc,
+        show_min=False,
+        marker='+',
+        verbose=False
     )
 
-    axis = axis.twinx()
 
-    legend_loc = 'upper right'
-    _xrange = plot_metric(
-        axis,
-        eval_metrics,
-        'on EVAL set (S9, S11)',
-        xrange=xrange,
-        ylim=eval_ylim,
-        color='green',
-        legend_loc=legend_loc
-    )
-    plot_SOTA(axis, _xrange)
-    axis.legend(loc=legend_loc)
-
-
-# todo split into `plot_losses / plot_metrics`
-def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], normalize_loss=None, title=None, metric_ylabel=None, xlabel='# epoch'):
+def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='# epoch'):
     loss_keys = list(filter(
         lambda x: 'loss / batch' in x,  # and 'training' not in x,
         epochs[0].keys()
@@ -96,7 +81,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         loss_keys = ['training loss / batch']
         colors = ['red']
     else:
-        colors = LOSS_C
+        colors = mcolors.TABLEAU_COLORS
 
     for key, color in zip(loss_keys, colors):
         loss_history = np.float32([
@@ -107,27 +92,19 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         loss_history = np.nan_to_num(loss_history, nan=nan)
 
         if np.mean(loss_history) > 1e-2:
-            _min, _max = np.min(drop_na(loss_history)), np.max(
-                drop_na(loss_history))
+            _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
             _last = loss_history[-1]
             label = '{} = {:.0f} ({:.0f} / {:.0f})'.format(
                 key.replace('loss / batch', '').strip(), _last, _min, _max
             )
-            loss_history = normalize_transformation(normalize_loss)(
-                loss_history) if normalize_loss else loss_history
 
-            legend_loc = 'upper center'
-            plot_metric(
+            plot_loss(
                 axis,
-                loss_history,
-                label=label,
-                xrange=xrange,
-                color=color,
-                alpha=0.9 if 'total' in label else 0.5,
-                legend_loc=legend_loc,
-                show_min=False,
-                marker='+',
-                verbose=False
+                normalize_transformation(normalize_loss)(
+            loss_history) if normalize_loss else loss_history,
+                label,
+                xrange,
+                color
             )
 
     axis.set_xlim([xrange[0], xrange[-1]])
@@ -143,10 +120,11 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
     )
     axis.set_ylabel(label)
 
-    axis = axis.twinx()  # on the right
 
+# todo split into `plot_losses / plot_metrics`
+def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None):
     legend_loc = 'upper right'
-    plot_metric(
+    plot_stuff(
         axis,
         [epoch['training metrics'] for epoch in epochs],
         'training metrics',
@@ -159,7 +137,7 @@ def plot_epochs(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim
         verbose=False
     )
 
-    plot_metric(
+    plot_stuff(
         axis,
         [epoch['eval metrics'] for epoch in epochs],
         'eval metrics',

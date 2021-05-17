@@ -135,8 +135,7 @@ class RototransNet(nn.Module):
             self.backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
                 MLPResNet(
-                    in_features, inner_size, n_inner_layers,
-                    n_features,
+                    in_features, inner_size, 2, n_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
@@ -145,15 +144,13 @@ class RototransNet(nn.Module):
 
             self.R_backbone = nn.Sequential(*[
                 MLPResNet(
-                    n_features, n_features, 2,
-                    n_out_features,
+                    n_features, n_features, n_inner_layers, n_out_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
                 ),
                 MLPResNet(
-                    n_out_features, n_out_features, 2,
-                    6,
+                    n_out_features, n_out_features, n_inner_layers, 6,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
@@ -163,15 +160,13 @@ class RototransNet(nn.Module):
 
             self.t_backbone = nn.Sequential(*[
                 MLPResNet(
-                    n_features, n_features, 2,
-                    n_out_features,
+                    n_features, n_features, 2, n_out_features,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
                 ),
                 MLPResNet(
-                    n_out_features, n_out_features, 2,
-                    3,
+                    n_out_features, n_out_features, 2, 3,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,

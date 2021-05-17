@@ -133,7 +133,7 @@ def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
     return loss
 
 
-def geo_R_loss(cam2cam_gts, cam2cam_preds, pairs):
+def geo_loss(cam2cam_gts, cam2cam_preds, pairs):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
     

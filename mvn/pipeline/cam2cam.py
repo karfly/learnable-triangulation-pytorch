@@ -5,7 +5,7 @@ import numpy as np
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_points_in_camspace
-from mvn.models.loss import geo_R_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
+from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -179,7 +179,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.roto_weight > 0:
         total_loss += config.cam2cam.loss.roto_weight * roto_loss
 
-    geodesic_loss = geo_R_loss(cam2cam_gts, cam2cam_preds, _pairs)
+    geodesic_loss = geo_loss(cam2cam_gts, cam2cam_preds, _pairs)
     if config.cam2cam.loss.geo_weight > 0:
         total_loss += config.cam2cam.loss.geo_weight * geodesic_loss
 

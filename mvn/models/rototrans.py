@@ -129,7 +129,7 @@ class RototransNet(nn.Module):
                 ),
             ])
         elif model == 'shared':
-            n_features = 512
+            n_features = 1024
             self.backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
                 MLPResNet(
@@ -142,12 +142,24 @@ class RototransNet(nn.Module):
             ])
 
             self.R_backbone = nn.Sequential(*[
-                nn.Linear(n_features, 6, bias=True),
+                MLPResNet(
+                    n_features, inner_size, 2,
+                    6,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU,
+                ),
                 R6DBlock()
             ])
 
             self.t_backbone = nn.Sequential(*[
-                nn.Linear(n_features, 3, bias=True),
+                MLPResNet(
+                    n_features, inner_size, 2,
+                    3,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=nn.LeakyReLU,
+                ),
             ])
         elif model == 'unet':
             self.R_backbone = nn.Sequential(*[

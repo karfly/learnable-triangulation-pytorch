@@ -63,7 +63,7 @@ cam2cam:
       t: 2.0
 
   opt:
-    lr: 0.0001
+    lr: 0.0002
 
   model:
     name: "shared"

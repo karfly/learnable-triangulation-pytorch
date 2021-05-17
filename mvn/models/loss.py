@@ -155,27 +155,26 @@ def geo_R_loss(cam2cam_gts, cam2cam_preds, pairs):
     return loss
 
 
-def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans, threshold=1e2):
+def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    
+    criterion = KeypointsMSESmoothLoss(threshold=400)
+
     for batch_i in range(batch_size):
-        gts = torch.cat([
+        cam2cam_gt = torch.cat([
             cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
             for pair in pairs
-        ])[:, :3, 3] / scale_trans2trans
-        preds = torch.cat([
+        ])
+        cam2cam_pred = torch.cat([
             cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
             for pair in pairs
-        ])[:, :3, 3] / scale_trans2trans
-        sum_of_norms = torch.norm(gts, p='fro', dim=1) + torch.norm(preds, p='fro', dim=1)  # todo to comply with cluster
-
-        diff = (gts - preds) ** 2
-        diff = diff / sum_of_norms
-
-        diff[diff > threshold] = torch.pow(diff[diff > threshold], 0.1) * (threshold ** 0.9)  # soft version
-
-        loss += diff.sum()
+        ])
+        
+        # todo try use fro norm
+        loss += criterion(
+            cam2cam_pred[:, :3, 3].cuda() / scale_trans2trans,  # just t
+            cam2cam_gt[:, :3, 3].cuda() / scale_trans2trans
+        )
 
     return loss
 
@@ -216,7 +215,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
     return loss
 
 
-def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=1e2):
+def self_consistency_loss(cam2cam_preds):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))
@@ -242,18 +241,15 @@ def self_consistency_loss(cam2cam_preds, scale_trans2trans, threshold=1e2):
             )
 
     # translation
+    criterion = KeypointsMSESmoothLoss(threshold=400)
     for batch_i in range(batch_size):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            cij = cam2cam_preds[batch_i, i, j][:3, 3] / scale_trans2trans  # just t
-            cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3] / scale_trans2trans  # just t
-            
+            cij = cam2cam_preds[batch_i, i, j][:3, 3]
+            cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
+
             sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')  # todo to comply with cluster
 
-            diff = (cij - cji) ** 2
-            diff = diff / sum_of_norms
-            diff[diff > threshold] = torch.pow(diff[diff > threshold], 0.1) * (threshold ** 0.9)  # soft version
-
-            loss_t += diff.sum()  # normalize
+            loss_t += criterion(cij, cji) / sum_of_norms  # normalize
 
     # todo pose projection
 

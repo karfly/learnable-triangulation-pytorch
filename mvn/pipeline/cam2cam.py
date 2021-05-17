@@ -195,7 +195,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * pose_loss
 
-    loss_R, loss_t = self_consistency_loss(cam2cam_preds, config.cam2cam.scale_trans2trans)
+    loss_R, loss_t = self_consistency_loss(cam2cam_preds)
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += config.cam2cam.loss.self_consistency.R * loss_R
     if config.cam2cam.loss.self_consistency.t > 0:
@@ -308,7 +308,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     else:
         if config.cam2cam.normalize_kp_to_pelvis:
             # kps = _normalize_to_pelvis(keypoints_2d_pred)
-            # kps = _normalize_per_view(keypoints_2d_pred)
+            kps = _normalize_per_view(keypoints_2d_pred)
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)

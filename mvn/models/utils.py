@@ -143,7 +143,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
         print('standard method => adding model.backbone {:.0f} params to grad ...'.format(
             count_grad_params(model.backbone)
         ))
-        
+
         opt = base_optim(
             get_grad_params(model.backbone),
             lr=1e-6  # BB already optimized
@@ -151,7 +151,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
 
     scheduler = ReduceLROnPlateau(
         opt,
-        factor=8e-1,  # new lr = x * lr
+        factor=7e-1,  # new lr = x * lr
         patience=100,  # n max iterations from optimum
         min_lr=1e-7,
         verbose=True

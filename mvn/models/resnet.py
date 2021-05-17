@@ -1,6 +1,6 @@
 from torch import nn
 
-linear = nn.Linear
+linear = lambda x, y: nn.Linear(x, y, bias=False)
 
 
 class MLPResNet(nn.Module):

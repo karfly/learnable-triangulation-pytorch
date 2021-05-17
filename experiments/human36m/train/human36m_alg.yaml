@@ -61,6 +61,7 @@ cam2cam:
     self_consistency:
       R: 0.0
       t: 2.0
+      proj: 0.0
 
   opt:
     lr: 0.0001

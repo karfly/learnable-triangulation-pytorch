@@ -58,7 +58,15 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.model.n_inner_layers = 2
     config.cam2cam.vgg = 'smallest'
     config.cam2cam.batch_norm = False
-    config.cam2cam.model.inner_size = 16
+
+    config.cam2cam.model.backbone.inner_size = 16
+    config.cam2cam.model.backbone.n_layers = 1
+    
+    config.cam2cam.model.roto.n_layers = 1
+    config.cam2cam.model.trans.n_layers = 1
+
+    config.cam2cam.model.n_features = 16
+    config.cam2cam.model.n_refine_features = 16
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

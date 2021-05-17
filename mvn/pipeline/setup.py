@@ -159,7 +159,7 @@ def build_env(config, device):
         if config.cam2cam.model.init_weights:
             load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
 
-        print('cam2cam model ({}):'.format(config.cam2cam.model.name))
+        print('cam2cam model:')
         show_params(cam2cam_model, verbose=config.debug.show_models)
 
     # ... and opt ...

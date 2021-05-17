@@ -56,8 +56,8 @@ cam2cam:
     roto_weight: 0.0
     geo_weight: 10.0
     trans_weight: 5.0
-    proj_weight: 0.0
-    tred_weight: 1.0
+    proj_weight: 0.1
+    tred_weight: 0.0
     self_consistency:
       R: 0.0
       t: 0.0
@@ -66,10 +66,18 @@ cam2cam:
     lr: 0.0001
 
   model:
-    name: "shared"
+    backbone:
+      inner_size: 1024
+      n_layers: 2
 
-    inner_size: 1024
-    n_inner_layers: 5
+    roto:
+      n_layers: 4
+
+    trans:
+      n_layers: 2
+
+    n_features: 512
+    n_refine_features: 256
   
     init_weights: false
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@14.05.2021-21:56:53/checkpoints/"

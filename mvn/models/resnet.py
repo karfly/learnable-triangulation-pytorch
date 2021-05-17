@@ -1,7 +1,5 @@
 from torch import nn
 
-linear = lambda x, y: nn.Linear(x, y, bias=False)
-
 
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
@@ -13,11 +11,11 @@ class MLPResNet(nn.Module):
         self.up = nn.Linear(in_features, inner_size, bias=True)
 
         self.linears = nn.ModuleList([
-            linear(sizes[i], sizes[i + 1], bias=True)
+            nn.Linear(sizes[i], sizes[i + 1], bias=False)
             for i in range(len(sizes) - 1)
         ])
         self.second_linears = nn.ModuleList([
-            linear(sizes[i + 1], sizes[i + 1], bias=True)
+            nn.Linear(sizes[i + 1], sizes[i + 1], bias=False)
             for i in range(len(sizes) - 1)
         ])
 
@@ -29,7 +27,7 @@ class MLPResNet(nn.Module):
         # todo dropout
         self.activation = activation(inplace=False)
 
-        self.head = linear(inner_size, out_features, bias=True)
+        self.head = nn.Linear(inner_size, out_features, bias=False)
 
         if init_weights:
             for m in self.modules():

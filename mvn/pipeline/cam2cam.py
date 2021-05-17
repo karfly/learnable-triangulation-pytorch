@@ -42,10 +42,10 @@ def _normalize_to_pelvis(keypoints_2d):
 def _normalize_per_view(keypoints_2d):
     """ pelvis -> (0, 0), corners -> (1, 1) """
 
+    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
+
     keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
-
-    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
     # "divided by its Frobenius norm in the preprocessing"
     keypoints_2d = torch.cat([

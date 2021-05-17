@@ -19,4 +19,8 @@ args = get_args()
 # labels, mask, indices = build_labels(config.dataset.train.labels_path, 10, allowed_subjects=['S9', 'S11'])
 
 config = get_config(args)
-do_train(None, None, config, device, is_distributed, master)
+
+try:
+    do_train(None, None, config, device, is_distributed, master)
+except ZeroDivisionError:
+    print('did you set a breakpoint?')

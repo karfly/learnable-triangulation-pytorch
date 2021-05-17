@@ -225,39 +225,46 @@ def self_consistency_loss(cam2cam_preds):
 
     # rotation
     criterion = KeypointsMSESmoothLoss(threshold=3.0)
-    for batch_i in range(batch_size):  # todo Tensor
-        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
-            cij = cam2cam_preds[batch_i, i, j, :3, :3]
-            cji = cam2cam_preds[batch_i, j, i, :3, :3]
+    for batch_i in range(batch_size):
+        cam_i2j = torch.cat([
+            cam2cam_preds[batch_i, i, j, :3, :3].unsqueeze(0)
+            for i, j in pairs
+        ])
+        cam_j2i = torch.cat([
+            cam2cam_preds[batch_i, j, i, :3, :3].unsqueeze(0)
+            for i, j in pairs
+        ])
 
-            pred = torch.bmm(
-                cij.unsqueeze(0),
-                cji.unsqueeze(0)
-            )
+        # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
+        pred = torch.bmm(cam_i2j, cam_j2i)
 
-            # comparing VS eye ...
-            # ... makes autograd cry
-            norm = torch.norm(pred, p='fro')
-            diff = norm - np.sqrt(3)  # norm of I(3)
-            loss_R += torch.square(diff)
+        # comparing VS eye ...
+        # ... makes autograd cry
+        loss_R += criterion(  # todo apparently geodesic does not work well ...
+            pred,
+            torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+        )
 
-        for i in range(n_views):  # cam i -> i should be I
-            pred = cam2cam_preds[batch_i, i, i, :3, :3]
-            norm = torch.norm(pred, p='fro')
-            diff = norm - np.sqrt(3)  # norm of I(3)
-
-            loss_R += torch.square(diff)
+        # cam i -> i should be I
+        cam_i2i = torch.cat([
+            cam2cam_preds[batch_i, i, i, :3, :3].unsqueeze(0)
+            for i in range(n_views)
+        ])
+        loss_R += criterion(  # todo apparently geodesic does not work well ...
+            cam_i2i,
+            torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+        )
 
     # translation
     criterion = KeypointsMSESmoothLoss(threshold=400)
-    for batch_i in range(batch_size):
+    for batch_i in range(batch_size):  # todo Tensor
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            cij = cam2cam_preds[batch_i, i, j][:3, 3]
-            cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
+            cam_i2j = cam2cam_preds[batch_i, i, j][:3, 3]
+            cam_j2i = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
 
-            sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')  # todo to comply with cluster
+            sum_of_norms = torch.norm(cam_i2j, p='fro') + torch.norm(cam_j2i, p='fro')  # todo to comply with cluster
 
-            loss_t += criterion(cij, cji) / sum_of_norms  # normalize
+            loss_t += criterion(cam_i2j, cam_j2i) / sum_of_norms  # normalize
 
     # todo pose projection
 

@@ -47,7 +47,7 @@ cam2cam:
   using_heatmaps: false
   normalize_kp_to_pelvis: true
 
-  batch_norm: true
+  batch_norm: false
   drop_out: 0
 
   vgg: "16"
@@ -61,7 +61,7 @@ cam2cam:
     self_consistency:
       R: 0.0
       t: 2.0
-      proj: 0.0
+      proj: 0.1
 
   opt:
     lr: 0.0001

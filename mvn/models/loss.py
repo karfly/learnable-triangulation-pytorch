@@ -237,7 +237,7 @@ def twod_proj_loss(keypoints_3d_gt, cameras, keypoints_in_cam_pred, cam2cam_pred
     return loss
 
 
-def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam2cam_preds):
+def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam2cam_preds, scale_trans2trans=1e3):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))  # on all pairs
@@ -294,8 +294,8 @@ def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam
 
             # cam i -> j should be (cam j -> i) ^ -1
             loss += criterion(
-                t_i2j,
-                t_j2i
+                t_i2j / scale_trans2trans,
+                t_j2i / scale_trans2trans
             )
 
         return loss

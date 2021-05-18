@@ -3,6 +3,11 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
+def _get_torch_version():
+    version = torch.__version__.split('.')
+    return float(version[0]) + float(version[1]) / 10
+
+
 def get_params(layer, as_list=True):
     params = layer.parameters()
 
@@ -90,7 +95,7 @@ def freeze_backbone(model):
     # debug only show_params(model.backbone)
 
 
-def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):
+def build_opt(model, cam2cam_model, config, base_optim=optim.Adam if _get_torch_version() >= 1.8 else optim.AdamW):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:

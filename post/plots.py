@@ -88,7 +88,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 on T loss / batch',
         'L2 proj loss / batch',
         'L2 on 3D loss / batch',
-        'self-consistency t loss / batch'
+        'self-consistency R loss / batch',
+        'self-consistency t loss / batch',
+        # 'self-consistency proj loss / batch',
     ]  # forced
 
     for key, color in zip(loss_keys, colors):
@@ -129,13 +131,14 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     axis.set_ylabel(label)
 
 
-# todo split into `plot_losses / plot_metrics`
 def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None):
     legend_loc = 'upper right'
+    
+    metrics = drop_na(map(lambda x: x['training metrics'], epochs))
     plot_stuff(
         axis,
-        [epoch['training metrics'] for epoch in epochs],
-        'training metrics',
+        metrics,
+        'training metrics = {:.1f}'.format(metrics[-1]),
         xrange=xrange,
         ylim=train_metric_ylim,
         color='aquamarine',
@@ -145,10 +148,11 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         verbose=False
     )
 
+    metrics = drop_na(map(lambda x: x['eval metrics'], epochs))
     plot_stuff(
         axis,
-        [epoch['eval metrics'] for epoch in epochs],
-        'eval metrics',
+        metrics,
+        'eval metrics = {:.1f}'.format(metrics[-1]),
         xrange=xrange,
         ylim=eval_metric_ylim,
         color='blue',

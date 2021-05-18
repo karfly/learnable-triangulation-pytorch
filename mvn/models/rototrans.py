@@ -1,11 +1,7 @@
 from torch import nn
-from torch.nn.modules import activation
 
-from mvn.models.mlp import MLP
-from mvn.models.unet import MLUNet
 from mvn.models.resnet import MLPResNet
-from mvn.models.canonpose import CanonPose
-from mvn.models.layers import R6DBlock
+from mvn.models.layers import R6DBlock, SEBlock
 
 
 class RototransNet(nn.Module):
@@ -31,6 +27,10 @@ class RototransNet(nn.Module):
                 drop_out=drop_out,
                 activation=activation,
             ),
+            SEBlock(
+                n_features,
+                config.cam2cam.model.backbone.inner_size,
+            )
         ])  # shared
 
         self.R_backbone = nn.Sequential(*[

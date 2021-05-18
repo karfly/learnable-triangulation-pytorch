@@ -119,3 +119,22 @@ class R6DBlock(nn.Module):
         z = z.view(-1, 3, 1)
 
         return torch.cat((x, y, z), 2)  # 3 x 3
+
+
+# modified version of https://arxiv.org/abs/1709.01507, suitable for MLP
+class SEBlock(nn.Module):
+    def __init__(self, in_features, inner_size):
+        super().__init__()
+
+        self.excite = nn.Sequential(*[
+            nn.Linear(in_features, inner_size),
+            nn.ReLU(inplace=False),
+            
+            nn.Linear(inner_size, in_features),
+            nn.Sigmoid(),
+        ])
+
+    def forward(self, x):
+        # it's already squeezed ...
+        activation_map = self.excite(x)  # excite
+        return activation_map @ x  # attend

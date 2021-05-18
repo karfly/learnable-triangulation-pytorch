@@ -104,7 +104,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         if np.mean(loss_history) > 1e-2:
             _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
             _last = loss_history[-1]
-            label = '{} = {:.0f} ({:.0f} / {:.0f})'.format(
+            label = '{} = {:.1f} ({:.1f} / {:.1f})'.format(
                 key.replace('loss / batch', '').strip(), _last, _min, _max
             )
 

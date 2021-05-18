@@ -359,11 +359,10 @@ def triangulate_points_in_camspace(points_batch, matrices_batch, confidences_bat
 
         if not (confidences_batch is None):
             confidences = confidences_batch[:, joint_i]
-
             point_3d = triangulator(
                 matrices_batch.cpu(),
                 points.cpu(),
-                confidences=confidences.cpu()  # todo check grad
+                confidences=confidences.cpu()
             )
         else:
             point_3d = triangulator(

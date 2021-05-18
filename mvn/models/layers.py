@@ -127,14 +127,17 @@ class SEBlock(nn.Module):
         super().__init__()
 
         self.excite = nn.Sequential(*[
-            nn.Linear(in_features, inner_size),
+            nn.Linear(in_features, inner_size, bias=True),
             nn.ReLU(inplace=False),
-            
-            nn.Linear(inner_size, in_features),
+
+            nn.Linear(inner_size, in_features, bias=True),
             nn.Sigmoid(),
         ])
 
     def forward(self, x):
         # it's already squeezed ...
         activation_map = self.excite(x)  # excite
-        return activation_map @ x  # attend
+        return torch.mul(
+            activation_map,
+            x
+        )  # attend

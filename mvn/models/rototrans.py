@@ -27,10 +27,6 @@ class RototransNet(nn.Module):
                 drop_out=drop_out,
                 activation=activation,
             ),
-            SEBlock(
-                n_features,
-                config.cam2cam.model.backbone.inner_size,
-            )
         ])  # shared
 
         self.R_backbone = nn.Sequential(*[
@@ -71,7 +67,6 @@ class RototransNet(nn.Module):
                 activation=activation,
             ),
         ])
-
 
     def forward(self, batch):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """

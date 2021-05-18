@@ -62,6 +62,7 @@ cam2cam:
       R: 10.0
       t: 10.0
       proj: 0.0
+      dlt: 10.0
 
   opt:
     lr: 0.0001

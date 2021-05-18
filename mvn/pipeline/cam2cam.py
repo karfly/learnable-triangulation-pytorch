@@ -41,6 +41,24 @@ def _normalize_per_view(keypoints_2d):
     return keypoints_2d
 
 
+def _normalize_to_pelvis(keypoints_2d):
+    """ pelvis -> (0, 0), corners -> (1, 1) """
+
+    keypoints_2d = _center_to_pelvis(keypoints_2d)
+
+    # divide by largest (smallest) coord in each sample (4 views)
+    m, _ = keypoints_2d.min(dim=1, keepdim=True)
+    M, _ = keypoints_2d.max(dim=1, keepdim=True)
+    diff = M - m
+    diff = diff + torch.ones_like(diff) * 1e-8  # avoid / 0
+    keypoints_2d = keypoints_2d / diff
+
+    # > 0 KP => up and to the right of the pelvis
+    # < 0 KP => down and to the left of the pelvis
+
+    return keypoints_2d
+
+
 def _get_cam2cam_gt(cameras):
     n_views = len(cameras)
     batch_size = len(cameras[0])
@@ -208,7 +226,11 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
 
     def _forward_kp():
         if config.cam2cam.using_gt:
-            return get_kp_gt(keypoints_3d_gt, batch['cameras'])
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(keypoints_3d_gt, batch['cameras'])
+            
+            # keypoints_2d_pred = keypoints_2d_pred + torch.rand_like(keypoints_2d_pred)  # a bit different from true GTs
+            
+            return keypoints_2d_pred, heatmaps_pred, confidences_pred
         else:
             return model(
                 images_batch, None, minimon

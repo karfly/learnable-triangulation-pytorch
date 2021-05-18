@@ -82,6 +82,13 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         colors = ['red']
     else:
         colors = mcolors.TABLEAU_COLORS
+    
+    loss_keys = [
+        'geodesic loss / batch',
+        'L2 on T loss / batch',
+        'L2 proj loss / batch',
+        'L2 on 3D loss / batch'
+    ]  # forced
 
     for key, color in zip(loss_keys, colors):
         loss_history = np.float32([

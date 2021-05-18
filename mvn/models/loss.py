@@ -190,6 +190,7 @@ def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_g
     )
 
 
+# todo assumption: master cam is 0 => do not project there
 def _project_in_each_view(cameras, keypoints_in_cam_pred, cam2cam_preds):
     n_views = len(cameras)
     batch_size = len(cameras[0])
@@ -241,58 +242,74 @@ def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))  # on all pairs
 
-    loss_R, loss_t = 0.0, 0.0
+    def _self_R(criterion=KeypointsMSESmoothLoss(threshold=3.0)):
+        loss = 0.0
+        
+        for batch_i in range(batch_size):
+            cam_i2j = torch.cat([
+                cam2cam_preds[batch_i, i, j, :3, :3].unsqueeze(0)
+                for i, j in pairs
+            ])
+            cam_j2i = torch.cat([
+                cam2cam_preds[batch_i, j, i, :3, :3].unsqueeze(0)
+                for i, j in pairs
+            ])
 
-    # rotation
-    criterion = KeypointsMSESmoothLoss(threshold=3.0)
-    for batch_i in range(batch_size):
-        cam_i2j = torch.cat([
-            cam2cam_preds[batch_i, i, j, :3, :3].unsqueeze(0)
-            for i, j in pairs
-        ])
-        cam_j2i = torch.cat([
-            cam2cam_preds[batch_i, j, i, :3, :3].unsqueeze(0)
-            for i, j in pairs
-        ])
+            # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
+            pred = torch.bmm(cam_i2j, cam_j2i)
 
-        # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
-        pred = torch.bmm(cam_i2j, cam_j2i)
+            # comparing VS eye ...
+            # ... makes autograd cry
+            loss += criterion(  # todo apparently geodesic does not work well ...
+                pred,
+                torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+            )
 
-        # comparing VS eye ...
-        # ... makes autograd cry
-        loss_R += criterion(  # todo apparently geodesic does not work well ...
-            pred,
-            torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
-        )
+            # cam i -> i should be I
+            cam_i2i = torch.cat([
+                cam2cam_preds[batch_i, i, i, :3, :3].unsqueeze(0)
+                for i in range(n_views)
+            ])
+            loss += criterion(  # todo apparently geodesic does not work well ...
+                cam_i2i,
+                torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+            )
 
-        # cam i -> i should be I
-        cam_i2i = torch.cat([
-            cam2cam_preds[batch_i, i, i, :3, :3].unsqueeze(0)
-            for i in range(n_views)
-        ])
-        loss_R += criterion(  # todo apparently geodesic does not work well ...
-            cam_i2i,
-            torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
-        )
+        return loss
 
-    # translation
-    criterion = KeypointsMSESmoothLoss(threshold=400)
-    for batch_i in range(batch_size):  # todo Tensor
-        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            cam_i2j = cam2cam_preds[batch_i, i, j][:3, 3]
-            cam_j2i = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
+    def _self_t(criterion=KeypointsMSESmoothLoss(threshold=3.0)):
+        loss = 0.0
 
-            sum_of_norms = torch.norm(cam_i2j, p='fro') + torch.norm(cam_j2i, p='fro')  # todo to comply with cluster
+        for batch_i in range(batch_size):  # todo Tensor
+            cam_i2j = torch.cat([
+                cam2cam_preds[batch_i, i, j].unsqueeze(0)
+                for i, j in pairs
+            ])
+            cam_j2i = torch.cat([
+                cam2cam_preds[batch_i, j, i].unsqueeze(0)
+                for i, j in pairs
+            ])
 
-            loss_t += criterion(cam_i2j, cam_j2i) / sum_of_norms  # normalize
+            # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
+            pred = torch.bmm(cam_i2j, cam_j2i)
 
-    loss_proj = 0.0
-    projections = _project_in_each_view(cameras, keypoints_in_cam_pred, cam2cam_preds)  # ~ 8, 4, 17, 2
+            loss += criterion(
+                pred,
+                torch.eye(4, device=cam2cam_preds.device, requires_grad=True)
+            )
 
-    for batch_i in range(batch_size):
-        loss_proj += criterion(
-            initial_keypoints[batch_i, 1:].cuda(),  # not considering master (0)
-            projections[batch_i].cuda(),
-        )
+        return loss
 
-    return loss_R, loss_t, loss_proj
+    def _self_projection(criterion=KeypointsMSESmoothLoss(threshold=400)):
+        loss = 0.0
+        projections = _project_in_each_view(cameras, keypoints_in_cam_pred, cam2cam_preds)  # ~ 8, 4, 17, 2
+
+        for batch_i in range(batch_size):
+            loss += criterion(
+                initial_keypoints[batch_i, 1:].cuda(),  # not considering master (0)
+                projections[batch_i].cuda(),
+            )
+
+        return loss
+
+    return _self_R(), _self_t(), _self_projection()

@@ -262,7 +262,7 @@ def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam
             # ... makes autograd cry
             loss += criterion(  # todo apparently geodesic does not work well ...
                 pred,
-                torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+                torch.eye(3, device=cam2cam_preds.device, requires_grad=False)
             )
 
             # cam i -> i should be I
@@ -272,30 +272,30 @@ def self_consistency_loss(initial_keypoints, cameras, keypoints_in_cam_pred, cam
             ])
             loss += criterion(  # todo apparently geodesic does not work well ...
                 cam_i2i,
-                torch.eye(3, device=cam2cam_preds.device, requires_grad=True)
+                torch.eye(3, device=cam2cam_preds.device, requires_grad=False)
             )
 
         return loss
 
-    def _self_t(criterion=KeypointsMSESmoothLoss(threshold=3.0)):
+    def _self_t(criterion=KeypointsMSESmoothLoss(threshold=400)):
         loss = 0.0
 
-        for batch_i in range(batch_size):  # todo Tensor
-            cam_i2j = torch.cat([
-                cam2cam_preds[batch_i, i, j].unsqueeze(0)
+        for batch_i in range(batch_size):
+            t_i2j = torch.cat([
+                cam2cam_preds[batch_i, i, j, :3, 3].unsqueeze(0)
                 for i, j in pairs
             ])
+
             cam_j2i = torch.cat([
                 cam2cam_preds[batch_i, j, i].unsqueeze(0)
                 for i, j in pairs
             ])
+            t_j2i = torch.inverse(cam_j2i)[:, :3, 3]
 
-            # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
-            pred = torch.bmm(cam_i2j, cam_j2i)
-
+            # cam i -> j should be (cam j -> i) ^ -1
             loss += criterion(
-                pred,
-                torch.eye(4, device=cam2cam_preds.device, requires_grad=True)
+                t_i2j,
+                t_j2i
             )
 
         return loss

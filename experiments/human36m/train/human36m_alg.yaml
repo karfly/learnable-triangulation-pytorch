@@ -54,13 +54,13 @@ cam2cam:
 
   loss:
     roto_weight: 0.0
-    geo_weight: 0.0
-    trans_weight: 0.0
-    proj_weight: 0.01
-    tred_weight: 10.0
+    geo_weight: 10.0
+    trans_weight: 1.0
+    proj_weight: 0.0
+    tred_weight: 1.0
     self_consistency:
-      R: 0.0
-      t: 1.0
+      R: 10.0
+      t: 0.1
       proj: 0.0
 
   opt:
@@ -69,13 +69,13 @@ cam2cam:
   model:
     backbone:
       inner_size: 1024
-      n_layers: 4
+      n_layers: 2
 
     roto:
-      n_layers: 4
+      n_layers: 2
 
     trans:
-      n_layers: 4
+      n_layers: 2
 
     n_features: 1024
     n_refine_features: 512
@@ -129,8 +129,8 @@ dataset:
     max_n_views: 31
     num_workers: 1
 
-    retain_every_n_frames_in_train: 10000
-# `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12
+    retain_every_n_frames_in_train: 15000
+# `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12, `15000` => ~ 8
 
   val:
     crop: false
@@ -150,5 +150,5 @@ dataset:
     max_n_views: 31
     num_workers: 1
 
-    retain_every_n_frames_in_test: 500
-# `3` => ~ 703, `10` => ~ 211, `100` => ~ 22, `500` => ~ 5
+    retain_every_n_frames_in_test: 600
+# `3` => ~ 703, `10` => ~ 211, `100` => ~ 22, `500` => ~ 5, `600` => ~ 4

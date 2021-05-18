@@ -57,7 +57,7 @@ def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=
 
 
 def plot_loss(axis, loss_history, label, xrange, color):
-    legend_loc = 'upper center'
+    legend_loc = 'lower left'
     plot_stuff(
         axis,
         loss_history,
@@ -87,7 +87,8 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'geodesic loss / batch',
         'L2 on T loss / batch',
         'L2 proj loss / batch',
-        'L2 on 3D loss / batch'
+        'L2 on 3D loss / batch',
+        'self-consistency t loss / batch'
     ]  # forced
 
     for key, color in zip(loss_keys, colors):

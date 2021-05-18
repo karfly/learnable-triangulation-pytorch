@@ -88,16 +88,12 @@ function slurmShowUsageInMonth () {
 }
 alias showClusterUsageInMonth='slurmShowUsageInMonth p_humanpose cpu 3500 && echo && slurmShowUsageInMonth p_humanpose gres/gpu 250'
 
-# usage: backupJobViaSSH "hackme" "15719703"
-function backupJobViaSSH () {
-    password=$1
-    job_id=$2
+# usage: showJobFolder "15901850"
+function showJobFolder () {
+    job_id=$1
+    root_folder="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
 
-    url="stfo194b@taurus.hrsk.tu-dresden.de"
-    folder="/home/stfo194b/tesi/learnable-triangulation-pytorch/tools"
+    job_folder=$(cat ${job_id}.out| grep Experiment | awk '{print $3}')
 
-    full_path="${url}:${folder}/${job_id}.out"
-
-    echo "${full_path} ----> ${PWD}"
-    sshpass -p ${password} scp ${full_path} .
+    echo ${root_folder}/${job_folder}
 }

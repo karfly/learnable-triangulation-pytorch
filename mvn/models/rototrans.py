@@ -28,6 +28,10 @@ class RototransNet(nn.Module):
             ),
         ])  # shared
 
+        self.attention = SEBlock(
+            n_features, n_features
+        )
+
         self.R_backbone = nn.Sequential(*[
             MLPResNet(
                 n_features, n_features,
@@ -55,6 +59,8 @@ class RototransNet(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         features = self.backbone(batch)
+        # features = self.attention(features)
+
         rot2rot = self.R_backbone(features)  # ~ (batch_size, 6)
         trans2trans = self.t_backbone(features)  # ~ (batch_size, 3)
 

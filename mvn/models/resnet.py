@@ -1,12 +1,14 @@
 from torch import nn
 
+from mvn.models.layers import SEBlock
+
 
 activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
 
 
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=activation, init_weights=False):
+    batch_norm=False, drop_out=0.0, activation=activation, init_weights=True):
         super().__init__()
 
         sizes = (n_inner_layers + 1) * [inner_size]
@@ -33,6 +35,10 @@ class MLPResNet(nn.Module):
 
         # todo dropout
         self.activation = activation()
+
+        self.attention = SEBlock(
+            out_features, out_features
+        )
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
 
@@ -64,11 +70,10 @@ class MLPResNet(nn.Module):
                 x = b2(x)
 
             x = self.activation(x)
-
-            new_residual = x  # save for next layer
-            
             x = x + residual
-            residual = new_residual
+
+            residual = x  # save for next layer
 
         x = self.head(x)
+        x = self.attention(x)
         return x

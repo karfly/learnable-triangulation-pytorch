@@ -1,17 +1,6 @@
 import torch
 import torch.nn as nn
 
-
-from mvn.models.resnet import MLPResNet
-
-
-def linear_with_activation(in_features, out_features, activation):
-    return nn.Sequential(
-        nn.Linear(in_features, out_features),
-        activation(inplace=False)  # better be safe than sorry
-    )
-
-
 class ResNetBlock(nn.Module):
     """ https://d2l.ai/chapter_convolutional-modern/resnet.html """
 
@@ -130,23 +119,11 @@ class SEBlock(nn.Module):
     def __init__(self, in_features, inner_size):
         super().__init__()
 
-        # self.excite = nn.Sequential(*[
-        #     nn.Linear(in_features, inner_size, bias=True),
-        #     nn.ReLU(inplace=False),
-
-        #     nn.Linear(inner_size, in_features, bias=True),
-        #     nn.Sigmoid(),
-        # ])
-
         self.excite = nn.Sequential(*[
-            MLPResNet(
-                in_features,
-                inner_size,
-                2,
-                in_features,
-                batch_norm=True,
-                init_weights=True
-            ),
+            nn.Linear(in_features, inner_size, bias=True),
+            nn.ReLU(inplace=False),
+
+            nn.Linear(inner_size, in_features, bias=True),
             nn.Sigmoid(),
         ])
 

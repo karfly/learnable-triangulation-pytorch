@@ -87,35 +87,37 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'geodesic loss / batch',
         'L2 on T loss / batch',
         'L2 proj loss / batch',
-        # 'L2 on 3D loss / batch',
+        'L2 on 3D loss / batch',
         'self-consistency R loss / batch',
         'self-consistency t loss / batch',
         'self-consistency DLT loss / batch',
+        # 'self-consistency pivot loss / batch',
     ]  # forced
 
     for key, color in zip(loss_keys, colors):
-        loss_history = np.float32([
-            np.mean(epoch[key])
-            for epoch in epochs
-        ])
-        nan = np.mean(drop_na(loss_history))
-        loss_history = np.nan_to_num(loss_history, nan=nan)
+        if key in epochs[0]:
+            loss_history = np.float32([
+                np.mean(epoch[key])
+                for epoch in epochs
+            ])
+            nan = np.mean(drop_na(loss_history))
+            loss_history = np.nan_to_num(loss_history, nan=nan)
 
-        if np.mean(loss_history) > 1e-2:
-            _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
-            _last = loss_history[-1]
-            label = '{} = {:.1f} ({:.1f} / {:.1f})'.format(
-                key.replace('loss / batch', '').strip(), _last, _min, _max
-            )
+            if np.mean(loss_history) > 1e-2:
+                _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
+                _last = loss_history[-1]
+                label = '{} = {:.1f} ({:.1f} / {:.1f})'.format(
+                    key.replace('loss / batch', '').strip(), _last, _min, _max
+                )
 
-            plot_loss(
-                axis,
-                normalize_transformation(normalize_loss)(
-            loss_history) if normalize_loss else loss_history,
-                label,
-                xrange,
-                color
-            )
+                plot_loss(
+                    axis,
+                    normalize_transformation(normalize_loss)(
+                loss_history) if normalize_loss else loss_history,
+                    label,
+                    xrange,
+                    color
+                )
 
     axis.set_xlim([xrange[0], xrange[-1]])
     axis.set_xlabel(xlabel)

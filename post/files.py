@@ -160,6 +160,13 @@ def parse_job_log(f_path, verbose=False):
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                
+            if len(tokens) > 11:
+                loss = parse_fp_number(tokens[10].split(',')[0])
+                key = 'self-consistency pivot loss / batch'
+                if key not in current_epoch_details:
+                    current_epoch_details[key] = []
+                current_epoch_details[key].append(loss)
 
             total_loss = parse_fp_number(tokens[-1])
             current_epoch_details['total loss / batch'].append(total_loss)

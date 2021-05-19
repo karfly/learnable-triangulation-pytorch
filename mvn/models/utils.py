@@ -95,7 +95,7 @@ def freeze_backbone(model):
     # debug only show_params(model.backbone)
 
 
-def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  #  if _get_torch_version() >= 1.8 else optim.AdamW):
+def build_opt(model, cam2cam_model, config, base_optim=optim.Adam if _get_torch_version() >= 1.8 else optim.AdamW):
     freeze_backbone(model)
 
     if config.model.cam2cam_estimation:
@@ -119,7 +119,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  #  if _get_
                 }
             )
 
-        opt = base_optim(params, weight_decay=4e-1)
+        opt = base_optim(params, weight_decay=4e1)
     elif config.model.name == "vol":
         print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
             'backbone',
@@ -156,8 +156,8 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  #  if _get_
 
     scheduler = ReduceLROnPlateau(
         opt,
-        factor=6e-1,  # new lr = x * lr
-        patience=100,  # n max iterations since optimum
+        factor=5e-1,  # new lr = x * lr
+        patience=75,  # n max iterations since optimum
         # threshold=42,  # no matter what, do lr decay
         min_lr=1e-6,
         verbose=True

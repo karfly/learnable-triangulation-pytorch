@@ -6,7 +6,7 @@ activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
 
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=activation, init_weights=False):
+    batch_norm=False, drop_out=0.0, activation=activation, init_weights=True):
         super().__init__()
 
         sizes = (n_inner_layers + 1) * [inner_size]
@@ -35,14 +35,16 @@ class MLPResNet(nn.Module):
         if init_weights:
             for m in self.modules():
                 if isinstance(m, nn.Linear):
+                    # init weights -> NaN
+                    nn.init.constant_(m.bias, 0)
+
+                if isinstance(m, nn.BatchNorm1d):
+                    nn.init.constant_(m.bias, 0)
                     nn.init.normal_(m.weight, 0, 1)
-                    nn.init.constant_(m.bias, 0)
-                elif isinstance(m, nn.BatchNorm1d):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = self.up(x)
+        original = x
         residual = x
 
         for i in range(len(self.linears)):
@@ -58,6 +60,7 @@ class MLPResNet(nn.Module):
             # no second batchnorm !!!
 
             x = x + residual
+            x = x + original
             x = self.activation(x)  # activation AFTER residual
 
             residual = x  # save for next layer

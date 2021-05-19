@@ -44,7 +44,6 @@ class MLPResNet(nn.Module):
 
     def forward(self, x):
         x = self.up(x)
-        original = x
         residual = x
 
         for i in range(len(self.linears)):
@@ -59,9 +58,8 @@ class MLPResNet(nn.Module):
             x = l2(x)
             # no second batchnorm !!!
 
+            x = self.activation(x)
             x = x + residual
-            x = x + original
-            x = self.activation(x)  # activation AFTER residual
 
             residual = x  # save for next layer
 

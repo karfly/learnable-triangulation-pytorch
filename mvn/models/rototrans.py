@@ -25,6 +25,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
+                init_weights=True
             ),
         ])  # shared
 
@@ -40,6 +41,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
+                init_weights=True
             ),
             R6DBlock()
         ])
@@ -52,6 +54,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
+                init_weights=True
             ),
         ])
 
@@ -59,7 +62,7 @@ class RototransNet(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         features = self.backbone(batch)
-        # features = self.attention(features)
+        features = self.attention(features)
 
         rot2rot = self.R_backbone(features)  # ~ (batch_size, 6)
         trans2trans = self.t_backbone(features)  # ~ (batch_size, 3)

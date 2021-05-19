@@ -41,6 +41,19 @@ class KeypointsMSESmoothLoss(nn.Module):
         return loss
 
 
+class MSESmoothLoss(nn.Module):
+    def __init__(self, threshold=400):
+        super().__init__()
+
+        self.threshold = threshold
+
+    def forward(self, pred, gt):
+        diff = (gt - pred) ** 2
+
+        diff[diff > self.threshold] = torch.pow(diff[diff > self.threshold], 0.1) * (self.threshold ** 0.9)  # soft version
+        return torch.sum(diff)
+
+
 class KeypointsMAELoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -116,7 +129,7 @@ def geodesic_distance(m1, m2):
 def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    criterion = KeypointsMSESmoothLoss(threshold=3.0)
+    criterion = MSESmoothLoss(threshold=3.0)
 
     for batch_i in range(batch_size):
         cam2cam_gt = torch.cat([
@@ -161,7 +174,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, pairs):
 def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    criterion = KeypointsMSESmoothLoss(threshold=400)
+    criterion = MSESmoothLoss(threshold=400)
 
     for batch_i in range(batch_size):
         cam2cam_gt = torch.cat([
@@ -237,7 +250,7 @@ def twod_proj_loss(keypoints_3d_gt, cameras, keypoints_cam_pred, cam2cam_preds, 
     return loss
 
 
-def _self_consistency_R(cam2cam_preds, pairs, criterion=KeypointsMSESmoothLoss(threshold=3.0)):
+def _self_consistency_R(cam2cam_preds, pairs, criterion=MSESmoothLoss(threshold=3.0)):
     n_views = cam2cam_preds.shape[1]
     batch_size = cam2cam_preds.shape[0]
     loss = 0.0
@@ -275,7 +288,7 @@ def _self_consistency_R(cam2cam_preds, pairs, criterion=KeypointsMSESmoothLoss(t
     return loss
 
 
-def _self_consistency_t(cam2cam_preds, pairs, criterion=KeypointsMSESmoothLoss(threshold=400)):
+def _self_consistency_t(cam2cam_preds, pairs, criterion=MSESmoothLoss(threshold=400)):
     batch_size = cam2cam_preds.shape[0]
     loss = 0.0
 
@@ -315,7 +328,7 @@ def _self_consistency_projection(initial_keypoints, cameras, keypoints_cam_pred,
     return loss
 
 
-def _self_DLT(keypoints_cam_pred, keypoints_2d_pred, cam2cam_preds, confidences_pred, cameras, scale_keypoints_3d, master_cam_i=0, criterion=KeypointsMSESmoothLoss(threshold=400)):
+def _self_consistency_DLT(keypoints_cam_pred, keypoints_2d_pred, cam2cam_preds, confidences_pred, cameras, scale_keypoints_3d, master_cam_i=0, criterion=KeypointsMSESmoothLoss(threshold=400)):
     """ do DLT in master camspace with each view => expecting the same 3D points """
 
     batch_size = keypoints_2d_pred.shape[0]
@@ -366,6 +379,35 @@ def _self_DLT(keypoints_cam_pred, keypoints_2d_pred, cam2cam_preds, confidences_
     return loss
 
 
+def _self_consistency_cams(cam2cam_preds, master_cam_i=0, criterion=MSESmoothLoss(threshold=400)):
+    """ cam 0 -> i = cam 0 -> j . cam j -> i """
+
+    n_views = cam2cam_preds.shape[1]
+    batch_size = cam2cam_preds.shape[0]
+    loss = 0.0
+    
+    for batch_i in range(batch_size):
+        for target_view in range(1, n_views):  # todo assuming master is 0
+            gt = cam2cam_preds[batch_i, master_cam_i, target_view]
+
+            js = list(range(n_views))  # all views ...
+            js.remove(master_cam_i)  # ... remove master ...
+            js.remove(target_view)  # ... and target => |js| = 2
+
+            for j in js:
+                pred = torch.mm(
+                    cam2cam_preds[batch_i, j, target_view],
+                    cam2cam_preds[batch_i, master_cam_i, j]
+                )
+
+                loss += criterion(
+                    pred,
+                    gt
+                )
+
+    return loss
+
+
 def self_consistency_loss(keypoints_2d_pred, cameras, keypoints_cam_pred, cam2cam_preds, confidences_pred, scale_keypoints_3d):
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))  # on all pairs
@@ -380,7 +422,10 @@ def self_consistency_loss(keypoints_2d_pred, cameras, keypoints_cam_pred, cam2ca
         _self_consistency_projection(
             keypoints_2d_pred, cameras, keypoints_cam_pred, cam2cam_preds
         ),
-        _self_DLT(
+        _self_consistency_DLT(
             keypoints_cam_pred, keypoints_2d_pred, cam2cam_preds, confidences_pred, cameras, scale_keypoints_3d
+        ),
+        _self_consistency_cams(
+            cam2cam_preds,
         )
     )  # tuple of losses

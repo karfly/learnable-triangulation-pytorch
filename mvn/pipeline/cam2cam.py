@@ -96,10 +96,10 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
         trans2trans = trans2trans * scale_trans2trans
 
         if not (gts is None):  # GTs have been provided => use them !
-            # rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
+            rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
             # rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
 
-            trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
+            # trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
             # trans2trans = trans2trans + 0.1 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T

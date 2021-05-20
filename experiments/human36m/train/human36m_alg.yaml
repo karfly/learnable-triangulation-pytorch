@@ -54,22 +54,22 @@ cam2cam:
     roto_weight: 0.0
     geo_weight: 0.0
     trans_weight: 0.0
-    proj_weight: 0.01
+    proj_weight: 0.001
     tred_weight: 1.0
     self_consistency:
       R: 0.1
       t: 0.001
       proj: 0.0
-      dlt: 0.01
-      pivot: 0.0
+      dlt: 0.0
+      pivot: 0.001
 
   opt:
-    lr: 0.0001
+    lr: 0.00008
 
   model:
     backbone:
-      inner_size: 512
-      n_layers: 2
+      inner_size: 1024
+      n_layers: 8
 
     roto:
       n_layers: 4
@@ -77,7 +77,7 @@ cam2cam:
     trans:
       n_layers: 4
 
-    n_features: 1024
+    n_features: 512
   
     init_weights: false
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@14.05.2021-21:56:53/checkpoints/"

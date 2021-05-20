@@ -144,7 +144,7 @@ def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
         loss += criterion(
             cam2cam_pred[:, :3, :3].cuda(),  # just R
             cam2cam_gt[:, :3, :3].cuda()
-        )  # ~ (len(pairs), )
+        )
 
     return loss
 
@@ -186,7 +186,6 @@ def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
             for pair in pairs
         ])
         
-        # todo try use fro norm
         loss += criterion(
             cam2cam_pred[:, :3, 3].cuda() / scale_trans2trans,  # just t
             cam2cam_gt[:, :3, 3].cuda() / scale_trans2trans

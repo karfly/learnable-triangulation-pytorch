@@ -4,7 +4,7 @@ import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_points_in_camspace, euclidean_to_homogeneous, homogeneous_to_euclidean
+from mvn.utils.multiview import triangulate_points_in_camspace
 from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
 
 _ITER_TAG = 'cam2cam'
@@ -26,7 +26,7 @@ def _normalize_per_view(keypoints_2d):
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
-    # keypoints_2d = _center_to_pelvis(keypoints_2d)
+    keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
     # "divided by its Frobenius norm in the preprocessing"
@@ -75,14 +75,13 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
         rot2rot, trans2trans = cam2cam_model(
             detections[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
         )
-        trans2trans = trans2trans * scale_trans2trans
 
         if not (gts is None):  # GTs have been provided => use them !
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
-            # rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
+            rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
 
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
-            # trans2trans = trans2trans + 0.1 * torch.rand_like(trans2trans)
+            trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
 

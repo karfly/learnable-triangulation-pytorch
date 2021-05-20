@@ -13,6 +13,7 @@ class RototransNet(nn.Module):
         drop_out = config.cam2cam.drop_out
 
         n_features = config.cam2cam.model.n_features
+        n_refine_features = n_features // 4
         activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
 
         self.backbone = nn.Sequential(*[
@@ -25,7 +26,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=True
+                init_weights=False
             ),
         ])  # shared
 
@@ -33,24 +34,42 @@ class RototransNet(nn.Module):
             MLPResNet(
                 n_features, n_features,
                 config.cam2cam.model.roto.n_layers,
+                n_refine_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+                init_weights=False
+            ),
+            MLPResNet(
+                n_refine_features, n_refine_features,
+                config.cam2cam.model.roto.n_layers,
                 6,  # 6D parametrization of matrix
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=True
+                init_weights=False
             ),
-            R6DBlock()
+            R6DBlock()  # todo try others
         ])
 
         self.t_backbone = nn.Sequential(*[
             MLPResNet(
                 n_features, n_features,
                 config.cam2cam.model.trans.n_layers,
+                n_refine_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+                init_weights=False
+            ),
+            MLPResNet(
+                n_refine_features, n_refine_features,
+                config.cam2cam.model.trans.n_layers,
                 3,  # 3D camspace t vector
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=True
+                init_weights=False
             ),
         ])
 

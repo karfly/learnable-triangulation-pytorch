@@ -78,10 +78,9 @@ class Camera:
 
         self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
 
-    def update_roto_extrsinsics(self, Rt):
-        E = Rt.copy().dot(self.extrinsics)
-        self.R = E[:3, :3]
-        self.t = E[:3, 3].reshape(3, 1)
+    def update_extrsinsic(self, Rt, pelvis_vector):
+        self.R = Rt.dot(self.R)
+        self.t = Rt.dot(pelvis_vector).reshape(3, 1)  # pelvis aligned to z-axis
 
     @property
     def extrinsics(self):  # 3D world -> 3D camera space

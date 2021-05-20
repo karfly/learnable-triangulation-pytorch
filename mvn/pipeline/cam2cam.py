@@ -26,7 +26,7 @@ def _normalize_per_view(keypoints_2d):
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
-    # keypoints_2d = _center_to_pelvis(keypoints_2d)
+    keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
     # "divided by its Frobenius norm in the preprocessing"
@@ -37,24 +37,6 @@ def _normalize_per_view(keypoints_2d):
         ]).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
-
-    return keypoints_2d
-
-
-def _normalize_to_pelvis(keypoints_2d):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
-
-    keypoints_2d = _center_to_pelvis(keypoints_2d)
-
-    # divide by largest (smallest) coord in each sample (4 views)
-    m, _ = keypoints_2d.min(dim=1, keepdim=True)
-    M, _ = keypoints_2d.max(dim=1, keepdim=True)
-    diff = M - m
-    diff = diff + torch.ones_like(diff) * 1e-8  # avoid / 0
-    keypoints_2d = keypoints_2d / diff
-
-    # > 0 KP => up and to the right of the pelvis
-    # < 0 KP => down and to the left of the pelvis
 
     return keypoints_2d
 
@@ -99,7 +81,7 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
             # rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
 
-            # trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
+            trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
             # trans2trans = trans2trans + 0.1 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
@@ -341,7 +323,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections,
         pairs,
         config.cam2cam.scale_trans2trans,
-        cam2cam_gts
+        # cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

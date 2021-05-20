@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
+import torch
 
 from torch.utils.data import Dataset
 
@@ -278,8 +279,8 @@ class Human36MMultiViewDataset(Dataset):
                 z_axis = [0, 0, 1]
                 Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
 
-                # ... and update E <- R.dot(E)
-                retval_camera.update_roto_extrsinsics(Rt)
+                # ... and update E
+                retval_camera.update_extrsinsic(Rt, pelvis_vector)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

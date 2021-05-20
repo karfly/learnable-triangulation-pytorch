@@ -5,8 +5,6 @@ import numpy as np
 import torch
 from torch import nn
 
-from mvn.utils.multiview import euclidean_to_homogeneous, homogeneous_to_euclidean, triangulate_points_in_camspace
-
 
 class KeypointsMSELoss(nn.Module):
     def __init__(self):
@@ -174,7 +172,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, pairs):
 def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    criterion = MSESmoothLoss(threshold=400)
+    criterion = KeypointsMSESmoothLoss(threshold=400)
 
     for batch_i in range(batch_size):
         cam2cam_gt = torch.cat([

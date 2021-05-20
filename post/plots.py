@@ -1,7 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
-from scipy.optimize import curve_fit
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 

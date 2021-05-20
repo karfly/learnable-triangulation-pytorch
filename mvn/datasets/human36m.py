@@ -7,7 +7,7 @@ import cv2
 
 from torch.utils.data import Dataset
 
-from mvn.utils.multiview import Camera, build_intrinsics, euclidean_to_homogeneous
+from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(

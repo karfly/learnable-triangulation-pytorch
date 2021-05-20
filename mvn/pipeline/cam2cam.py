@@ -4,7 +4,7 @@ import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_points_in_camspace
+from mvn.utils.multiview import triangulate_points_in_camspace, euclidean_to_homogeneous, homogeneous_to_euclidean
 from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
 
 _ITER_TAG = 'cam2cam'
@@ -26,7 +26,7 @@ def _normalize_per_view(keypoints_2d):
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
-    keypoints_2d = _center_to_pelvis(keypoints_2d)
+    # keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
     # "divided by its Frobenius norm in the preprocessing"

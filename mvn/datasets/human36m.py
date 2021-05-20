@@ -4,11 +4,10 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
-import torch
 
 from torch.utils.data import Dataset
 
-from mvn.utils.multiview import Camera, build_intrinsics
+from mvn.utils.multiview import Camera, build_intrinsics, euclidean_to_homogeneous
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(
@@ -269,18 +268,19 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(cropping_box)
 
             if self.look_at_pelvis:
+                pelvis_index = 6  # H36M dataset, not CMU
+
                 kp_in_world = shot['keypoints'][:self.num_keypoints]
                 kp_in_cam = retval_camera.world2cam()(kp_in_world)
 
-                pelvis_index = 6  # H36M dataset, not CMU
-                pelvis_vector = kp_in_cam[pelvis_index, ...]
+                pelvis_vector = kp_in_cam[pelvis_index]
 
                 # ... => find rotation matrix pelvis to z ...
                 z_axis = [0, 0, 1]
                 Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
 
                 # ... and update E
-                retval_camera.update_extrsinsic(Rt, pelvis_vector)
+                retval_camera.update_extrsinsic(Rt)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

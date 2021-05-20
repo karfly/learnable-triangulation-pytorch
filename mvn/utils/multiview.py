@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from mvn.utils.misc import clip_eps
+
 
 def euclidean_to_homogeneous(points):
     """Converts euclidean points to homogeneous: [x y z] -> [x y z 1] foreach row
@@ -35,7 +37,8 @@ def homogeneous_to_euclidean(points):
         numpy array or torch tensor of shape (N, M): euclidean points
     """
     if isinstance(points, np.ndarray):
-        return (points.T[:-1] / points.T[-1]).T  # w is last
+        raw = (points.T[:-1] / points.T[-1]).T  # w is last
+        return clip_eps(raw, eps=1e-4)
     elif torch.is_tensor(points):
         return (points.transpose(1, 0)[:-1] / points.transpose(1, 0)[-1]).transpose(1, 0)
 
@@ -58,7 +61,7 @@ class Camera:
     def update_after_crop(self, bbox):
         left, upper, _, _ = bbox  # unpack
 
-        cx, cy = self.K[0, 2], self.K[1, 2]  # 
+        cx, cy = self.K[0, 2], self.K[1, 2]
 
         new_cx = cx - left
         new_cy = cy - upper
@@ -78,13 +81,14 @@ class Camera:
 
         self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
 
-    def update_extrsinsic(self, Rt, pelvis_vector):
-        self.R = Rt.dot(self.R)
-        self.t = Rt.dot(pelvis_vector).reshape(3, 1)  # pelvis aligned to z-axis
+    def update_extrsinsic(self, Rt):
+        E = Rt.dot(self.extrinsics)
+        self.R = E[:3, :3].copy()
+        self.t = E[:3, 3].copy().reshape(3, 1)
 
     @property
     def extrinsics(self):  # 3D world -> 3D camera space
-        return np.hstack([self.R, self.t])  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)
+        return clip_eps(np.hstack([self.R, self.t]))  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)
 
     @property
     def projection(self):  # 3D world -> 3D camera space -> 2D camera
@@ -99,10 +103,10 @@ class Camera:
     
     @property
     def intrinsics_padded(self):
-        return np.hstack([
+        return clip_eps(np.hstack([
             self.K,
             np.expand_dims(np.zeros(3), axis=0).T
-        ])  # 3 x 4
+        ]))  # 3 x 4
 
     def cam2world(self):
         """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """
@@ -119,9 +123,9 @@ class Camera:
         """ 3D world (N x 3) -> 3D camera space (N x 3) homo """
 
         def _f(x):
-            return euclidean_to_homogeneous(
+            return clip_eps(euclidean_to_homogeneous(
                 x  # [x y z] -> [x y z 1]
-            ) @ self.extrinsics.T  # N x 3
+            ) @ self.extrinsics.T)  # N x 3
 
         return _f
 

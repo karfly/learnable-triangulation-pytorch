@@ -30,10 +30,6 @@ class RototransNet(nn.Module):
         ])  # shared
 
         self.R_backbone = nn.Sequential(*[
-            SEBlock(
-                n_features,
-                n_features
-            ),
             MLPResNet(
                 n_features, n_features,
                 config.cam2cam.model.roto.n_layers,
@@ -47,10 +43,6 @@ class RototransNet(nn.Module):
         ])
 
         self.t_backbone = nn.Sequential(*[
-            SEBlock(
-                n_features,
-                n_features
-            ),
             MLPResNet(
                 n_features, n_features,
                 config.cam2cam.model.trans.n_layers,

@@ -13,7 +13,7 @@ class RototransNet(nn.Module):
         drop_out = config.cam2cam.drop_out
 
         n_features = config.cam2cam.model.n_features
-        n_refine_features = n_features // 4
+        n_refine_features = config.cam2cam.model.n_refine_features
         activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
 
         self.backbone = nn.Sequential(*[

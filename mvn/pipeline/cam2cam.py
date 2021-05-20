@@ -67,7 +67,7 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, len(pairs), 3, 3)
 
 
-def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gts=None):
+def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans, gts=None):
     batch_size = detections.shape[0]
     cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
 
@@ -75,6 +75,7 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
         rot2rot, trans2trans = cam2cam_model(
             detections[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
         )
+        trans2trans = trans2trans * scale_trans2trans
 
         if not (gts is None):  # GTs have been provided => use them !
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()

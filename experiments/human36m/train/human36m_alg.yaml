@@ -53,9 +53,9 @@ cam2cam:
   loss:
     roto_weight: 0.0
     geo_weight: 10.0
-    trans_weight: 1.0
+    trans_weight: 5.0
     proj_weight: 0.0
-    tred_weight: 2.0
+    tred_weight: 1.0
     self_consistency:
       R: 0.0
       t: 0.0
@@ -67,9 +67,9 @@ cam2cam:
     lr: 0.0001
 
   model:
-    n_features: 1024
+    n_refine_features: 512
     backbone:
-      inner_size: 1024
+      inner_size: 512
       n_layers: 2
 
     roto:

@@ -113,9 +113,9 @@ def is_master():
 
 
 def drop_na(x):
-    return list(filter(
+    return np.float32(list(filter(
         lambda x: np.isfinite(x), x
-    ))
+    )))
 
 
 def find_min(lst):

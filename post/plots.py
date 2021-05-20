@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
+from scipy.optimize import curve_fit
 
 from mvn.utils.misc import find_min, drop_na, normalize_transformation
 
@@ -135,7 +136,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
 
 def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None):
     legend_loc = 'upper right'
-    
+
     metrics = drop_na(map(lambda x: x['training metrics'], epochs))
     plot_stuff(
         axis,

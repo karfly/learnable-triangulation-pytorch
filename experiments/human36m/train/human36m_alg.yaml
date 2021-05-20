@@ -47,7 +47,8 @@ cam2cam:
   using_heatmaps: false
   normalize_kp_to_pelvis: true
 
-  batch_norm: false
+  batch_norm: true
+# `Martin` would disapprove
   drop_out: 0
 
   loss:
@@ -67,9 +68,10 @@ cam2cam:
     lr: 0.0001
 
   model:
-    n_refine_features: 512
+    n_features: 1024
+    n_refine_features: 256
     backbone:
-      inner_size: 512
+      inner_size: 1024
       n_layers: 2
 
     roto:

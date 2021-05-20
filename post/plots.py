@@ -87,7 +87,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'geodesic loss / batch',
         'L2 on T loss / batch',
         # 'L2 proj loss / batch',
-        'L2 on 3D loss / batch',
+        # 'L2 on 3D loss / batch',
         'total loss / batch',
         # 'self-consistency R loss / batch',
         # 'self-consistency t loss / batch',

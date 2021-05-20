@@ -65,17 +65,17 @@ cam2cam:
       pivot: 0.0
 
   opt:
-    lr: 0.0001
+    lr: 0.00005
 
   model:
     n_features: 1024
-    n_refine_features: 256
+    n_refine_features: 1024
     backbone:
       inner_size: 1024
       n_layers: 2
 
     roto:
-      n_layers: 5
+      n_layers: 3
 
     trans:
       n_layers: 2

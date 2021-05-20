@@ -37,11 +37,11 @@ class MLPResNet(nn.Module):
             for m in self.modules():
                 if isinstance(m, nn.Linear):
                     # init weights -> NaN
-                    nn.init.constant_(m.bias, 0)
+                    nn.init.constant_(m.bias, 0)  # no bias
 
                 if isinstance(m, nn.BatchNorm1d):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+                    nn.init.constant_(m.weight, 1)  # all should contribute ...
+                    nn.init.constant_(m.bias, 0)  # ... no bias
 
     def forward(self, x):
         x = self.up(x)

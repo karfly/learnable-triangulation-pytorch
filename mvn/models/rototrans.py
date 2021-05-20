@@ -15,7 +15,6 @@ class RototransNet(nn.Module):
         n_features = config.cam2cam.model.n_features
         n_refine_features = config.cam2cam.model.n_refine_features
         activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
-        init_weights = True
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -27,7 +26,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=init_weights
+                init_weights=False
             ),
         ])  # shared
 
@@ -39,7 +38,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=init_weights
+                init_weights=False
             ),
             MLPResNet(
                 n_refine_features, n_refine_features,
@@ -48,7 +47,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=init_weights
+                init_weights=False
             ),
             R6DBlock()  # todo try others
         ])
@@ -61,7 +60,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=init_weights
+                init_weights=False
             ),
             MLPResNet(
                 n_refine_features, n_refine_features,
@@ -70,7 +69,7 @@ class RototransNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-                init_weights=init_weights
+                init_weights=False
             ),
         ])
 

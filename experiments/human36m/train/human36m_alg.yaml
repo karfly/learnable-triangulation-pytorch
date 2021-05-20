@@ -68,7 +68,7 @@ cam2cam:
 
   model:
     backbone:
-      inner_size: 1024
+      inner_size: 512
       n_layers: 2
 
     roto:

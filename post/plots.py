@@ -90,7 +90,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 on 3D loss / batch',
         # 'self-consistency R loss / batch',
         # 'self-consistency t loss / batch',
-        'self-consistency DLT loss / batch',
+        # 'self-consistency DLT loss / batch',
         # 'self-consistency pivot loss / batch',
     ]  # forced
 

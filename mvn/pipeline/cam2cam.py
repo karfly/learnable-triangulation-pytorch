@@ -26,7 +26,7 @@ def _normalize_per_view(keypoints_2d):
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
-    keypoints_2d = _center_to_pelvis(keypoints_2d)
+    # keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
 
     # "divided by its Frobenius norm in the preprocessing"
@@ -96,11 +96,11 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
         trans2trans = trans2trans * scale_trans2trans
 
         if not (gts is None):  # GTs have been provided => use them !
-            rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
-            rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
+            # rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
+            # rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
 
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
-            trans2trans = trans2trans + 0.1 * torch.rand_like(trans2trans)
+            # trans2trans = trans2trans + 0.1 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
 
@@ -330,7 +330,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if config.cam2cam.normalize_kp_to_pelvis:
-            kps = _normalize_per_view(keypoints_2d_pred)  # _normalize_to_pelvis
+            kps = _normalize_per_view(keypoints_2d_pred)
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)
@@ -341,7 +341,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections,
         pairs,
         config.cam2cam.scale_trans2trans,
-        # cam2cam_gts
+        cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

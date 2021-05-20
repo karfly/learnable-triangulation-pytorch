@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class ResNetBlock(nn.Module):
     """ https://d2l.ai/chapter_convolutional-modern/resnet.html """
 

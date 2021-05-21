@@ -44,8 +44,8 @@ class MLPResNet(nn.Module):
                     nn.init.constant_(m.bias, 0)  # ... no bias
 
     def forward(self, x):
-        x = self.up(x)
         residual = x
+        x = self.up(x)
 
         for i in range(len(self.linears)):
             l, b = self.linears[i], self.bns[i]
@@ -59,7 +59,7 @@ class MLPResNet(nn.Module):
             x = l2(x)
 
             x = x + residual
-            x = self.activation(x)
+            x = self.activation(x)  # activation AFTER residual
 
             residual = x  # save for next layer
 

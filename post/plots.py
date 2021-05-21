@@ -82,17 +82,15 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         colors = ['red']
     else:
         colors = mcolors.TABLEAU_COLORS
-    
+
     loss_keys = [
         'geodesic loss / batch',
         'L2 on T loss / batch',
         # 'L2 proj loss / batch',
         'L2 on 3D loss / batch',
-        'total loss / batch',
-        # 'self-consistency R loss / batch',
-        # 'self-consistency t loss / batch',
-        # 'self-consistency DLT loss / batch',
-        # 'self-consistency pivot loss / batch',
+        # 'total loss / batch',
+        'self-consistency R loss / batch',
+        'self-consistency t loss / batch',
     ]  # forced
 
     for key, color in zip(loss_keys, colors):

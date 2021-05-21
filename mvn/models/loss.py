@@ -223,21 +223,33 @@ def self_consistency_loss(cam2cam_preds):
 
     # rotation
     for batch_i in range(batch_size):
-        for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
-            gt = torch.inverse(cam2cam_preds[batch_i, j, i, :3, :3])
-            pred = cam2cam_preds[batch_i, i, j, :3, :3]
+        cam_i2j = torch.cat([
+            cam2cam_preds[batch_i, i, j, :3, :3].unsqueeze(0)
+            for i, j in pairs
+        ])
+        cam_j2i = torch.cat([
+            cam2cam_preds[batch_i, j, i, :3, :3].unsqueeze(0)
+            for i, j in pairs
+        ])
 
-            loss_R += geodesic_distance(
-                gt.unsqueeze(0), pred.unsqueeze(0)
-            )
+        # cam i -> j should be (cam j -> i) ^ -1 => c_ij * c_ji = I
+        pred = torch.bmm(cam_i2j, cam_j2i)
 
-        for i in range(n_views):  # cam i -> i should be I
-            pred = cam2cam_preds[batch_i, i, i, :3, :3]
-            gt = torch.eye(3).to(cam2cam_preds.device)
+        # comparing VS eye ...
+        # ... makes autograd cry
+        loss_R += geodesic_distance(
+            pred,
+            torch.eye(3, device=cam2cam_preds.device, requires_grad=False).unsqueeze(0).repeat((len(pairs), 1, 1))
+        )
 
-            loss_R += geodesic_distance(  # todo L2
-                gt.unsqueeze(0), pred.unsqueeze(0)
-            )
+        cam_i2i = torch.cat([
+            cam2cam_preds[batch_i, i, i, :3, :3].unsqueeze(0)
+            for i in range(n_views)
+        ])
+        loss_R += 1.0 / n_views * geodesic_distance(
+            cam_i2i,
+            torch.eye(3, device=cam2cam_preds.device, requires_grad=False).unsqueeze(0).repeat((n_views, 1, 1))
+        )
 
     # translation
     criterion = KeypointsMSESmoothLoss(threshold=400)

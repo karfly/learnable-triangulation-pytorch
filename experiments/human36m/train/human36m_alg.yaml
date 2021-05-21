@@ -53,16 +53,14 @@ cam2cam:
 
   loss:
     roto_weight: 0.0
-    geo_weight: 10.0
-    trans_weight: 5.0
+    geo_weight: 0.0
+    trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 1.0
+    tred_weight: 3.0
     self_consistency:
-      R: 1.0
-      t: 1.0
-      proj: 0.0
-      dlt: 0.0
-      pivot: 0.0
+      R: 50.0
+      t: 20.0
+      proj: 0.05
 
   opt:
     lr: 0.0001

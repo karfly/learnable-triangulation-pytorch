@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 
-from mvn.utils.misc import clip_eps
-
 
 def euclidean_to_homogeneous(points):
     """Converts euclidean points to homogeneous: [x y z] -> [x y z 1] foreach row
@@ -13,6 +11,7 @@ def euclidean_to_homogeneous(points):
     Returns:
         numpy array or torch tensor of shape (N, M + 1): homogeneous points
     """
+
     if isinstance(points, np.ndarray):
         return np.hstack([
             points,
@@ -37,8 +36,7 @@ def homogeneous_to_euclidean(points):
         numpy array or torch tensor of shape (N, M): euclidean points
     """
     if isinstance(points, np.ndarray):
-        raw = (points.T[:-1] / points.T[-1]).T  # w is last
-        return clip_eps(raw, eps=1e-4)
+        return (points.T[:-1] / points.T[-1]).T  # w is last
     elif torch.is_tensor(points):
         return (points.transpose(1, 0)[:-1] / points.transpose(1, 0)[-1]).transpose(1, 0)
 
@@ -91,7 +89,7 @@ class Camera:
 
     @property
     def extrinsics(self):  # 3D world -> 3D camera space
-        return clip_eps(np.hstack([self.R, self.t]))  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)
+        return np.hstack([self.R, self.t])  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)
 
     @property
     def projection(self):  # 3D world -> 3D camera space -> 2D camera
@@ -106,10 +104,10 @@ class Camera:
     
     @property
     def intrinsics_padded(self):
-        return clip_eps(np.hstack([
+        return np.hstack([
             self.K,
             np.expand_dims(np.zeros(3), axis=0).T
-        ]))  # 3 x 4
+        ])  # 3 x 4
 
     def cam2world(self):
         """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """
@@ -126,9 +124,9 @@ class Camera:
         """ 3D world (N x 3) -> 3D camera space (N x 3) homo """
 
         def _f(x):
-            return clip_eps(euclidean_to_homogeneous(
+            return euclidean_to_homogeneous(
                 x  # [x y z] -> [x y z 1]
-            ) @ self.extrinsics.T)  # N x 3
+            ) @ self.extrinsics.T  # N x 3
 
         return _f
 

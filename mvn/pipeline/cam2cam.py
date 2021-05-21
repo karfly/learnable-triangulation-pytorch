@@ -4,7 +4,7 @@ import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_points_in_camspace
+from mvn.utils.multiview import triangulate_points_in_camspace, euclidean_to_homogeneous, homogeneous_to_euclidean
 from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
 
 _ITER_TAG = 'cam2cam'
@@ -151,7 +151,7 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
     ])
 
 
-def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
     _pairs = [
         [0, 1],
         [0, 2],
@@ -180,11 +180,26 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * pose_loss
 
-    loss_R, loss_t = self_consistency_loss(cam2cam_preds)
+    batch_size = keypoints_3d_pred.shape[0]
+    master_cam_i = 0
+    keypoints_cam_pred = torch.cat([
+        torch.matmul(
+            euclidean_to_homogeneous(
+                keypoints_3d_pred[batch_i]  # [x y z] -> [x y z 1]
+            ),
+            torch.FloatTensor(cameras[master_cam_i][batch_i].extrinsics.T)
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
+    loss_R, loss_t, loss_proj = self_consistency_loss(
+        cameras, keypoints_cam_pred, cam2cam_preds, keypoints_2d_pred
+    )
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += config.cam2cam.loss.self_consistency.R * loss_R
     if config.cam2cam.loss.self_consistency.t > 0:
         total_loss += config.cam2cam.loss.self_consistency.t * loss_t
+    if config.cam2cam.loss.self_consistency.proj > 0:
+        total_loss += config.cam2cam.loss.self_consistency.proj * loss_proj
 
     scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
     loss_3d = tred_loss(
@@ -196,7 +211,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_
     if config.cam2cam.loss.tred_weight > 0:
         total_loss += config.cam2cam.loss.tred_weight * loss_3d
 
-    return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss
+    return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss
 
 
 def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
@@ -243,9 +258,10 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         return detections.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
+            keypoints_2d_pred,
             keypoints_3d_pred,
             keypoints_3d_gt,
             keypoints_3d_binary_validity_gt,
@@ -253,7 +269,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
@@ -263,6 +279,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             loss_3d.item(),
             loss_R.item(),
             loss_t.item(),
+            loss_proj.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
@@ -303,7 +320,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         detections,
         pairs,
         config.cam2cam.scale_trans2trans,
-        # cam2cam_gts
+        #cam2cam_gts
     )
 
     cam2cam_preds = cam2cam_preds.view(batch_size, n_views, n_views, 4, 4)

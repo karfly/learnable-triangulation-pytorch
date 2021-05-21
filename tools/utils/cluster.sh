@@ -97,3 +97,12 @@ function showJobFolder () {
 
     echo ${root_folder}/${job_folder}
 }
+
+# usage: showJobConfig "15901850"
+function showJobConfig () {
+    job_id=$1
+    job_folder=$(showJobFolder ${job_id})
+    config_file=${job_folder}/config.yaml
+    
+    cat ${config_file}
+}

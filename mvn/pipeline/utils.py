@@ -23,7 +23,7 @@ def get_kp_gt(keypoints_3d_gt, cameras):
     heatmaps_pred.requires_grad = False
 
     confidences_pred = torch.ones(
-        (batch_size, n_views, n_joints)
+        (batch_size, n_views, n_joints), requires_grad=False
     )  # 100% confident in each view
 
     return keypoints_2d_pred, heatmaps_pred, confidences_pred

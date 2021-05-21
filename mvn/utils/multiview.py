@@ -81,10 +81,13 @@ class Camera:
 
         self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2] = new_fx, new_fy, new_cx, new_cy
 
-    def update_extrsinsic(self, Rt):
+    def update_roto_extrsinsic(self, Rt):
         E = Rt.copy().dot(self.extrinsics)
         self.R = E[:3, :3]
         self.t = E[:3, 3].reshape(3, 1)
+
+    def update_trans_extrsinsic(self, t):
+        self.t = self.t + t.copy().reshape(3, 1)
 
     @property
     def extrinsics(self):  # 3D world -> 3D camera space

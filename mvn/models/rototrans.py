@@ -13,8 +13,6 @@ class RototransNet(nn.Module):
         drop_out = config.cam2cam.drop_out
 
         n_features = config.cam2cam.model.n_features
-        n_refine_features = config.cam2cam.model.n_refine_features
-        n_more_refine_features = config.cam2cam.model.n_more_refine_features
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP

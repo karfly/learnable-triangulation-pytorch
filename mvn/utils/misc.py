@@ -133,10 +133,7 @@ def live_debug_log(tag, message, master_only=True):
 
 
 def clip_eps(M, eps=1e-8):
+    M[np.abs(M) < eps] = 0.0
+    M[M > 1 / eps] = np.float('inf')
+    M[M < - 1 / eps] = -np.float('inf')
     return M
-
-    # todo check
-    # M[np.abs(M) < eps] = 0.0
-    # M[M > 1 / eps] = np.float('inf')
-    # M[M < - 1 / eps] = -np.float('inf')
-    # return M

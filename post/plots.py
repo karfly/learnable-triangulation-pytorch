@@ -93,7 +93,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         # 'self-consistency t loss / batch',
     ]  # forced
     multipliers = [
-        15.0,
+        10.0,
         5.0,
         # 0.01,
         0.08,
@@ -114,9 +114,8 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             if np.mean(loss_history) > 1e-2:
                 _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
                 _last = loss_history[-1]
-                label = '{} (x {:.0f})= {:.1f} ({:.1f} / {:.1f})'.format(
+                label = '{} = {:.1f} ({:.1f} / {:.1f})'.format(
                     key.replace('loss / batch', '').strip(),
-                    multip,
                     _last, _min, _max
                 )
 

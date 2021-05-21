@@ -161,7 +161,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
         # threshold=42,  # no matter what, do lr decay
         mode='min',
         cooldown=10,
-        min_lr=2e-6,
+        min_lr=5e-6,
         verbose=True
     )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
 

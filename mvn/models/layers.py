@@ -158,7 +158,7 @@ class CaminoBlock(nn.Module):
             16*16,
         ]
         self.blocks = nn.Sequential(*[
-            self._make_block(n_units, (3, 3))
+            self._make_block(n_units)
             for n_units in lst_units
         ])
 
@@ -168,24 +168,15 @@ class CaminoBlock(nn.Module):
         ])
 
     @staticmethod
-    def _make_block(n_units, kernel_shape, activation=nn.LeakyReLU):
-        img_size = math.sqrt(n_units)
-        in_view = (-1, 1, int(img_size), int(img_size))
-
+    def _make_block(n_units, activation=nn.LeakyReLU):
         return nn.Sequential(*[
             nn.Linear(n_units, n_units, bias=True),  # todo use MLPResNet
             activation(inplace=False),
 
-            View(in_view),
-
-            nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
+            nn.Linear(n_units, n_units - 4, bias=True),
             activation(inplace=False),
-            nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
-            activation(inplace=False),
-            nn.Flatten(),
         ])
 
     def forward(self, x):
         x = self.blocks(x)  # todo maybe with skip connections
-        print(x.shape)
         return self.head(x)

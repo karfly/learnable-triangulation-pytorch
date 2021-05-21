@@ -1,7 +1,7 @@
 from torch import nn
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock, CaminoBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock
 
 
 class RototransNet(nn.Module):

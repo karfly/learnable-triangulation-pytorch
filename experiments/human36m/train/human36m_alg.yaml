@@ -68,7 +68,7 @@ cam2cam:
     lr: 0.0001
 
   model:
-    n_features: 256
+    n_features: 512
 
     backbone:
       inner_size: 1024

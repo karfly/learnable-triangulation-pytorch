@@ -9,6 +9,9 @@
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
 
+# This will spawn a sub-bash in parallel which will be started right away. It starts  the program sleep set to sleep 1800 seconds (half an hour) and afterwards calls Slurm's job cancel programm with the job ID of the Job.
+(/usr/bin/sleep 3600 && scancel ${SLURM_JOB_ID} ) &
+
 date +"%Y-%m-%d %H:%M:%S"
 
 source ./requirements.sh

@@ -24,10 +24,10 @@ def _center_to_pelvis(keypoints_2d, pelvis_i=6):
 def _normalize_per_view(keypoints_2d):
     """ pelvis -> (0, 0), corners -> (1, 1) """
 
-    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
-
     keypoints_2d = _center_to_pelvis(keypoints_2d)
     frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
+
+    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
     # "divided by its Frobenius norm in the preprocessing"
     keypoints_2d = torch.cat([
@@ -37,24 +37,6 @@ def _normalize_per_view(keypoints_2d):
         ]).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
-
-    return keypoints_2d
-
-
-def _normalize_to_pelvis(keypoints_2d):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
-
-    # keypoints_2d = _center_to_pelvis(keypoints_2d)
-
-    # divide by largest (smallest) coord in each sample (4 views)
-    m, _ = keypoints_2d.min(dim=1, keepdim=True)
-    M, _ = keypoints_2d.max(dim=1, keepdim=True)
-    diff = M - m
-    diff = diff + torch.ones_like(diff) * 1e-8  # avoid / 0
-    keypoints_2d = keypoints_2d / diff
-
-    # > 0 KP => up and to the right of the pelvis
-    # < 0 KP => down and to the left of the pelvis
 
     return keypoints_2d
 
@@ -85,7 +67,7 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, len(pairs), 3, 3)
 
 
-def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans, gts=None):
+def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gts=None):
     batch_size = detections.shape[0]
     cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
 
@@ -95,12 +77,9 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans, gts=No
         )
         trans2trans = trans2trans * scale_trans2trans
 
-        if not (gts is None):  # GTs have been provided => use them !
+        if not (gts is None):  # GTs have been provided => use them
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
-            rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
-
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
-            trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
 
@@ -155,23 +134,21 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
 
         # ... perform DLT in master cam space, but since ...
         keypoints_3d_pred[batch_i] = triangulate_points_in_camspace(
-            keypoints_2d_pred[batch_i],  # n_views, n_joints, 2D
+            keypoints_2d_pred[batch_i],
             full_cam2cams,
             confidences_batch=confidences_pred[batch_i]
         )
 
     # ... they're in master cam space => cam2world
-    in_world_pred = torch.cat([
+    return torch.cat([
         cameras[master_cam_i][batch_i].cam2world()(
             keypoints_3d_pred[batch_i]
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
 
-    return keypoints_3d_pred, in_world_pred  # in master camspace, in world
 
-
-def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_in_world_pred, keypoints_cam_pred, confidences_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
     _pairs = [
         [0, 1],
         [0, 2],
@@ -194,36 +171,29 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_in_
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
 
-    proj_loss = twod_proj_loss(
-        keypoints_3d_gt, cameras, keypoints_cam_pred, cam2cam_preds
+    pose_loss = twod_proj_loss(
+        keypoints_3d_gt, keypoints_3d_pred, cameras
     )
     if config.cam2cam.loss.proj_weight > 0:
-        total_loss += config.cam2cam.loss.proj_weight * proj_loss
+        total_loss += config.cam2cam.loss.proj_weight * pose_loss
 
-    scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
-    loss_R, loss_t, loss_proj, loss_dlt, loss_pivot = self_consistency_loss(
-        keypoints_2d_pred, cameras, keypoints_cam_pred, cam2cam_preds, confidences_pred, scale_keypoints_3d
-    )
+    loss_R, loss_t = self_consistency_loss(cam2cam_preds)
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += config.cam2cam.loss.self_consistency.R * loss_R
     if config.cam2cam.loss.self_consistency.t > 0:
         total_loss += config.cam2cam.loss.self_consistency.t * loss_t
-    if config.cam2cam.loss.self_consistency.proj > 0:
-        total_loss += config.cam2cam.loss.self_consistency.proj * loss_proj
-    if config.cam2cam.loss.self_consistency.dlt > 0:
-        total_loss += config.cam2cam.loss.self_consistency.dlt * loss_dlt
-    if config.cam2cam.loss.self_consistency.pivot > 0:
-        total_loss += config.cam2cam.loss.self_consistency.pivot * loss_pivot
+
+    scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
     loss_3d = tred_loss(
         keypoints_3d_gt,
-        keypoints_in_world_pred,
+        keypoints_3d_pred,
         keypoints_3d_binary_validity_gt,
         scale_keypoints_3d
     )
     if config.cam2cam.loss.tred_weight > 0:
         total_loss += config.cam2cam.loss.tred_weight * loss_3d
 
-    return geodesic_loss, trans_loss, proj_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, loss_dlt, loss_pivot, total_loss
+    return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss
 
 
 def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
@@ -232,11 +202,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
 
     def _forward_kp():
         if config.cam2cam.using_gt:
-            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(keypoints_3d_gt, batch['cameras'])
-            
-            # keypoints_2d_pred = keypoints_2d_pred + torch.rand_like(keypoints_2d_pred)  # a bit different from true GTs
-            
-            return keypoints_2d_pred, heatmaps_pred, confidences_pred
+            return get_kp_gt(keypoints_3d_gt, batch['cameras'])
         else:
             return model(
                 images_batch, None, minimon
@@ -274,38 +240,32 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         return detections.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, proj_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, loss_dlt, loss_pivot, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
-            keypoints_2d_pred,
-            in_world_pred,
-            in_cam_pred,
-            confidences_pred,
+            keypoints_3d_pred,
             keypoints_3d_gt,
             keypoints_3d_binary_validity_gt,
             batch['cameras'],
             config
         )
 
-        message = '{} batch iter {:d} losses: R.geo ~ {:.3f}, t.L2 ~ {:.3f}, PRJ ~ {:.3f}, R.L2 ~ {:.3f}, 3D ~ {:.3f}, self.R ~ {:.3f}, self.t ~ {:.3f}, self.prj ~ {:.3f}, self.dlt ~ {:.3f}, self.pivot ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
             trans_loss.item(),
-            proj_loss.item(),
+            pose_loss.item(),
             roto_loss.item(),
             loss_3d.item(),
             loss_R.item(),
             loss_t.item(),
-            loss_proj.item(),
-            loss_dlt.item(),
-            loss_pivot.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
 
         scalar_metric, _ = dataloader.dataset.evaluate(
-            in_world_pred.detach().cpu().numpy(),
+            keypoints_3d_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
@@ -317,7 +277,6 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
-        # todo use eval metric for scheduler
         backprop(opt, total_loss, scheduler, scalar_metric, _ITER_TAG)
         minimon.leave('backward pass')
 
@@ -349,7 +308,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     minimon.leave('cam2cam forward')
 
     minimon.enter()
-    in_cam_pred, in_world_pred = _do_dlt(
+    keypoints_3d_pred = _do_dlt(
         cam2cam_preds,
         keypoints_2d_pred,
         confidences_pred,
@@ -360,4 +319,4 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
     if is_train:
         _backprop()
 
-    return in_world_pred.detach()
+    return keypoints_3d_pred.detach()

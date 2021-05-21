@@ -1,12 +1,9 @@
 from torch import nn
 
 
-activation = lambda: nn.LeakyReLU(negative_slope=1e-2, inplace=False)
-
-
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=activation, final_activation=None, init_weights=True):
+    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, init_weights=False):
         super().__init__()
 
         sizes = (n_inner_layers + 1) * [inner_size]
@@ -28,35 +25,34 @@ class MLPResNet(nn.Module):
         ])
 
         # todo dropout
-        self.activation = activation()
+        self.activation = activation(inplace=False)
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
-        self.final_activation = final_activation
 
         if init_weights:
             for m in self.modules():
                 if isinstance(m, nn.Linear):
-                    # init weights -> NaN
-                    nn.init.constant_(m.bias, 0)  # no bias
-
-                if isinstance(m, nn.BatchNorm1d):
-                    nn.init.constant_(m.weight, 1)  # all should contribute ...
-                    nn.init.constant_(m.bias, 0)  # ... no bias
+                    nn.init.normal_(m.weight, 0, 1)
+                    nn.init.constant_(m.bias, 0)
+                elif isinstance(m, nn.BatchNorm1d):
+                    nn.init.constant_(m.weight, 1)
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        residual = x
         x = self.up(x)
+        residual = x
 
         for i in range(len(self.linears)):
             l, b = self.linears[i], self.bns[i]
+            l2 = self.second_linears[i]
 
             x = l(x)
             if not (b is None):
                 x = b(x)
             x = self.activation(x)
 
-            l2 = self.second_linears[i]
             x = l2(x)
+            # no second batchnorm !!!
 
             x = x + residual
             x = self.activation(x)  # activation AFTER residual
@@ -64,8 +60,4 @@ class MLPResNet(nn.Module):
             residual = x  # save for next layer
 
         x = self.head(x)
-
-        if self.final_activation:
-            x = self.final_activation(x)
-
         return x

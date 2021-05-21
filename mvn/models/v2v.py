@@ -1,6 +1,6 @@
 # Reference: https://github.com/dragonbook/V2V-PoseNet-pytorch
 
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 

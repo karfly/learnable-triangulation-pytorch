@@ -1,7 +1,7 @@
 from torch import nn
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, AlexBlock
 
 
 class RototransNet(nn.Module):
@@ -25,23 +25,29 @@ class RototransNet(nn.Module):
         ])
 
         self.R_backbone = nn.Sequential(*[
-            MLPResNet(
-                n_features, n_features, config.cam2cam.model.roto.n_layers,
+            # MLPResNet(
+            #     n_features, n_features, config.cam2cam.model.roto.n_layers,
+            #     6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
+            #     batch_norm=batch_norm,
+            #     drop_out=drop_out,
+            #     activation=nn.LeakyReLU,
+            # ),
+            AlexBlock(
                 6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
             ),
             R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
         ])
 
         self.t_backbone = nn.Sequential(*[
-            MLPResNet(
-                n_features, n_features, config.cam2cam.model.trans.n_layers,
+            # MLPResNet(
+            #     n_features, n_features, config.cam2cam.model.trans.n_layers,
+            #     3,
+            #     batch_norm=batch_norm,
+            #     drop_out=drop_out,
+            #     activation=nn.LeakyReLU,
+            # ),
+            AlexBlock(
                 3,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
             ),
         ])
 
@@ -49,6 +55,8 @@ class RototransNet(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
         features = self.backbone(x)
+        features = features.view(-1, 1, 32, 32)
+
         rot2rot = self.R_backbone(features)  # ~ (batch_size, 6)
         trans2trans = self.t_backbone(features)  # ~ (batch_size, 3)
 

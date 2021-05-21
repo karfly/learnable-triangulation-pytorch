@@ -1,7 +1,7 @@
 import numpy as np
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from mvn.utils.img import to_numpy, to_torch

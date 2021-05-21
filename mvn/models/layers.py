@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class R6DBlock(nn.Module):
@@ -131,3 +131,29 @@ class SEBlock(nn.Module):
             activation_map,
             x
         )  # attend
+
+
+class AlexBlock(nn.Module):
+    def __init__(self, out_features):
+        super().__init__()
+
+        self.convs = nn.Sequential(*[
+            self._make_conv_layer((5, 5))
+            for _ in range(6)
+        ])
+
+        self.head = nn.Sequential(*[
+            nn.Flatten(),  # coming from a convolution
+            nn.Linear(64, out_features, bias=True)
+        ])
+
+    @staticmethod
+    def _make_conv_layer(kernel_shape, activation=nn.LeakyReLU):
+        return nn.Sequential(*[
+            torch.nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
+            activation(inplace=False),
+        ])
+
+    def forward(self, x):
+        x = self.convs(x)  # todo maybe with skip connections
+        return self.head(x)

@@ -1,7 +1,7 @@
 from torch import nn
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock, AlexBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, CaminoBlock
 
 
 class RototransNet(nn.Module):
@@ -32,7 +32,7 @@ class RototransNet(nn.Module):
             #     drop_out=drop_out,
             #     activation=nn.LeakyReLU,
             # ),
-            AlexBlock(
+            CaminoBlock(
                 6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
             ),
             R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
@@ -46,7 +46,7 @@ class RototransNet(nn.Module):
             #     drop_out=drop_out,
             #     activation=nn.LeakyReLU,
             # ),
-            AlexBlock(
+            CaminoBlock(
                 3,
             ),
         ])

@@ -1,6 +1,10 @@
 import torch
 from torch import nn
 
+import math
+
+from torch.nn.modules.flatten import Flatten
+
 
 class R6DBlock(nn.Module):
     """ https://arxiv.org/abs/1812.07035 """
@@ -133,27 +137,55 @@ class SEBlock(nn.Module):
         )  # attend
 
 
-class AlexBlock(nn.Module):
+class View(nn.Module):
+    def __init__(self, shape):
+        super().__init__()
+        self.shape = shape
+
+    def forward(self, x):
+        return x.view(*self.shape)
+
+
+class CaminoBlock(nn.Module):
     def __init__(self, out_features):
         super().__init__()
 
-        self.convs = nn.Sequential(*[
-            self._make_conv_layer((5, 5))
-            for _ in range(6)
+        lst_units = [
+            32*32,  # after conv will be 28 x 28 ...
+            28*28,
+            24*24,
+            20*20,
+            16*16,
+        ]
+        self.blocks = nn.Sequential(*[
+            self._make_block(n_units, (3, 3))
+            for n_units in lst_units
         ])
 
         self.head = nn.Sequential(*[
             nn.Flatten(),  # coming from a convolution
-            nn.Linear(64, out_features, bias=True)
+            nn.Linear(12*12, out_features, bias=True)
         ])
 
     @staticmethod
-    def _make_conv_layer(kernel_shape, activation=nn.LeakyReLU):
+    def _make_block(n_units, kernel_shape, activation=nn.LeakyReLU):
+        img_size = math.sqrt(n_units)
+        in_view = (-1, 1, int(img_size), int(img_size))
+
         return nn.Sequential(*[
-            torch.nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
+            nn.Linear(n_units, n_units, bias=True),  # todo use MLPResNet
             activation(inplace=False),
+
+            View(in_view),
+
+            nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
+            activation(inplace=False),
+            nn.Conv2d(1, 1, kernel_shape, stride=1, padding=0),
+            activation(inplace=False),
+            nn.Flatten(),
         ])
 
     def forward(self, x):
-        x = self.convs(x)  # todo maybe with skip connections
+        x = self.blocks(x)  # todo maybe with skip connections
+        print(x.shape)
         return self.head(x)

@@ -93,7 +93,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         # 'self-consistency t loss / batch',
     ]  # forced
     multipliers = [
-        10.0,
+        5.0,
         5.0,
         # 0.01,
         0.08,

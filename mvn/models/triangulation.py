@@ -144,7 +144,7 @@ class AlgebraicTriangulationNet(nn.Module):
 
         num_deconv_filters = (config.model.backbone.num_deconv_filters,) * 3
         self.backbone = pose_resnet.get_pose_net(
-            config.model.backbone,
+            config,
             num_deconv_filters=num_deconv_filters,
             device=device
         )

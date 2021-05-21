@@ -66,7 +66,8 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.model.trans.n_layers = 1
 
     config.cam2cam.model.n_features = 16
-    config.cam2cam.model.n_refine_features = 16
+    config.cam2cam.model.n_refine_features = 8
+    config.cam2cam.model.n_more_refine_features = 4
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

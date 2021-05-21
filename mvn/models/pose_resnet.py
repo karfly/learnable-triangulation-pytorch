@@ -320,27 +320,31 @@ class PoseResNet(nn.Module):
 
 
 def get_pose_net(config, num_deconv_filters=(256, 256, 256), device='cuda:0'):
-    block_class, layers = resnet_spec[config.num_layers]
-    if config.style == 'caffe':
+    block_class, layers = resnet_spec[config.model.backbone.num_layers]
+    if config.model.backbone.style == 'caffe':
         block_class = Bottleneck_CAFFE
 
     model = PoseResNet(
-        block_class, layers, config.num_joints,
+        block_class, layers, config.model.backbone.num_joints,
         num_input_channels=3,
         deconv_with_bias=False,
         num_deconv_layers=3,
         num_deconv_filters=num_deconv_filters,
         num_deconv_kernels=(4, 4, 4),
         final_conv_kernel=1,
-        alg_confidences=config.alg_confidences,
-        vol_confidences=config.vol_confidences
+        alg_confidences=config.model.backbone.alg_confidences,
+        vol_confidences=config.model.backbone.vol_confidences
     )
 
-    if config.init_weights:
-        print("Loading pretrained weights from: {}".format(config.checkpoint))
+    need_backbone = True
+    if config.model.cam2cam_estimation and config.cam2cam.using_gt:
+        need_backbone = False
+
+    if need_backbone and config.model.backbone.init_weights:
+        print("Loading pretrained weights from: {}".format(config.model.backbone.checkpoint))
         model_state_dict = model.state_dict()
 
-        pretrained_state_dict = torch.load(config.checkpoint, map_location=device)
+        pretrained_state_dict = torch.load(config.model.backbone.checkpoint, map_location=device)
 
         if 'state_dict' in pretrained_state_dict:
             pretrained_state_dict = pretrained_state_dict['state_dict']

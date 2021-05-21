@@ -92,8 +92,17 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'self-consistency R loss / batch',
         'self-consistency t loss / batch',
     ]  # forced
+    multipliers = [
+        50.0,
+        20.0,
+        # 'L2 proj loss / batch',
+        10.0,
+        # 'total loss / batch',
+        1.0,
+        10.0,
+    ]
 
-    for key, color in zip(loss_keys, colors):
+    for key, color, multip in zip(loss_keys, colors, multipliers):
         if key in epochs[0]:
             loss_history = np.float32([
                 np.mean(epoch[key])
@@ -105,14 +114,15 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             if np.mean(loss_history) > 1e-2:
                 _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
                 _last = loss_history[-1]
-                label = '{} = {:.1f} ({:.1f} / {:.1f})'.format(
-                    key.replace('loss / batch', '').strip(), _last, _min, _max
+                label = '{} (x {:.0f})= {:.1f} ({:.1f} / {:.1f})'.format(
+                    key.replace('loss / batch', '').strip(),
+                    multip,
+                    _last, _min, _max
                 )
 
                 plot_loss(
                     axis,
-                    normalize_transformation(normalize_loss)(
-                loss_history) if normalize_loss else loss_history,
+                    loss_history * multip,
                     label,
                     xrange,
                     color
@@ -179,7 +189,7 @@ def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
 
         axis.vlines(
             x=batch_its,
-            ymin=0, ymax=1,
+            ymin=0, ymax=1e2,
             label='new lr: {:.3E}'.format(new_lr),
             color='magenta',
             linestyle=':',

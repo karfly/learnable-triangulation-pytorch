@@ -28,7 +28,7 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
 
     config.image_shape = [384, 384]
 
-    config.debug.show_models = False
+    config.debug.show_models = True
     config.debug.write_imgs = False
     config.debug.img_out = '/home/stefano/Scuola/tud/_classes/4/thesis/logs/imgs'
     config.debug.dump_checkpoints = False
@@ -54,10 +54,6 @@ def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/dat
     config.cam2cam.using_heatmaps = False  # KPs seem to work much better
     config.cam2cam.model.init_weights = False
     # config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
-
-    config.cam2cam.model.n_inner_layers = 2
-    config.cam2cam.vgg = 'smallest'
-    config.cam2cam.batch_norm = False
 
     config.cam2cam.model.backbone.inner_size = 16
     config.cam2cam.model.backbone.n_layers = 1

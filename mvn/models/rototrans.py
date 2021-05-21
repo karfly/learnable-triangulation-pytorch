@@ -28,19 +28,7 @@ class RototransNet(nn.Module):
 
         self.R_backbone = nn.Sequential(*[
             MLPResNet(
-                n_features, n_features, config.cam2cam.model.roto.n_layers, n_refine_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            MLPResNet(
-                n_refine_features, n_refine_features, config.cam2cam.model.roto.n_layers, n_more_refine_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            MLPResNet(
-                n_more_refine_features, n_more_refine_features, config.cam2cam.model.roto.n_layers,
+                n_features, n_features, config.cam2cam.model.roto.n_layers,
                 6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
@@ -51,13 +39,8 @@ class RototransNet(nn.Module):
 
         self.t_backbone = nn.Sequential(*[
             MLPResNet(
-                n_features, n_features, config.cam2cam.model.trans.n_layers, n_refine_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            MLPResNet(
-                n_refine_features, n_refine_features, config.cam2cam.model.trans.n_layers, 3,
+                n_features, n_features, config.cam2cam.model.trans.n_layers,
+                3,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,

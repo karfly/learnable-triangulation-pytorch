@@ -68,18 +68,18 @@ cam2cam:
     lr: 0.0001
 
   model:
-    n_features: 1024
+    n_features: 512
 
     backbone:
       inner_size: 1024
       n_layers: 6
 
     roto:
-      n_layers: 2
+      n_layers: 1
       parametrization: "rodrigues"
 
     trans:
-      n_layers: 2
+      n_layers: 1
 
     init_weights: false
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@14.05.2021-21:56:53/checkpoints/"

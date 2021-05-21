@@ -1,10 +1,6 @@
 import torch
 from torch import nn
 
-import math
-
-from torch.nn.modules.flatten import Flatten
-
 
 class R6DBlock(nn.Module):
     """ https://arxiv.org/abs/1812.07035 """
@@ -144,39 +140,3 @@ class View(nn.Module):
 
     def forward(self, x):
         return x.view(*self.shape)
-
-
-class CaminoBlock(nn.Module):
-    def __init__(self, out_features):
-        super().__init__()
-
-        lst_units = [
-            32*32,  # after conv will be 28 x 28 ...
-            28*28,
-            24*24,
-            20*20,
-            16*16,
-        ]
-        self.blocks = nn.Sequential(*[
-            self._make_block(n_units)
-            for n_units in lst_units
-        ])
-
-        self.head = nn.Sequential(*[
-            nn.Flatten(),  # coming from a convolution
-            nn.Linear(12*12, out_features, bias=True)
-        ])
-
-    @staticmethod
-    def _make_block(n_units, activation=nn.LeakyReLU):
-        return nn.Sequential(*[
-            nn.Linear(n_units, n_units, bias=True),  # todo use MLPResNet
-            activation(inplace=False),
-
-            nn.Linear(n_units, n_units - 4, bias=True),
-            activation(inplace=False),
-        ])
-
-    def forward(self, x):
-        x = self.blocks(x)  # todo maybe with skip connections
-        return self.head(x)

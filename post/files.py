@@ -98,61 +98,64 @@ def parse_job_log(f_path, verbose=False):
 
             # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627
 
-            if len(tokens) > 2:
-                loss = parse_fp_number(tokens[1].split(',')[0])
+            i_token = 2
+
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'geodesic loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
 
-            if len(tokens) > 3:
-                loss = parse_fp_number(tokens[2].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'L2 on T loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
 
-            if len(tokens) > 4:
-                loss = parse_fp_number(tokens[3].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'L2 proj loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
+            
                 
-            if len(tokens) > 5:
-                loss = parse_fp_number(tokens[4].split(',')[0])
-                key = 'L2 on R loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                
-            if len(tokens) > 6:
-                loss = parse_fp_number(tokens[5].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'L2 on 3D loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
                 
-            if len(tokens) > 7:
-                loss = parse_fp_number(tokens[6].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'self-consistency R loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
                 
-            if len(tokens) > 8:
-                loss = parse_fp_number(tokens[7].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'self-consistency t loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
                 
-            if len(tokens) > 9:
-                loss = parse_fp_number(tokens[8].split(',')[0])
+            if len(tokens) > i_token:
+                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
                 key = 'self-consistency P loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
                 current_epoch_details[key].append(loss)
+                i_token += 1
 
             total_loss = parse_fp_number(tokens[-1])
             current_epoch_details['total loss / batch'].append(total_loss)

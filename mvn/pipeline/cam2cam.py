@@ -200,7 +200,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
 
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += get_weighted_loss(
-            loss_R, config.cam2cam.loss.self_consistency.R, 1.0, 2.0
+            loss_R, config.cam2cam.loss.self_consistency.R, 0.5, 2.0
         )
     if config.cam2cam.loss.self_consistency.t > 0:
         total_loss += get_weighted_loss(
@@ -308,7 +308,9 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, schedule
         live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
-        clip = config.cam2cam.opt.grad_clip / config.cam2cam.opt.lr
+
+        current_lr = opt.param_groups[0]['lr']
+        clip = config.cam2cam.opt.grad_clip / current_lr
         backprop(
             opt, total_loss, scheduler, scalar_metric, _ITER_TAG,
             get_grad_params(cam2cam_model), clip

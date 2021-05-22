@@ -95,7 +95,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     ]  # forced
     multipliers = [
         30.0,
-        1.0,
+        0.6,
         0.003,
         0.08,
         #0.03,

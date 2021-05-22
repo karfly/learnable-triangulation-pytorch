@@ -301,10 +301,11 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
     """ heuristic: if loss is low, do not overoptimize, and viceversa """
 
-    if loss <= min_thres:
-        w /= multi  # UNDER-optimize (don't care)
+    # Occam's razor
+    # if loss <= min_thres:
+    #     w /= multi  # UNDER-optimize (don't care)
 
-    if loss >= max_thres:
-        w *= multi  # OVER-optimize
+    # if loss >= max_thres:
+    #     w *= multi  # OVER-optimize
 
     return w * loss

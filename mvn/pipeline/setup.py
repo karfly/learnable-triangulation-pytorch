@@ -129,6 +129,8 @@ def setup_experiment(config_path, logdir, config, model_name, is_train=True):
 
 
 def build_env(config, device):
+    torch.set_default_dtype(torch.double)
+
     # build triangulator model ...
     model = {
         "ransac": RANSACTriangulationNet,

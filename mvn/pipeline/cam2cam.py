@@ -59,8 +59,8 @@ def _get_cam2cam_gt(cameras):
         # GT roto-translation: (3 x 4 + last row [0, 0, 0, 1]) = [ [ rot2rot | trans2trans ], [0, 0, 0, 1] ]
         cam2cam_gts[batch_i] = torch.cat([
             torch.matmul(
-                torch.FloatTensor(cameras[j][batch_i].extrinsics_padded),
-                torch.inverse(torch.FloatTensor(cameras[i][batch_i].extrinsics_padded))
+                torch.DoubleTensor(cameras[j][batch_i].extrinsics_padded),
+                torch.inverse(torch.DoubleTensor(cameras[i][batch_i].extrinsics_padded))
             ).unsqueeze(0)  # 1 x 4 x 4
             for (i, j) in pairs
         ])  # ~ (len(pairs), 4, 4)
@@ -80,10 +80,11 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
 
         if not (gts is None):  # GTs have been provided => use them
             rot2rot = gts[batch_i, :, :3, :3].cuda().detach().clone()
-            # no noise rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
-
             trans2trans = gts[batch_i, :, :3, 3].cuda().detach().clone()
-            # no noise trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
+
+            if False:  # use_noise:
+                rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
+                trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
 
         trans2trans = trans2trans.unsqueeze(0).view(len(pairs), 3, 1)  # .T
 
@@ -96,7 +97,7 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
 
             cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
                 extrinsic,
-                torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
+                torch.cuda.DoubleTensor([0, 0, 0, 1]).unsqueeze(0)
             ], dim=0)  # add [0, 0, 0, 1] at the bottom -> 4 x 4
 
     return cam2cam_preds.cuda()
@@ -121,17 +122,17 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
         ]
 
         full_cam2cams = torch.cat([
-            torch.cuda.FloatTensor(master_cam.intrinsics_padded).unsqueeze(0),
+            torch.cuda.DoubleTensor(master_cam.intrinsics_padded).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[0].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[0].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[0]]
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[1].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[1].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[1]]
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[2].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[2].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[2]]
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
@@ -188,15 +189,13 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
             euclidean_to_homogeneous(
                 keypoints_3d_pred[batch_i]  # [x y z] -> [x y z 1]
             ),
-            torch.FloatTensor(cameras[master_cam_i][batch_i].extrinsics.T)
+            torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics.T)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
     loss_R, loss_t, loss_proj = self_consistency_loss(
-        cameras, keypoints_cam_pred, cam2cam_preds, keypoints_2d_pred, config.cam2cam.scale_trans2trans / 1e1
+        cameras, keypoints_cam_pred, cam2cam_preds, keypoints_2d_pred, config.cam2cam.scale_trans2trans / 1e1  # original scale is too much ..
     )
-
-    # todo https://www.healthline.com/health/unexplained-weight-loss
 
     if config.cam2cam.loss.self_consistency.R > 0:
         total_loss += get_weighted_loss(
@@ -226,7 +225,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
     return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss
 
 
-def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     n_joints = config.model.backbone.num_joints
 
@@ -309,8 +308,12 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, schedule
 
         minimon.enter()
 
-        current_lr = opt.param_groups[0]['lr']
-        clip = config.cam2cam.opt.grad_clip / current_lr
+        if epoch_i < 1e2:
+            current_lr = opt.param_groups[0]['lr']
+            clip = config.cam2cam.opt.grad_clip / current_lr
+        else:
+            clip = -1  # disabled
+
         backprop(
             opt, total_loss, scheduler, scalar_metric, _ITER_TAG,
             get_grad_params(cam2cam_model), clip

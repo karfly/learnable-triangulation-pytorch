@@ -206,13 +206,17 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
             cameras[view_i][batch_i].world2proj()(
                 keypoints_3d_pred[batch_i]
             ).unsqueeze(0)
-            for view_i in range(1, n_views)  # 0 is "master" cam
+            for view_i in range(1, n_views)  # not considering master (0)
         ])  # ~ n_views - 1, 17, 2
     
         loss += criterion(
             gt.cuda(),
             pred.cuda(),
         )
+
+    ps = cameras[2][0].world2proj()(
+        keypoints_3d_pred[0]
+    ).unsqueeze(0)
 
     return loss / batch_size
 
@@ -230,7 +234,7 @@ def _project_in_each_view(cameras, keypoints_mastercam_pred, cam2cam_preds):
                     @
                     cam2cam_preds[batch_i, 0, view_i].T)  # cam 0 -> i
                 @
-                torch.cuda.FloatTensor(cameras[view_i][batch_i].intrinsics_padded.T)
+                torch.cuda.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded.T)
             ).unsqueeze(0)
             for view_i in range(1, n_views)  # 0 is "master" cam
         ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2
@@ -294,7 +298,9 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
     # projection
     loss_proj = 0.0
     criterion = KeypointsMSESmoothLoss(threshold=400)
-    projections = _project_in_each_view(cameras, keypoints_mastercam_pred, cam2cam_preds)  # ~ 8, 4, 17, 2
+    projections = _project_in_each_view(
+        cameras, keypoints_mastercam_pred, cam2cam_preds
+    )  # ~ 8, 3, 17, 2
 
     for batch_i in range(batch_size):
         loss_proj += criterion(
@@ -308,11 +314,11 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
     """ heuristic: if loss is low, do not overoptimize, and viceversa """
 
-    # Occam's razor
-    # if loss <= min_thres:
-    #     w /= multi  # UNDER-optimize (don't care)
+    # https://www.healthline.com/health/unexplained-weight-loss
+    if loss <= min_thres:
+        w /= multi  # UNDER-optimize (don't care)
 
-    # if loss >= max_thres:
-    #     w *= multi  # OVER-optimize
+    if loss >= max_thres:
+        w *= multi  # OVER-optimize
 
     return w * loss

@@ -89,9 +89,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 proj',
         'L2 on 3D',
         #'total',
-        #'self-consistency R',
-        #'self-consistency t',
-        #'self-consistency P',
+        'self-consistency R',
+        'self-consistency t',
+        'self-consistency P',
     ]  # forced
     multipliers = [
         30.0,
@@ -99,9 +99,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         0.003,
         0.08,
         #0.03,
-        #10.0,
-        #10.0,
-        #0.005,
+        30.0,
+        20.0,
+        0.004,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):

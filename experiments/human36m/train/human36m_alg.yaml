@@ -42,7 +42,7 @@ svd:
 
 cam2cam:
   using_gt: true
-  scale_trans2trans: 1000.0
+  scale_trans2trans: 500.0
 
   using_heatmaps: false
   normalize_kp_to_pelvis: true
@@ -56,16 +56,16 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 10.0
+    tred_weight: 1.0
     self_consistency:
-      R: 400.0
-      t: 100.0
-      proj: 0.005
+      R: 10.0
+      t: 5.0
+      proj: 0.004
 
   opt:
-    grad_clip: -1.0
+    grad_clip: 0.2
 # https://stats.stackexchange.com/a/352037
-    lr: 0.0001
+    lr: 0.00025
 
   model:
     n_features: 512

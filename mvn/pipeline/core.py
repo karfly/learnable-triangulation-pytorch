@@ -32,7 +32,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+            epoch, batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world

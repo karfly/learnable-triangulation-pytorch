@@ -114,7 +114,7 @@ class Camera:
 
         def _f(x):
             homo = euclidean_to_homogeneous(x)  # [x y z] -> [x y z 1]
-            inv = torch.inverse(torch.FloatTensor(self.extrinsics_padded.T))  # N x 4
+            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))  # N x 4
             eucl = homo @ inv
             return homogeneous_to_euclidean(eucl)  # N x 4 -> N x 3
 
@@ -136,8 +136,8 @@ class Camera:
         def _f(x):
             device = x.device
             
-            homo = euclidean_to_homogeneous(x).type('torch.FloatTensor').to(device)
-            proj = torch.FloatTensor(self.projection.T).to(device)
+            homo = euclidean_to_homogeneous(x).type('torch.DoubleTensor').to(device)
+            proj = torch.DoubleTensor(self.projection.T).to(device)
 
             return homogeneous_to_euclidean(homo @ proj)
 
@@ -158,7 +158,7 @@ class Camera:
 
         def _f(x):
             in_other_cam = self.cam2cam(other)(x)
-            homo = in_other_cam @ torch.FloatTensor(other.intrinsics_padded.T)
+            homo = in_other_cam @ torch.DoubleTensor(other.intrinsics_padded.T)
 
             # ... or equivalently:
             # m = other.intrinsics_padded.dot(
@@ -176,9 +176,9 @@ class Camera:
         """ 3D camera space (4D, x y z 1) -> 3D world (homo) -> 3D other camera space (4D, x y z 1) """
         
         def _f(x):
-            inv = torch.inverse(torch.FloatTensor(self.extrinsics_padded.T))
+            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))
             back2world = x @ inv  # N x 4
-            return back2world @ torch.FloatTensor(other.extrinsics_padded.T)  # N x 4
+            return back2world @ torch.DoubleTensor(other.extrinsics_padded.T)  # N x 4
 
             # ... or equivalently:
             # m = other.extrinsics_padded.dot(

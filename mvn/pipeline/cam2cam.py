@@ -270,7 +270,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, schedule
         return detections.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, _, loss_t, loss_proj, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, _, loss_3d, loss_R, loss_t, loss_proj, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -287,8 +287,8 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, schedule
             geodesic_loss.item(),  # normalize per each sample
             trans_loss.item(),
             pose_loss.item(),
-            roto_loss.item(),
             loss_3d.item(),
+            loss_R.item(),
             loss_t.item(),
             loss_proj.item(),
             total_loss.item(),

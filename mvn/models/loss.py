@@ -281,8 +281,7 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
             cij = cam2cam_preds[batch_i, i, j][:3, 3]
             cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
 
-            sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')  # todo to comply with cluster
-
+            sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')
             loss_t += criterion(cij, cji) / sum_of_norms  # normalize
 
     # projection

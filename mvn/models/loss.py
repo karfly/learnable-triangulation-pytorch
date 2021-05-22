@@ -287,6 +287,7 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
 
     # projection
     loss_proj = 0.0
+    criterion = KeypointsMSESmoothLoss(threshold=400)
     projections = _project_in_each_view(cameras, keypoints_mastercam_pred, cam2cam_preds)  # ~ 8, 4, 17, 2
 
     for batch_i in range(batch_size):
@@ -296,3 +297,15 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
         )
 
     return loss_R / batch_size, loss_t / batch_size, loss_proj / batch_size
+
+
+def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
+    """ heuristic: if loss is low, do not overoptimize, and viceversa """
+
+    if loss <= min_thres:
+        w /= multi  # UNDER-optimize (don't care)
+
+    if loss >= max_thres:
+        w *= multi  # OVER-optimize
+
+    return w * loss

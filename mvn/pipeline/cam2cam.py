@@ -1,11 +1,12 @@
+from mvn.models.utils import get_grad_params
 import torch
 
 import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_points_in_camspace, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
+from mvn.utils.multiview import triangulate_points_in_camspace, euclidean_to_homogeneous
+from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss, get_weighted_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -194,12 +195,21 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
     loss_R, loss_t, loss_proj = self_consistency_loss(
         cameras, keypoints_cam_pred, cam2cam_preds, keypoints_2d_pred
     )
+
+    # todo https://www.healthline.com/health/unexplained-weight-loss
+
     if config.cam2cam.loss.self_consistency.R > 0:
-        total_loss += config.cam2cam.loss.self_consistency.R * loss_R
+        total_loss += get_weighted_loss(
+            loss_R, config.cam2cam.loss.self_consistency.R, 1.0, 2.0
+        )
     if config.cam2cam.loss.self_consistency.t > 0:
-        total_loss += config.cam2cam.loss.self_consistency.t * loss_t
+        total_loss += get_weighted_loss(
+            loss_t, config.cam2cam.loss.self_consistency.t, 0.5, 1.5
+        )
     if config.cam2cam.loss.self_consistency.proj > 0:
-        total_loss += config.cam2cam.loss.self_consistency.proj * loss_proj
+        total_loss += get_weighted_loss(
+            loss_proj, config.cam2cam.loss.self_consistency.proj, 1e2, 4e4
+        )
 
     scale_keypoints_3d = config.opt.scale_keypoints_3d if hasattr(config.opt, "scale_keypoints_3d") else 1.0
     loss_3d = tred_loss(
@@ -209,12 +219,14 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
         scale_keypoints_3d
     )
     if config.cam2cam.loss.tred_weight > 0:
-        total_loss += config.cam2cam.loss.tred_weight * loss_3d
+        total_loss += get_weighted_loss(
+            loss_3d, config.cam2cam.loss.tred_weight, 1e1, 7e2
+        )
 
     return geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss
 
 
-def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     n_joints = config.model.backbone.num_joints
 
@@ -258,7 +270,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         return detections.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, roto_loss, loss_3d, _, loss_t, loss_proj, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -269,7 +281,7 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, ROTO ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
@@ -277,7 +289,6 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
             pose_loss.item(),
             roto_loss.item(),
             loss_3d.item(),
-            loss_R.item(),
             loss_t.item(),
             loss_proj.item(),
             total_loss.item(),
@@ -297,7 +308,11 @@ def batch_iter(batch, iter_i, dataloader, model, cam2cam_model, criterion, opt, 
         live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
-        backprop(opt, total_loss, scheduler, scalar_metric, _ITER_TAG)
+        clip = config.cam2cam.opt.grad_clip / config.cam2cam.opt.lr
+        backprop(
+            opt, total_loss, scheduler, scalar_metric, _ITER_TAG,
+            get_grad_params(cam2cam_model), clip
+        )
         minimon.leave('backward pass')
 
     minimon.enter()

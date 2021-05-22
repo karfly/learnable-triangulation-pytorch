@@ -29,7 +29,7 @@ def get_kp_gt(keypoints_3d_gt, cameras):
     return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
 
-def backprop(opt, total_loss, scheduler, scheduler_metric, tag):
+def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip):
     opt.zero_grad()
 
     try:
@@ -39,6 +39,11 @@ def backprop(opt, total_loss, scheduler, scheduler_metric, tag):
             tag,
             'cannot backpropagate ... are you cheating?'
         )
+
+    torch.nn.utils.clip_grad_norm_(
+        params,
+        clip
+    )
 
     opt.step()
     scheduler.step(scheduler_metric)

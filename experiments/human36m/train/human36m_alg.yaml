@@ -56,13 +56,15 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 3.0
+    tred_weight: 10.0
     self_consistency:
-      R: 50.0
-      t: 20.0
-      proj: 0.05
+      R: 400.0
+      t: 400.0
+      proj: 0.004
 
   opt:
+    grad_clip: 0.25
+# https://stats.stackexchange.com/a/352037
     lr: 0.0001
 
   model:
@@ -74,7 +76,7 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "rodrigues"
+      parametrization: "6d"
 
     trans:
       n_layers: 2

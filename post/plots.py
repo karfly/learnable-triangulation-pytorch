@@ -86,20 +86,22 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     loss_keys = [
         'geodesic loss / batch',
         'L2 on T loss / batch',
-        # 'L2 proj loss / batch',
+        'L2 proj loss / batch',
         'L2 on 3D loss / batch',
-        # 'total loss / batch',
+        #'total loss / batch',
         'self-consistency R loss / batch',
         'self-consistency t loss / batch',
+        'self-consistency P loss / batch',
     ]  # forced
     multipliers = [
-        5.0,
-        5.0,
-        # 0.01,
+        30.0,
+        1.0,
+        0.003,
         0.08,
-        # 'total loss / batch',
-        1.0,
-        1.0,
+        #0.03,
+        10.0,
+        10.0,
+        0.005,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):

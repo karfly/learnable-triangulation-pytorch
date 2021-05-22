@@ -21,7 +21,7 @@ class KeypointsMSELoss(nn.Module):
 
 
 class KeypointsMSESmoothLoss(nn.Module):
-    def __init__(self, threshold=400):
+    def __init__(self, threshold=20*20):
         super().__init__()
 
         self.threshold = threshold
@@ -161,7 +161,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, pairs):
 def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     batch_size = cam2cam_gts.shape[0]
     loss = 0.0
-    criterion = KeypointsMSESmoothLoss(threshold=400)
+    criterion = KeypointsMSESmoothLoss(threshold=20*20)
 
     for batch_i in range(batch_size):
         cam2cam_gt = torch.cat([
@@ -181,7 +181,7 @@ def t_loss(cam2cam_gts, cam2cam_preds, pairs, scale_trans2trans):
     return loss / batch_size
 
 
-def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=400)):
+def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     return criterion(
         keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
         keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
@@ -189,7 +189,7 @@ def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_g
     )
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=400)):
+def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     n_views = len(cameras)
     batch_size = keypoints_3d_gt.shape[0]
     loss = 0.0
@@ -271,7 +271,6 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
 
     # translation
     loss_t = 0.0
-    criterion = KeypointsMSESmoothLoss(threshold=400)
     for batch_i in range(batch_size):
         for i, j in pairs:  # cam i -> j should be (cam j -> i) ^ -1
             cij = cam2cam_preds[batch_i, i, j][:3, 3]
@@ -297,7 +296,7 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
 
     # projection
     loss_proj = 0.0
-    criterion = KeypointsMSESmoothLoss(threshold=400)
+    criterion = KeypointsMSESmoothLoss(threshold=15*15)
     projections = _project_in_each_view(
         cameras, keypoints_mastercam_pred, cam2cam_preds
     )  # ~ 8, 3, 17, 2
@@ -315,10 +314,10 @@ def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
     """ heuristic: if loss is low, do not overoptimize, and viceversa """
 
     # https://www.healthline.com/health/unexplained-weight-loss
-    if loss <= min_thres:
-        w /= multi  # UNDER-optimize (don't care)
+    # if loss <= min_thres:
+    #     w /= multi  # UNDER-optimize (don't care)
 
-    if loss >= max_thres:
-        w *= multi  # OVER-optimize
+    # if loss >= max_thres:
+    #     w *= multi  # OVER-optimize
 
     return w * loss

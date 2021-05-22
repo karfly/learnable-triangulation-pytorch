@@ -25,7 +25,7 @@ class MLPResNet(nn.Module):
         ])
 
         # todo dropout
-        self.activation = activation(inplace=False)
+        self.activation = activation()  # inplace=False
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
 

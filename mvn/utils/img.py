@@ -198,19 +198,13 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     y_new = intrinsics[1, 2] * scale_h
     crop_upper = y_new - target_intrinsics[1, 2]
 
-    scaling = list(map(
-        float,
-        (new_w, new_h)
-    ))
-    cropping = list(map(
-        float,
-        (
-            crop_left,
-            crop_upper,
-            width * scale_w,  # no cropping right
-            height * scale_h  # no cropping bottom
-        )
-    ))
+    scaling = (new_w, new_h)
+    cropping = (
+        crop_left,
+        crop_upper,
+        width * scale_w,  # no cropping right
+        height * scale_h  # no cropping bottom
+    )
 
     return scaling, cropping
 

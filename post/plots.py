@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
 
-from mvn.utils.misc import find_min, drop_na, normalize_transformation
+from mvn.utils.misc import find_min, drop_na
 
 
 def plot_SOTA(axis, _xrange):
@@ -81,7 +81,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         loss_keys = ['training loss / batch']
         colors = ['red']
     else:
-        colors = mcolors.TABLEAU_COLORS
+        colors = mcolors.BASE_COLORS
 
     loss_keys = [
         'geodesic',
@@ -95,12 +95,12 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     ]  # forced
     multipliers = [
         30.0,
-        0.6,
-        0.003,
-        0.08,
+        2.0,
+        0.004,
+        0.1,
         #0.03,
         30.0,
-        20.0,
+        5.0,
         0.004,
     ]
 
@@ -174,8 +174,6 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         marker='o',
         verbose=False
     )
-
-    plot_SOTA(axis, [xrange[0], xrange[-1]])
 
     axis.legend(loc=legend_loc)
     axis.set_xlim([xrange[0], xrange[-1]])

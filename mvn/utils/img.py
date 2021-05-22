@@ -199,11 +199,11 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     crop_upper = y_new - target_intrinsics[1, 2]
 
     scaling = list(map(
-        int,
+        float,
         (new_w, new_h)
     ))
     cropping = list(map(
-        int,
+        float,
         (
             crop_left,
             crop_upper,

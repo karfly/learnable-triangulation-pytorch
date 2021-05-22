@@ -11,8 +11,8 @@ from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(680, 690),
-    f=(1.6e3, 1.6e3),
+    translation=(1e2, 1e2),
+    f=(1.6e2, 1.6e2),
     shear=0
 )
 
@@ -247,11 +247,10 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.do_resample:
-                square = (0, 0, 1000, 1000)  # have same size
+                square = (0, 0, 1000, 1000)  # get rid of 1k + eps
                 image = crop_image(image, square)
                 retval_camera.update_after_crop(square)
 
-                # todo get rid of 1k + eps
                 # have same intrinsics
                 new_shape, cropping_box = make_with_target_intrinsics(
                     image,
@@ -259,12 +258,12 @@ class Human36MMultiViewDataset(Dataset):
                     TARGET_INTRINSICS
                 )
                 image_shape_before_resize = image.shape[:2]
-                image = resize_image(image, new_shape)
+                image = resize_image(image, list(map(int, new_shape)))
                 retval_camera.update_after_resize(
                     image_shape_before_resize, new_shape
                 )
 
-                image = crop_image(image, cropping_box)
+                image = crop_image(image, list(map(int, cropping_box)))
                 retval_camera.update_after_crop(cropping_box)
 
             if self.look_at_pelvis:
@@ -281,9 +280,6 @@ class Human36MMultiViewDataset(Dataset):
 
                 # ... and update E
                 retval_camera.update_roto_extrsinsic(Rt)
-
-                # print(retval_camera.extrinsics)
-                # print(retval_camera.world2cam()(kp_in_world)[pelvis_index - 2: pelvis_index + 2])
 
             if False:  # self.sit_at_pelvis:
                 pelvis_index = 6  # H36M dataset, not CMU

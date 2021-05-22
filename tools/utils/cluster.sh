@@ -106,3 +106,10 @@ function showJobConfig () {
     
     cat ${config_file}
 }
+
+#usage monitorCam2cam "16583749"
+function monitorCam2cam () {
+    job_id=$1
+
+    watch -n5 "tail -n20 ${job_id}.out | grep -i cam2cam"
+}

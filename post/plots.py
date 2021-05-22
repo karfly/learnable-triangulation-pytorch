@@ -84,14 +84,14 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         colors = mcolors.TABLEAU_COLORS
 
     loss_keys = [
-        'geodesic loss / batch',
-        'L2 on T loss / batch',
-        'L2 proj loss / batch',
-        'L2 on 3D loss / batch',
-        #'total loss / batch',
-        'self-consistency R loss / batch',
-        'self-consistency t loss / batch',
-        'self-consistency P loss / batch',
+        'geodesic',
+        'L2 on T',
+        'L2 proj',
+        'L2 on 3D',
+        #'total',
+        #'self-consistency R',
+        #'self-consistency t',
+        #'self-consistency P',
     ]  # forced
     multipliers = [
         30.0,
@@ -99,13 +99,14 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         0.003,
         0.08,
         #0.03,
-        10.0,
-        10.0,
-        0.005,
+        #10.0,
+        #10.0,
+        #0.005,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):
-        if key in epochs[0]:
+        key += ' loss / batch'
+        if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
             loss_history = np.float32([
                 np.mean(epoch[key])
                 for epoch in epochs
@@ -196,8 +197,6 @@ def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
             linestyle=':',
             alpha=0.3
         )
-
-    # axis.legend(loc='upper center')
 
 
 def make_axis_great_again(ax, xlim=None, ylim=None, hide_y=False):

@@ -6,6 +6,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous
+from mvn.models.layers import RodriguesBlock
 
 
 class KeypointsMSELoss(nn.Module):
@@ -237,7 +238,7 @@ def _project_in_each_view(cameras, keypoints_mastercam_pred, cam2cam_preds):
     ])
 
 
-def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, initial_keypoints):
+def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, initial_keypoints, scale_trans2trans):
     batch_size = cam2cam_preds.shape[0]
     n_views = cam2cam_preds.shape[1]
     pairs = list(combinations(range(n_views), 2))
@@ -264,15 +265,6 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
             torch.eye(3, device=cam2cam_preds.device, requires_grad=False).unsqueeze(0).repeat((len(pairs), 1, 1))
         )
 
-        cam_i2i = torch.cat([
-            cam2cam_preds[batch_i, i, i, :3, :3].unsqueeze(0)
-            for i in range(n_views)
-        ])
-        loss_R += 1.0 / n_views * geodesic_distance(
-            cam_i2i,
-            torch.eye(3, device=cam2cam_preds.device, requires_grad=False).unsqueeze(0).repeat((n_views, 1, 1))
-        )
-
     # translation
     loss_t = 0.0
     criterion = KeypointsMSESmoothLoss(threshold=400)
@@ -281,8 +273,23 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
             cij = cam2cam_preds[batch_i, i, j][:3, 3]
             cji = torch.inverse(cam2cam_preds[batch_i, j, i])[:3, 3]
 
-            sum_of_norms = torch.norm(cij, p='fro') + torch.norm(cji, p='fro')
-            loss_t += criterion(cij, cji) / sum_of_norms  # normalize
+            # instead of L2-comparing the two vectors, geo-compare the angles ..
+            rotation_matrices = RodriguesBlock()(
+                torch.cat([
+                    cij.unsqueeze(0),  # add batch dimension
+                    cji.unsqueeze(0)
+                ])
+            )
+            loss_t += geodesic_distance(
+                rotation_matrices[0].unsqueeze(0),  # add batch dimension
+                rotation_matrices[1].unsqueeze(0)
+            ) / len(pairs)
+
+            # ... and the norms
+            loss_t += torch.square(
+                torch.norm(cij / scale_trans2trans, p='fro') -
+                torch.norm(cji / scale_trans2trans, p='fro')
+            ) / len(pairs)
 
     # projection
     loss_proj = 0.0

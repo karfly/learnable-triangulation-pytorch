@@ -59,13 +59,13 @@ cam2cam:
     tred_weight: 10.0
     self_consistency:
       R: 400.0
-      t: 400.0
-      proj: 0.003
+      t: 100.0
+      proj: 0.005
 
   opt:
-    grad_clip: 0.1
+    grad_clip: -1.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.001
+    lr: 0.0001
 
   model:
     n_features: 512

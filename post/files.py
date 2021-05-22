@@ -94,71 +94,43 @@ def parse_job_log(f_path, verbose=False):
                     current_epoch_details[key] = []
 
         if 'training batch iter' in line and (not 'MPJPE' in line):  # batch loss
-            tokens = line.split('~')
+            available_losses = map(
+                lambda x: x.strip(),
+                line.split('losses: ')[1].split(',')
+            )
+            available_losses = map(
+                lambda x: x.split('~'),
+                available_losses
+            )
+            available_losses = list(map(
+                lambda x: (x[0].strip().lower(), parse_fp_number(x[1].strip())),
+                available_losses
+            ))
 
             # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627
+            for loss_name, loss_val in available_losses:
+                if loss_name == 'geo':
+                    key = 'geodesic'
+                elif loss_name == 'trans':
+                    key = 'L2 on T'
+                elif loss_name == 'pose':
+                    key = 'L2 proj'
+                elif loss_name == '3d':
+                    key = 'L2 on 3D'
+                elif loss_name == 'self r':
+                    key = 'self-consistency R'
+                elif loss_name == 'self t':
+                    key = 'self-consistency t'
+                elif loss_name == 'self p':
+                    key = 'self-consistency P'
+                elif loss_name == 'total':
+                    key = 'total'
 
-            i_token = 2
+                key += ' loss / batch'
 
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'geodesic loss / batch'
                 if key not in current_epoch_details:
                     current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'L2 on T loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'L2 proj loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-            
-                
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'L2 on 3D loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-                
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'self-consistency R loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-                
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'self-consistency t loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-                
-            if len(tokens) > i_token:
-                loss = parse_fp_number(tokens[i_token - 1].split(',')[0])
-                key = 'self-consistency P loss / batch'
-                if key not in current_epoch_details:
-                    current_epoch_details[key] = []
-                current_epoch_details[key].append(loss)
-                i_token += 1
-
-            total_loss = parse_fp_number(tokens[-1])
-            current_epoch_details['total loss / batch'].append(total_loss)
+                current_epoch_details[key].append(loss_val)
 
         if 'training MPJPE' in line:
             metric = parse_fp_number(line.split(':')[-1].split()[0])

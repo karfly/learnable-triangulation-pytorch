@@ -19,21 +19,23 @@ class RototransNet(nn.Module):
                 2 * n_joints * 2, config.cam2cam.model.backbone.inner_size, 2, n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.ReLU,
+                activation=nn.LeakyReLU,
             ),
         ])
 
+        # todo specific norm
         self.R_backbone = nn.Sequential(*[
             MLPResNet(
                 n_features, n_features, config.cam2cam.model.roto.n_layers,
                 6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.ReLU,
+                activation=nn.LeakyReLU,
             ),
             R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
         ])
 
+        # todo specific norm
         self.t_backbone = nn.Sequential(*[
             MLPResNet(
                 n_features, n_features, config.cam2cam.model.trans.n_layers,

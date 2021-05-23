@@ -45,7 +45,7 @@ cam2cam:
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
-  normalize_kp_to_pelvis: true
+  normalize_kps: true
 
   batch_norm: true
 # `Martin` would disapprove
@@ -56,7 +56,7 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 2.0
+    tred_weight: 10.0
     self_consistency:
       R: 400.0
       t: 20.0
@@ -68,11 +68,11 @@ cam2cam:
     lr: 0.0002
 
   model:
-    n_features: 1024
+    n_features: 512
 
     backbone:
       inner_size: 1024
-      n_layers: 2
+      n_layers: 6
 
     roto:
       n_layers: 2

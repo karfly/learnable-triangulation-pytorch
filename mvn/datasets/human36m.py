@@ -11,8 +11,8 @@ from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(1e2, 1e2),
-    f=(1.6e2, 1.6e2),
+    translation=(0, 0),
+    f=(1, 1),
     shear=0
 )
 
@@ -258,12 +258,12 @@ class Human36MMultiViewDataset(Dataset):
                     TARGET_INTRINSICS
                 )
                 image_shape_before_resize = image.shape[:2]
-                image = resize_image(image, list(map(int, new_shape)))
+                # todo image = resize_image(image, list(map(int, new_shape)))
                 retval_camera.update_after_resize(
                     image_shape_before_resize, new_shape
                 )
 
-                image = crop_image(image, list(map(int, cropping_box)))
+                #todo image = crop_image(image, list(map(int, cropping_box)))
                 retval_camera.update_after_crop(cropping_box)
 
             if self.look_at_pelvis:

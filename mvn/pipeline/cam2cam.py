@@ -20,42 +20,39 @@ def _center_to_pelvis(keypoints_2d, pelvis_i=6):
     return keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
 
 
-def _normalize_per_view(keypoints_2d):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
-
-    #kps = _center_to_pelvis(keypoints_2d)
-    frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
-
-    batch_size, n_views = kps.shape[0], kps.shape[1]
-
-    # "divided by its Frobenius norm in the preprocessing"
-    return torch.cat([
-        torch.cat([
-            (kps[batch_i, view_i] / frobenius_norm[batch_i, view_i]).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
-
-
-def _normalize_per_view(keypoints_2d):
-    """ pelvis -> (0, 0), corners -> (1, 1) """
-
-    keypoints_2d = _center_to_pelvis(keypoints_2d)
-    frobenius_norm = torch.norm(keypoints_2d, p='fro', dim=(2, 3))
+def _normalize_fro_kps(keypoints_2d):
+    """ "divided by its Frobenius norm in the preprocessing" """
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
+    kps = _center_to_pelvis(keypoints_2d)
 
-    # "divided by its Frobenius norm in the preprocessing"
-    keypoints_2d = torch.cat([
+    return torch.cat([
         torch.cat([
-            (keypoints_2d[batch_i, view_i] / frobenius_norm[batch_i, view_i]).unsqueeze(0)
+            (
+                kps[batch_i, view_i] / 
+                torch.norm(kps[batch_i, view_i], p='fro')
+            ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
 
-    return keypoints_2d
+
+def _normalize_kps(keypoints_2d):
+    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
+
+    return torch.cat([
+        torch.cat([
+            (
+                (
+                    keypoints_2d[batch_i, view_i] -
+                    keypoints_2d[batch_i, view_i].mean(axis=0)
+                ) / 1.0  # todo std?
+            ).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
 
 def _get_cam2cam_gt(cameras):
@@ -75,8 +72,10 @@ def _get_cam2cam_gt(cameras):
         # GT roto-translation: (3 x 4 + last row [0, 0, 0, 1]) = [ [ rot2rot | trans2trans ], [0, 0, 0, 1] ]
         cam2cam_gts[batch_i] = torch.cat([
             torch.matmul(
-                torch.FloatTensor(cameras[j][batch_i].extrinsics_padded),
-                torch.inverse(torch.FloatTensor(cameras[i][batch_i].extrinsics_padded))
+                torch.DoubleTensor(cameras[j][batch_i].extrinsics_padded),
+                torch.DoubleTensor(
+                    np.linalg.inv(cameras[i][batch_i].extrinsics_padded)
+                )
             ).unsqueeze(0)  # 1 x 4 x 4
             for (i, j) in pairs
         ])  # ~ (len(pairs), 4, 4)
@@ -90,7 +89,7 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
 
     for batch_i in range(batch_size):
         rot2rot, trans2trans = cam2cam_model(
-            detections[batch_i]  # ~ (len(pairs), 2, n_joints=17, 2D)
+            detections[batch_i]  # ~ (1, len(pairs), 2, n_joints=17, 2D)
         )
         trans2trans = trans2trans * scale_trans2trans
 
@@ -111,7 +110,7 @@ def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gt
 
             cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
                 extrinsic,
-                torch.cuda.FloatTensor([0, 0, 0, 1]).unsqueeze(0)
+                torch.cuda.DoubleTensor([0, 0, 0, 1]).unsqueeze(0)
             ], dim=0)  # add [0, 0, 0, 1] at the bottom -> 4 x 4
 
     return cam2cam_preds.cuda()
@@ -130,17 +129,17 @@ def _prepare_cam2cams_for_dlt(cam2cam_preds, keypoints_2d_pred, cameras, master_
         ]
 
         full_cam2cams[batch_i] = torch.cat([
-            torch.cuda.FloatTensor(master_cam.intrinsics_padded).unsqueeze(0),
+            torch.cuda.DoubleTensor(master_cam.intrinsics_padded).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[0].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[0].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[0]]
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[1].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[1].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[1]]
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.FloatTensor(target_cams[2].intrinsics_padded),
+                torch.cuda.DoubleTensor(target_cams[2].intrinsics_padded),
                 cam2cam_preds[batch_i, master_cam_i, target_cams_i[2]]
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
@@ -205,7 +204,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
             euclidean_to_homogeneous(
                 keypoints_3d_pred[batch_i]  # [x y z] -> [x y z 1]
             ),
-            torch.FloatTensor(cameras[master_cam_i][batch_i].extrinsics.T)
+            torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics.T)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -346,8 +345,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if config.cam2cam.using_heatmaps:
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
-        if config.cam2cam.normalize_kp_to_pelvis:
-            kps = _normalize_per_view(keypoints_2d_pred)
+        if config.cam2cam.normalize_kps:
+            kps = _normalize_fro_kps(keypoints_2d_pred)
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)

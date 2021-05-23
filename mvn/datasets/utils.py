@@ -3,6 +3,7 @@ import torch
 
 from mvn.utils.img import image_batch_to_torch
 
+
 def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
     def collate_fn(items):
         items = list(filter(lambda x: x is not None, items))
@@ -77,11 +78,11 @@ def cam2cam_batch(src, target, cameras_batch, batch_i):
 def cam2cam_precomputed_batch(src, target, cameras_batch, batch_i, cam2cams):
     if src == target:  # just apply intrinsics
         cam = cameras_batch[src][batch_i]  # multiview.Camera
-        return torch.cuda.DoubleTensor(cam.intrinsics_padded)  # 3 x 4
+        return torch.cuda.FloatTensor(cam.intrinsics_padded)  # 3 x 4
 
     K = cameras_batch[target][batch_i].intrinsics_padded
     return torch.mm(
-        torch.cuda.DoubleTensor(K),
+        torch.cuda.FloatTensor(K),
         cam2cams[batch_i][target]  # cam2cam from src -> target
     )  # 3 x 4
 

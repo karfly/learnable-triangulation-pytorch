@@ -234,7 +234,7 @@ def _project_in_each_view(cameras, keypoints_mastercam_pred, cam2cam_preds):
                     @
                     cam2cam_preds[batch_i, 0, view_i].T)  # cam 0 -> i
                 @
-                torch.cuda.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded.T)
+                torch.cuda.FloatTensor(cameras[view_i][batch_i].intrinsics_padded.T)
             ).unsqueeze(0)
             for view_i in range(1, n_views)  # 0 is "master" cam
         ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2

@@ -12,7 +12,6 @@ class RototransNet(nn.Module):
         batch_norm = config.cam2cam.batch_norm
         drop_out = config.cam2cam.drop_out
         n_features = config.cam2cam.model.n_features
-        activation = nn.Tanh
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -20,7 +19,7 @@ class RototransNet(nn.Module):
                 2 * n_joints * 2, config.cam2cam.model.backbone.inner_size, 2, n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=activation,
+                activation=nn.ReLU,
             ),
         ])
 
@@ -30,7 +29,7 @@ class RototransNet(nn.Module):
                 6 if config.cam2cam.model.roto.parametrization == '6d' else 3,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=activation,
+                activation=nn.ReLU,
             ),
             R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
         ])
@@ -41,7 +40,7 @@ class RototransNet(nn.Module):
                 3,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=activation,
+                activation=nn.LeakyReLU,
             ),
         ])
 

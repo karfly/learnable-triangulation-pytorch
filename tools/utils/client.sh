@@ -12,8 +12,8 @@ function backupJobViaSSH () {
     sshpass -p ${password} scp ${full_path} .
 }
 
-# usage: keepBackupJobViaSSH "hackme" "15719703"
-function keepBackupJobViaSSH () {
+# usage: monitorJobViaSSH "hackme" "15719703"
+function monitorJobViaSSH () {
     password=$1
     job_id=$2
 

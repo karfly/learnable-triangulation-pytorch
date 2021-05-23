@@ -12,7 +12,7 @@ class R6DBlock(nn.Module):
     def normalize_vector(v, eps=1e-8):
         batch = v.shape[0]
         v_mag = torch.sqrt(v.pow(2).sum(1))
-        v_mag = torch.max(v_mag, torch.cuda.DoubleTensor([eps]))
+        v_mag = torch.max(v_mag, torch.cuda.FloatTensor([eps]))
         v_mag = v_mag.view(batch, 1).expand(batch, v.shape[1])
         v = v / v_mag
         return v  # `nn.functional.normalize(v)`

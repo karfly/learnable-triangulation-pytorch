@@ -345,8 +345,12 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if config.cam2cam.using_heatmaps:
         detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
-        if config.cam2cam.normalize_kps:
-            kps = _normalize_fro_kps(keypoints_2d_pred)
+        if hasattr(config.cam2cam, 'normalize_kps'):
+            if config.cam2cam.normalize_kps == 'fro':
+                kps = _normalize_fro_kps(keypoints_2d_pred)
+            elif config.cam2cam.normalize_kps == 'mean':
+                kps = _normalize_kps(keypoints_2d_pred)
+
             detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
         else:
             detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)

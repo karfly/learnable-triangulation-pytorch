@@ -45,7 +45,7 @@ cam2cam:
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
-  normalize_kps: true
+#  normalize_kps: "mean"
 
   batch_norm: true
 # `Martin` would disapprove
@@ -58,9 +58,9 @@ cam2cam:
     proj_weight: 0.0
     tred_weight: 10.0
     self_consistency:
-      R: 400.0
+      R: 200.0
       t: 20.0
-      proj: 0.005
+      proj: 0.1
 
   opt:
     grad_clip: 1.0

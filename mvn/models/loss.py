@@ -320,7 +320,10 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
         ])
         loss_t += MSESmoothLoss(threshold=1e2)(
             trans_i2i / scale_trans2trans,
-            torch.zeros((1, 3), device=cam2cam_preds.device, requires_grad=False).unsqueeze(0).repeat((n_views, 1, 1))
+            torch.zeros(
+                (1, 3),
+                device=cam2cam_preds.device, requires_grad=False
+            ).unsqueeze(0).repeat((n_views, 1, 1))
         )
 
     # projection

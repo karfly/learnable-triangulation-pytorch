@@ -12,7 +12,7 @@ from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox,
 
 TARGET_INTRINSICS = build_intrinsics(
     translation=(0, 0),
-    f=(1, 1),
+    f=(1e2, 1e2),
     shear=0
 )
 

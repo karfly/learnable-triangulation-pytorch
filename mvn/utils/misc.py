@@ -2,11 +2,11 @@ import os
 import gc
 import yaml
 import json
-import re
 from sys import getsizeof
 from types import ModuleType, FunctionType
 from gc import get_referents
 import numpy as np
+from itertools import combinations
 
 import torch
 
@@ -130,3 +130,9 @@ def live_debug_log(tag, message, master_only=True):
         print('#[{}]: {}'.format(
             tag, message
         ))
+
+
+def get_pairs(n_items, ravel=False):
+    return [
+        [0, 1], [0, 2], [0, 3]
+    ]

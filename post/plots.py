@@ -95,13 +95,13 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     ]  # forced
     multipliers = [
         30.0,
-        2.0,
+        0.5,
         0.004,
         0.1,
         #0.03,
         30.0,
         5.0,
-        0.004,
+        0.04,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):

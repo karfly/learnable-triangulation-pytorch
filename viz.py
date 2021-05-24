@@ -13,7 +13,8 @@ def plot_kps(axis, kps, marker):
         kps[:, 0],
         kps[:, 1],
         kps[:, 2],
-        marker=marker
+        marker=marker,
+        s=30,
     )
 
 
@@ -24,7 +25,7 @@ def load_data(config, dumps_folder=Path('~/_tmp/').expanduser()):
 
     keypoints_3d_gt = _load('keypoints_3d_gt.trc')  # see `cam2cam:_save_stuff`
     keypoints_3d_pred = _load('keypoints_3d_pred.trc')
-    indices = _load('batch_indexes')
+    indices = _load('batch_indexes')  # [0, 3, 2, 4, 1]
     _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
 
     return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
@@ -38,14 +39,14 @@ def main(config):
 
     scalar_metric, full_metric = dataloader.dataset.evaluate(
         pred,
-        indices_predicted=indices,  # [0, 3, 2, 4, 1]
+        indices_predicted=indices,
         split_by_subject=True
     )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
     print(scalar_metric)  # full_metric
 
-    plot_kps(axis, gts[2], 'o')  # todo also others
-    plot_kps(axis, pred[2], '^')
+    plot_kps(axis, gts[4], 'o')  # todo also others
+    plot_kps(axis, pred[4], '^')
 
     plt.show()
 

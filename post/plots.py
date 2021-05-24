@@ -101,9 +101,10 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 on T',
         'L2 proj',
         'L2 on 3D',
-        'total',
+        # 'total',
         'self-consistency R',
         'self-consistency t',
+        'self-consistency ext',
         'self-consistency P',
     ]  # forced
     multipliers = [
@@ -111,8 +112,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         3e0,
         1e-2,
         1.5e-1,
-        2e-2,
+        # 1e-2,
         2e1,
+        3e0,
         3e0,
         1e-2,
     ]

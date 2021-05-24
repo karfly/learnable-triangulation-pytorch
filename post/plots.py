@@ -102,7 +102,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'self-consistency P',
     ]  # forced
     multipliers = [
-        4e1,
+        3e1,
         3e0,
         1e-2,
         1.5e-1,

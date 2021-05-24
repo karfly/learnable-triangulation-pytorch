@@ -263,7 +263,7 @@ def _self_consistency_ext(cam2cam_preds, scale_trans2trans):
                 inverses[:, batch_i, :3, :3]
             )
 
-            loss_R += geodesic_distance(
+            loss_R += MSESmoothLoss(threshold=1e0)(
                 rots,
                 torch.eye(
                     3, device=cam2cam_preds.device, requires_grad=False

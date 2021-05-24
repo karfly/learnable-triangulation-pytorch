@@ -85,7 +85,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'tomato',
             'forestgreen',
             'lime',
-            'dodgerblue',
+            'maroon',
             'midnightblue',
             'darkviolet',
             'fuchsia',
@@ -108,7 +108,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         1.5e-1,
         # 1e0,
         4e1,
-        3e-1,
+        3e0,
         1e-2,
     ]
 

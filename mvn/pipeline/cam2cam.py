@@ -39,7 +39,7 @@ def _normalize_fro_kps(keypoints_2d):
     ])
 
 
-def _normalize_kps(keypoints_2d):
+def _normalize_mean_kps(keypoints_2d):
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
     return torch.cat([
@@ -72,7 +72,7 @@ def _get_cam2cam_gt(cameras):
                     )
                 ).unsqueeze(0)  # 1 x 4 x 4
                 for (i, j) in pairs
-            ])  # ~ (_normalize_kps, 4, 4)
+            ])  # ~ (| pairs |, 4, 4)
 
     return cam2cam_gts.cuda(), pairs_per_master
 
@@ -332,7 +332,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             if config.cam2cam.normalize_kps == 'fro':
                 kps = _normalize_fro_kps(keypoints_2d_pred)
             elif config.cam2cam.normalize_kps == 'mean':
-                kps = _normalize_kps(keypoints_2d_pred)
+                kps = _normalize_mean_kps(keypoints_2d_pred)
 
             detections = _prepare_cam2cam_keypoints_batch(kps)
             if config.debug.dump_tensors:

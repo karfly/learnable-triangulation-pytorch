@@ -273,10 +273,10 @@ def _self_consistency_R(cam2cam_preds, criterion=geodesic_distance):
 
 def _self_consistency_t(cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e2)):
     n_cameras = cam2cam_preds.shape[0]
+    n_pairs = n_cameras - 1
     batch_size = cam2cam_preds.shape[1]
 
-    loss_R, loss_n = torch.tensor(0.0).to('cuda'), torch.tensor(0.0).to('cuda')
-
+    loss = torch.tensor(0.0).to('cuda')
     for master_cam_i in range(n_cameras):
         pairs = get_pairs()[master_cam_i]
         inverses = torch.cat([
@@ -284,28 +284,19 @@ def _self_consistency_t(cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
             for _, other_cam in pairs
         ])
 
-        for batch_i in range(batch_size):  # todo batched
-            for i, (_, other_cam) in enumerate(pairs):
-                t_master2other = cam2cam_preds[master_cam_i, batch_i, i][:3, 3]
-                t_other2master = torch.inverse(inverses[i, batch_i])[:3, 3]
+        for batch_i in range(batch_size):
+            loss += criterion(
+                torch.bmm(
+                    cam2cam_preds[master_cam_i, batch_i],
+                    inverses[:, batch_i]
+                )[:, :3, 3],  # just t
+                torch.zeros(
+                    (1, 3), device=cam2cam_preds.device, requires_grad=False
+                ).unsqueeze(0).repeat((n_pairs, 1, 1))
+            )
 
-                rotation_matrices = RodriguesBlock()(
-                    torch.cat([
-                        t_master2other.unsqueeze(0),  # add fake batch dimension
-                        t_other2master.unsqueeze(0)
-                    ])
-                )
-                loss_R += geodesic_distance(
-                    rotation_matrices[0].unsqueeze(0),  # add fake batch dimension
-                    rotation_matrices[1].unsqueeze(0)
-                )
-                loss_n += criterion(
-                    t_master2other,
-                    t_other2master
-                )
-
-    n_comparisons = batch_size * len(pairs) * n_cameras  # normalize
-    return loss_R / n_comparisons + loss_n / (np.sqrt(scale_trans2trans) * n_comparisons)
+    n_comparisons = batch_size * n_cameras  # normalize
+    return loss / (n_comparisons * np.sqrt(scale_trans2trans))
 
 
 def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):

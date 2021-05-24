@@ -56,11 +56,11 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 2.0
+    tred_weight: 3.0
     self_consistency:
       R: 10.0
       t: 10.0
-      proj: 0.001
+      proj: 0.01
 
   opt:
     grad_clip: 10.0

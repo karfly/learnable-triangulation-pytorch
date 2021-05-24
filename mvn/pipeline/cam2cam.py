@@ -205,7 +205,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         for batch_i in range(batch_size)
     ])
 
-    loss_R, loss_t, loss_proj = self_consistency_loss(
+    loss_R, loss_t, loss_ext, loss_proj = self_consistency_loss(
         cameras, master2other_preds, config.cam2cam.scale_trans2trans,
         keypoints_cam_pred, keypoints_2d_pred, master_cam_i
     )
@@ -216,6 +216,10 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     if config.cam2cam.loss.self_consistency.t > 0:
         total_loss += get_weighted_loss(
             loss_t, config.cam2cam.loss.self_consistency.t, 0.5, 1.5
+        )
+    if config.cam2cam.loss.self_consistency.ext > 0:
+        total_loss += get_weighted_loss(
+            loss_ext, config.cam2cam.loss.self_consistency.ext, 1.0, 5.0
         )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += get_weighted_loss(
@@ -233,7 +237,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
             loss_3d, config.cam2cam.loss.tred_weight, 1e1, 7e2
         )
 
-    return geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss
+    return geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_ext, loss_proj, total_loss
 
 
 def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
@@ -273,7 +277,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_ext, loss_proj, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -284,7 +288,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, 3D ~ {:.3f}, SELF R ~ {:.3f}, SELF t ~ {:.3f}, SELF ext ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
@@ -293,6 +297,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             loss_3d.item(),
             loss_R.item(),
             loss_t.item(),
+            loss_ext.item(),
             loss_proj.item(),
             total_loss.item(),
         )
@@ -317,7 +322,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
         backprop(
             opt, total_loss, scheduler,
-            scalar_metric + 20,  # give some slack (mm)
+            scalar_metric + 15,  # give some slack (mm)
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')

@@ -121,6 +121,8 @@ def parse_job_log(f_path, verbose=False):
                     key = 'self-consistency R'
                 elif loss_name == 'self t':
                     key = 'self-consistency t'
+                elif loss_name == 'self ext':
+                    key = 'self-consistency ext'
                 elif loss_name == 'self p':
                     key = 'self-consistency P'
                 elif loss_name == 'total':

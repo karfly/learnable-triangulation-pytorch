@@ -271,6 +271,33 @@ def _self_consistency_R(cam2cam_preds, criterion=geodesic_distance):
     return loss / (n_cameras * batch_size)
 
 
+def _self_consistency_ext(cam2cam_preds, criterion=MSESmoothLoss(threshold=1e1)):
+    n_cameras = cam2cam_preds.shape[0]
+    n_pairs = n_cameras - 1
+    batch_size = cam2cam_preds.shape[1]
+
+    loss = torch.tensor(0.0).to('cuda')
+    for master_cam_i in range(n_cameras):
+        pairs = get_pairs()[master_cam_i]
+        inverses = torch.cat([
+            cam2cam_preds[other_cam, :, get_inverse_i_from_pair(master_cam_i, other_cam)[1]].unsqueeze(0)
+            for _, other_cam in pairs
+        ])
+
+        for batch_i in range(batch_size):
+            loss += criterion(
+                torch.bmm(
+                    cam2cam_preds[master_cam_i, batch_i],
+                    inverses[:, batch_i, ...]
+                ),  # just R
+                torch.eye(
+                    4, device=cam2cam_preds.device, requires_grad=False
+                ).unsqueeze(0).repeat((n_pairs, 1, 1))
+            )
+
+    return loss / (n_cameras * batch_size)
+
+
 def _self_consistency_t(cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e2)):
     n_cameras = cam2cam_preds.shape[0]
     n_pairs = n_cameras - 1
@@ -325,9 +352,10 @@ def self_consistency_loss(cameras, cam2cam_preds, scale_trans2trans, keypoints_c
 
     loss_R = _self_consistency_R(cam2cam_preds)
     loss_t = _self_consistency_t(cam2cam_preds, scale_trans2trans)
+    loss_ext = _self_consistency_ext(cam2cam_preds)
     loss_proj = _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i)
 
-    return loss_R, loss_t, loss_proj
+    return loss_R, loss_t, loss_ext, loss_proj
 
 
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):

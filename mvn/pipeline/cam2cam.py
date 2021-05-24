@@ -397,6 +397,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     if config.debug.dump_tensors:
         _save_stuff(keypoints_3d_pred, 'keypoints_3d_pred')
+        _save_stuff(batch['indexes'], 'batch_indexes')
         _save_stuff(keypoints_3d_gt, 'keypoints_3d_gt')
 
     minimon.leave('cam2cam DLT')

@@ -2,7 +2,7 @@ import argparse
 import torch
 
 from mvn.utils.misc import flush_cache
-from mvn.ipynb import get_config, build_labels
+from mvn.mini import get_config, build_labels
 
 from main import main
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     args = get_args()
     print('args: {}'.format(args))
 
-    config = get_config(args)
+    config = get_config(args.config)
 
     try:
         main(args, config)

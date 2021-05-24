@@ -3,8 +3,8 @@ import numpy as np
 from mvn.utils import cfg
 
 
-def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/data/'):
-    config = cfg.load_config(args.config)
+def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/data/'):
+    config = cfg.load_config(config_path)
 
     config.image_shape = [384, 384]
 

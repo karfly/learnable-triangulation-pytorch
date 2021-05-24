@@ -160,9 +160,9 @@ def build_env(config, device):
     if config.model.cam2cam_estimation:
         if config.cam2cam.model.init_weights:
             load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
-
-        print('cam2cam model:')
-        show_params(cam2cam_model, verbose=config.debug.show_models)
+        else:
+            print('cam2cam model:')
+            show_params(cam2cam_model, verbose=config.debug.show_models)
 
     # ... and opt ...
     opt, scheduler = build_opt(model, cam2cam_model, config)

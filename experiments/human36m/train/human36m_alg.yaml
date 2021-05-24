@@ -13,6 +13,7 @@ debug:
 # `write_imgs: true` will break dataloader (use only in extreme cases of debug)
   dump_checkpoints: true
   dump_results: false
+  dump_tensors: false
 
 opt:
   criterion: "MSESmooth"
@@ -80,8 +81,8 @@ cam2cam:
     trans:
       n_layers: 2
 
-    init_weights: false
-    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@14.05.2021-21:56:53/checkpoints/"
+    init_weights: true
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
 model:
   name: "alg"

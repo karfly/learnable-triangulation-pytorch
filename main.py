@@ -50,6 +50,8 @@ def init_distributed(args):
 
 
 def main(args, config):
+    config.debug.dump_tensors = args.eval  # or config.debug.dump_tensors, dump tensors only if evaluating
+
     print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
 
     is_distributed = init_distributed(args)

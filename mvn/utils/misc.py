@@ -6,7 +6,7 @@ from sys import getsizeof
 from types import ModuleType, FunctionType
 from gc import get_referents
 import numpy as np
-from itertools import combinations
+import inspect, re
 
 import torch
 
@@ -145,3 +145,14 @@ def get_master_pairs():
         [2, 0, 1, 3],
         [3, 0, 1, 2]
     ]  # todo auto
+
+
+# https://stackoverflow.com/a/592849
+def varname(p):
+    for line in inspect.getframeinfo(inspect.currentframe().f_back)[3]:
+        m = re.search(r'\bvarname\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)', line)
+        print(m)
+        # if m:
+        #     return m.group(1)
+
+    return None

@@ -1,10 +1,11 @@
+import os
 from mvn.models.utils import get_grad_params
 import torch
 
 import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
-from mvn.utils.misc import live_debug_log, get_pairs, get_master_pairs
+from mvn.utils.misc import live_debug_log, get_pairs, get_master_pairs, varname
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous
 from mvn.models.loss import geo_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss, get_weighted_loss
 
@@ -57,7 +58,7 @@ def _normalize_kps(keypoints_2d):
 
 def _get_cam2cam_gt(cameras):
     batch_size = len(cameras[0])
-    pairs = get_pairs(len(cameras))
+    pairs = get_pairs(len(cameras))  # todo get all, then select
 
     cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
     for batch_i in range(batch_size):
@@ -138,9 +139,7 @@ def _prepare_cam2cams_for_dlt(master2other_preds, keypoints_2d_pred, cameras, ma
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
 
-    print(full_cam2cams.shape)
-
-    return full_cam2cams
+    return full_cam2cams  # ~ batch_size, 4, 3, 4
 
 
 def _do_dlt(master2other_preds, keypoints_2d_pred, confidences_pred, cameras, master_cam_i=0):
@@ -235,9 +234,17 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     return geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss
 
 
-def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
+def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
     n_joints = config.model.backbone.num_joints
+    iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
+    iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
+
+    def _save_stuff(stuff, var_name):
+        if iter_dir:
+            os.makedirs(iter_dir, exist_ok=True)
+            f_out = os.path.join(iter_dir, var_name + '.trc')
+            torch.save(torch.tensor(stuff), f_out)
 
     def _forward_kp():
         if config.cam2cam.using_gt:
@@ -337,6 +344,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     minimon.enter()
     keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
+    if config.debug.dump_tensors:
+        _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
 
     cam2cam_gts, pairs = _get_cam2cam_gt(batch['cameras'])
@@ -350,6 +359,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
                 kps = _normalize_kps(keypoints_2d_pred)
 
             detections = _prepare_cam2cam_keypoints_batch(kps)
+            if config.debug.dump_tensors:
+                _save_stuff(detections, 'detections')
         else:
             detections = _prepare_cam2cam_keypoints_batch(
                 keypoints_2d_pred, pairs
@@ -363,12 +374,16 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         _forward_cam2cam(
             cam2cam_model,
             detections[:, master_i, ...],
-            config.cam2cam.scale_trans2trans
+            config.cam2cam.scale_trans2trans,
+            # todo use gt
         ).unsqueeze(0)
         for master_i in range(n_cameras)
     ])
+    if config.debug.dump_tensors:
+        _save_stuff(cam2cam_preds, 'cam2cam_preds')
 
-    master2other_preds = cam2cam_preds[0, ...].view(batch_size, 3, 4, 4)  # 0 is 'master'
+    master_i = 0
+    master2other_preds = cam2cam_preds[master_i].view(batch_size, 3, 4, 4)  
     cam2cam_gts = cam2cam_gts.view(batch_size, 3, 4, 4)
     minimon.leave('cam2cam forward')
 
@@ -379,6 +394,11 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         confidences_pred,
         batch['cameras'],
     )
+
+    if config.debug.dump_tensors:
+        _save_stuff(keypoints_3d_pred, 'keypoints_3d_pred')
+        _save_stuff(keypoints_3d_gt, 'keypoints_3d_gt')
+
     minimon.leave('cam2cam DLT')
 
     if is_train:

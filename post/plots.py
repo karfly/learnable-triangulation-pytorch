@@ -30,7 +30,9 @@ def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=
         xrange = xrange[:len(stuff)]
 
     axis.plot(
-        xrange, stuff, label=label, color=color, marker=marker, alpha=alpha
+        xrange, stuff, label=label, color=color,
+        marker=marker, markersize=5,
+        alpha=alpha
     )
 
     if show_min:
@@ -66,10 +68,10 @@ def plot_loss(axis, loss_history, label, xrange, color):
         label=label,
         xrange=xrange,
         color=color,
-        alpha=0.9 if 'total' in label else 0.5,
+        alpha=0.9 if 'total' in label else 0.3,
         legend_loc=legend_loc,
         show_min=False,
-        marker='+',
+        marker='o',
         verbose=False
     )
 
@@ -88,7 +90,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'forestgreen',
             'lime',
             'maroon',
-            'midnightblue',
+            'royalblue',
             'darkviolet',
             'fuchsia',
             'gray'
@@ -157,6 +159,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
 
 def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None, with_SOTA=False):
     legend_loc = 'upper right'
+    marker = '+'
 
     metrics = drop_na(map(lambda x: x['training metrics'], epochs))
     plot_stuff(
@@ -166,9 +169,10 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         xrange=xrange,
         ylim=train_metric_ylim,
         color='aquamarine',
+        alpha=1.0,
         legend_loc=legend_loc,
         show_min=True,
-        marker='o',
+        marker=marker,
         verbose=False
     )
 
@@ -180,9 +184,10 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         xrange=xrange,
         ylim=eval_metric_ylim,
         color='blue',
+        alpha=1.0,
         legend_loc=legend_loc,
         show_min=True,
-        marker='o',
+        marker=marker,
         verbose=False
     )
 

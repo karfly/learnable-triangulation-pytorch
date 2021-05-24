@@ -46,6 +46,7 @@ cam2cam:
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
+  pelvis_center_kps: true
   normalize_kps: "fro"
 
   batch_norm: true
@@ -68,11 +69,11 @@ cam2cam:
     lr: 0.0001
 
   model:
-    n_features: 512
+    n_features: 1024
 
     backbone:
       inner_size: 1024
-      n_layers: 6
+      n_layers: 4
 
     roto:
       n_layers: 2

@@ -244,12 +244,12 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cam2cam_preds, ma
     ])
 
 
-def _self_consistency_ext(cam2cam_preds, criterion=MSESmoothLoss(threshold=1e1)):
+def _self_consistency_ext(cam2cam_preds, scale_trans2trans, criterion=geodesic_distance):
     n_cameras = cam2cam_preds.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_preds.shape[1]
 
-    loss = torch.tensor(0.0).to('cuda')
+    loss_R, loss_t = torch.tensor(0.0).to('cuda'), torch.tensor(0.0).to('cuda')
     for master_cam_i in range(n_cameras):
         pairs = get_pairs()[master_cam_i]
         inverses = torch.cat([
@@ -258,17 +258,29 @@ def _self_consistency_ext(cam2cam_preds, criterion=MSESmoothLoss(threshold=1e1))
         ])
 
         for batch_i in range(batch_size):
-            loss += criterion(
-                torch.bmm(
-                    cam2cam_preds[master_cam_i, batch_i],
-                    inverses[:, batch_i, ...]
-                ),
+            whole = torch.bmm(
+                cam2cam_preds[master_cam_i, batch_i],
+                inverses[:, batch_i]
+            )
+
+            loss_R += criterion(
+                whole[..., :3, :3],
                 torch.eye(
-                    4, device=cam2cam_preds.device, requires_grad=False
+                    3, device=cam2cam_preds.device, requires_grad=False
                 ).unsqueeze(0).repeat((n_pairs, 1, 1))
             )
 
-    return loss / (n_cameras * batch_size)
+            loss_t += MSESmoothLoss(threshold=1e1)(
+                whole[..., :3, 3] / scale_trans2trans,
+                torch.zeros(
+                    3, device=cam2cam_preds.device, requires_grad=False
+                ).unsqueeze(0).repeat((n_pairs, 1, 1))
+            )
+
+    w_R, w_t = 2.0, 1.0
+
+    return w_R * loss_R / batch_size +\
+        w_t * loss_t / (batch_size * n_cameras)
 
 
 def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):
@@ -295,7 +307,7 @@ def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keyp
 
 def self_consistency_loss(cameras, cam2cam_preds, scale_trans2trans, keypoints_cam_pred, initial_keypoints, master_cam_i):
 
-    loss_ext = _self_consistency_ext(cam2cam_preds)
+    loss_ext = _self_consistency_ext(cam2cam_preds, scale_trans2trans)
     loss_proj = _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i)
 
     return loss_ext, loss_proj

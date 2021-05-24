@@ -271,7 +271,6 @@ class Human36MMultiViewDataset(Dataset):
 
                 kp_in_world = shot['keypoints'][:self.num_keypoints]
                 kp_in_cam = retval_camera.world2cam()(kp_in_world)
-
                 pelvis_vector = kp_in_cam[pelvis_index]
 
                 # ... => find rotation matrix pelvis to z ...
@@ -282,6 +281,13 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_roto_extrsinsic(Rt)
 
             if False:  # self.sit_at_pelvis:
+                kp_in_cam = retval_camera.world2cam()(kp_in_world)
+                pelvis_vector = kp_in_cam[pelvis_index]
+                print(pelvis_vector)
+                Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
+                print(Rt)
+                1/0
+
                 pelvis_index = 6  # H36M dataset, not CMU
 
                 kp_in_world = shot['keypoints'][:self.num_keypoints]

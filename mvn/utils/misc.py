@@ -135,4 +135,13 @@ def live_debug_log(tag, message, master_only=True):
 def get_pairs(n_items, ravel=False):
     return [
         [0, 1], [0, 2], [0, 3]
-    ]
+    ]  # todo auto
+
+
+def get_master_pairs():
+    return [
+        [0, 1, 2, 3],
+        [1, 0, 2, 3],
+        [2, 0, 1, 3],
+        [3, 0, 1, 2]
+    ]  # todo auto

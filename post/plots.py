@@ -88,20 +88,20 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 on T',
         'L2 proj',
         'L2 on 3D',
-        #'total',
-        'self-consistency R',
-        'self-consistency t',
+        # 'total',
+        # 'self-consistency R',
+        # 'self-consistency t',
         'self-consistency P',
     ]  # forced
     multipliers = [
-        30.0,
-        0.5,
-        0.004,
-        0.1,
-        #0.03,
-        30.0,
-        5.0,
-        0.04,
+        3e1,
+        4e0,
+        1e-2,
+        1e-1,
+        # 1e0,
+        # 0.0,
+        # 0.0,
+        5e-2,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):
@@ -144,7 +144,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     axis.set_ylabel(label)
 
 
-def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None):
+def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None, with_SOTA=False):
     legend_loc = 'upper right'
 
     metrics = drop_na(map(lambda x: x['training metrics'], epochs))
@@ -174,6 +174,8 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         marker='o',
         verbose=False
     )
+
+    plot_SOTA(axis, [xrange[0], xrange[-1]])
 
     axis.legend(loc=legend_loc)
     axis.set_xlim([xrange[0], xrange[-1]])

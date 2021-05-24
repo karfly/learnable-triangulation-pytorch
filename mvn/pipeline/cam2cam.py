@@ -4,9 +4,9 @@ import torch
 import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
-from mvn.utils.misc import live_debug_log, get_pairs
+from mvn.utils.misc import live_debug_log, get_pairs, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous
-from mvn.models.loss import geo_loss, L2_R_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss, get_weighted_loss
+from mvn.models.loss import geo_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss, get_weighted_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -59,7 +59,7 @@ def _get_cam2cam_gt(cameras):
     batch_size = len(cameras[0])
     pairs = get_pairs(len(cameras))
 
-    cam2cam_gts = torch.zeros(batch_size, 3, 4, 4)
+    cam2cam_gts = torch.zeros(batch_size, len(pairs), 4, 4)
     for batch_i in range(batch_size):
         # GT roto-translation: (3 x 4 + last row [0, 0, 0, 1]) = [ [ rot2rot | trans2trans ], [0, 0, 0, 1] ]
         cam2cam_gts[batch_i] = torch.cat([
@@ -72,45 +72,47 @@ def _get_cam2cam_gt(cameras):
             for (i, j) in pairs
         ])  # ~ (_normalize_kps, 4, 4)
 
-    return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, | pairs |, 3, 3)
+    return cam2cam_gts.cuda(), pairs  # ~ (batch_size=8, | pairs |, 4, 4)
 
 
-def _forward_cam2cam(cam2cam_model, detections, pairs, scale_trans2trans=1e3, gts=None):
+def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3):
     batch_size = detections.shape[0]
-    cam2cam_preds = torch.empty(batch_size, len(pairs), 4, 4)
+    n_views = 4  # todo infer
+    preds = torch.empty(batch_size, n_views - 1, 4, 4)
 
     rot2rot, trans2trans = cam2cam_model(
         detections  # ~ (*, | pairs |, 2, n_joints=17, 2D)
     )  # (batch_size, | pairs |, 3, 3), (batch_size, | pairs |, 3)
 
     for batch_i in range(batch_size):  # todo batched
-        if not (gts is None):  # GTs have been provided => use them
-            rot2rot = gts[:, :, :3, :3].cuda().detach().clone()
-            trans2trans = gts[:, :, :3, 3].cuda().detach().clone() / scale_trans2trans
-
-            if False:  # noisy
-                rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
-                trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
-
-        for pair_i in range(len(pairs)):
+        for pair_i in range(n_views - 1):
             R = rot2rot[batch_i, pair_i]
             t = trans2trans[batch_i, pair_i].unsqueeze(0).T * scale_trans2trans
+
+            # todo use gt
+            # rot2rot = gts[:, :, :3, :3].cuda().detach().clone()
+            # trans2trans = gts[:, :, :3, 3].cuda().detach().clone() / scale_trans2trans
+
+            # if False:  # noisy
+            #     rot2rot = rot2rot + 0.1 * torch.rand_like(rot2rot)
+            #     trans2trans = trans2trans + 1e2 * torch.rand_like(trans2trans)
+
 
             extrinsic = torch.cat([  # `torch.hstack`, for compatibility with cluster
                 R, t.view(3, 1)
             ], dim=1)
 
-            cam2cam_preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
+            preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
                 extrinsic,
                 torch.cuda.DoubleTensor([0, 0, 0, 1]).unsqueeze(0)
             ], dim=0)  # add [0, 0, 0, 1] at the bottom -> 4 x 4
 
-    return cam2cam_preds.cuda()
+    return preds.cuda()
 
 
-def _prepare_cam2cams_for_dlt(cam2cam_preds, keypoints_2d_pred, cameras, master_cam_i=0):
+def _prepare_cam2cams_for_dlt(master2other_preds, keypoints_2d_pred, cameras, master_cam_i=0):
     batch_size = keypoints_2d_pred.shape[0]
-    full_cam2cams = torch.empty((8, 4, 3, 4))
+    full_cam2cams = torch.empty((batch_size, 4, 3, 4))
 
     for batch_i in range(batch_size):
         master_cam = cameras[master_cam_i][batch_i]
@@ -124,25 +126,27 @@ def _prepare_cam2cams_for_dlt(cam2cam_preds, keypoints_2d_pred, cameras, master_
             torch.cuda.DoubleTensor(master_cam.intrinsics_padded).unsqueeze(0),
             torch.mm(
                 torch.cuda.DoubleTensor(target_cams[0].intrinsics_padded),
-                cam2cam_preds[batch_i, target_cams_i[0] - 1]
+                master2other_preds[batch_i, target_cams_i[0] - 1]
             ).unsqueeze(0),
             torch.mm(
                 torch.cuda.DoubleTensor(target_cams[1].intrinsics_padded),
-                cam2cam_preds[batch_i, target_cams_i[1] - 1]
+                master2other_preds[batch_i, target_cams_i[1] - 1]
             ).unsqueeze(0),
             torch.mm(
                 torch.cuda.DoubleTensor(target_cams[2].intrinsics_padded),
-                cam2cam_preds[batch_i, target_cams_i[2] - 1]
+                master2other_preds[batch_i, target_cams_i[2] - 1]
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
+
+    print(full_cam2cams.shape)
 
     return full_cam2cams
 
 
-def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_cam_i=0):
+def _do_dlt(master2other_preds, keypoints_2d_pred, confidences_pred, cameras, master_cam_i=0):
     batch_size = keypoints_2d_pred.shape[0]
 
-    full_cam2cams = _prepare_cam2cams_for_dlt(cam2cam_preds, keypoints_2d_pred, cameras)
+    full_cam2cams = _prepare_cam2cams_for_dlt(master2other_preds, keypoints_2d_pred, cameras)
 
     #print(keypoints_2d_pred)
 
@@ -162,7 +166,7 @@ def _do_dlt(cam2cam_preds, keypoints_2d_pred, confidences_pred, cameras, master_
     ])
 
 
-def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
     _pairs = [
         [0, 1],
         [0, 2],
@@ -171,12 +175,12 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
 
     total_loss = 0.0  # real loss, the one grad is applied to
 
-    geodesic_loss = geo_loss(cam2cam_gts, cam2cam_preds, _pairs)
+    geodesic_loss = geo_loss(cam2cam_gts, master2other_preds, _pairs)
     if config.cam2cam.loss.geo_weight > 0:
         total_loss += config.cam2cam.loss.geo_weight * geodesic_loss
 
     trans_loss = t_loss(
-        cam2cam_gts, cam2cam_preds, _pairs, config.cam2cam.scale_trans2trans
+        cam2cam_gts, master2other_preds, _pairs, config.cam2cam.scale_trans2trans
     )
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
@@ -200,7 +204,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
         for batch_i in range(batch_size)
     ])
     loss_R, loss_t, loss_proj = self_consistency_loss(
-        cameras, keypoints_cam_pred, cam2cam_preds, keypoints_2d_pred, config.cam2cam.scale_trans2trans / 1e1  # original scale is too much ..
+        cameras, keypoints_cam_pred, master2other_preds, keypoints_2d_pred, config.cam2cam.scale_trans2trans / 1e1  # original scale is too much ..
     )
 
     if config.cam2cam.loss.self_consistency.R > 0:
@@ -232,7 +236,7 @@ def _compute_losses(cam2cam_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_
 
 
 def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon):
-    batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
+    batch_size = images_batch.shape[0]
     n_joints = config.model.backbone.num_joints
 
     def _forward_kp():
@@ -260,23 +264,25 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
         return detections.cuda()
 
-    def _prepare_cam2cam_keypoints_batch(keypoints, pairs):
-        detections = torch.empty(batch_size, len(pairs), 2, n_joints, 2)
+    def _prepare_cam2cam_keypoints_batch(keypoints):
+        """ master-cam KPs will be first, then the others """
 
-        for batch_i in range(batch_size):
-            detections[batch_i] = torch.cat([
-                torch.cat([
-                    keypoints[batch_i, i].unsqueeze(0),  # ~ (1, 17, 2)
-                    keypoints[batch_i, j].unsqueeze(0)
-                ]).unsqueeze(0)  # ~ (1, 2, 17, 2)
-                for (i, j) in pairs
-            ])  # ~ (3, 2, 17, 2)
+        n_views = keypoints.shape[1]
+        out = torch.zeros(batch_size, n_views, n_views, n_joints, 2)
+        pairs = get_master_pairs()
 
-        return detections.cuda()
+        for batch_i in range(batch_size):  # todo batched
+            for master_cam in range(n_views):
+                out[batch_i, master_cam] = torch.cat([
+                    keypoints[batch_i, view_i].unsqueeze(0)
+                    for view_i in pairs[master_cam]
+                ])
+
+        return out.cuda()
 
     def _backprop():
         geodesic_loss, trans_loss, pose_loss, loss_3d, loss_R, loss_t, loss_proj, total_loss = _compute_losses(
-            cam2cam_preds,
+            master2other_preds,
             cam2cam_gts,
             keypoints_2d_pred,
             keypoints_3d_pred,
@@ -323,8 +329,9 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             clip = config.cam2cam.opt.grad_clip * 2.0 / current_lr
 
         backprop(
-            opt, total_loss, scheduler, scalar_metric, _ITER_TAG,
-            get_grad_params(cam2cam_model), clip
+            opt, total_loss, scheduler,
+            scalar_metric + 10,  # give some slack (mm)
+            _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')
 
@@ -342,27 +349,32 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             elif config.cam2cam.normalize_kps == 'mean':
                 kps = _normalize_kps(keypoints_2d_pred)
 
-            # detections = _prepare_cam2cam_keypoints_batch(kps, pairs)
-            detections = kps.to('cuda')  # trying using multiview ...
+            detections = _prepare_cam2cam_keypoints_batch(kps)
         else:
-            detections = _prepare_cam2cam_keypoints_batch(keypoints_2d_pred, pairs)
+            detections = _prepare_cam2cam_keypoints_batch(
+                keypoints_2d_pred, pairs
+            )
 
     minimon.enter()
-    cam2cam_preds = _forward_cam2cam(
-        cam2cam_model,
-        detections,
-        pairs,
-        config.cam2cam.scale_trans2trans,
-        #cam2cam_gts
-    )
 
-    cam2cam_preds = cam2cam_preds.view(batch_size, 3, 4, 4)
+    # forward all cam2cam for self.losses
+    n_cameras = 4  # todo infer
+    cam2cam_preds = torch.cat([
+        _forward_cam2cam(
+            cam2cam_model,
+            detections[:, master_i, ...],
+            config.cam2cam.scale_trans2trans
+        ).unsqueeze(0)
+        for master_i in range(n_cameras)
+    ])
+
+    master2other_preds = cam2cam_preds[0, ...].view(batch_size, 3, 4, 4)  # 0 is 'master'
     cam2cam_gts = cam2cam_gts.view(batch_size, 3, 4, 4)
     minimon.leave('cam2cam forward')
 
     minimon.enter()
     keypoints_3d_pred = _do_dlt(
-        cam2cam_preds,
+        master2other_preds,
         keypoints_2d_pred,
         confidences_pred,
         batch['cameras'],

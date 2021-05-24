@@ -1,26 +1,6 @@
-import torch
 import numpy as np
 
 from mvn.utils import cfg
-from mvn.utils.dicts import NestedNamespace
-from mvn.models.utils import build_opt
-
-
-
-def get_args():
-    args = NestedNamespace(
-        dict(
-            config='experiments/human36m/train/human36m_alg.yaml',
-            eval=False,
-            eval_dataset='val',
-            local_rank=None, logdir='/home/stefano/_tmp/logs',
-            seed=42
-        )
-    )
-
-    print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
-    
-    return args
 
 
 def get_config(args, data_folder='/home/stefano/Scuola/tud/_classes/4/thesis/data/'):

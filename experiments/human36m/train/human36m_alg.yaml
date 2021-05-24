@@ -59,7 +59,7 @@ cam2cam:
     self_consistency:
       R: 0.0
       t: 0.0
-      proj: 0.0
+      proj: 0.04
 
   opt:
     grad_clip: 10.0

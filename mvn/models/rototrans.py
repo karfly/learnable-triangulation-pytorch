@@ -9,7 +9,7 @@ class RototransNet(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.n_views_comparing = 4  # trying using multiview
+        self.n_views_comparing = 4
         self.n_pairs = self.n_views_comparing - 1
 
         n_joints = config.model.backbone.num_joints

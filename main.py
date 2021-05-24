@@ -4,6 +4,7 @@ import argparse
 import torch
 
 from mvn.pipeline.training import do_train
+from mvn.pipeline.evaluation import do_eval
 from mvn.utils.cfg import load_config
 from mvn.utils.misc import is_master, is_distributed
 
@@ -11,17 +12,26 @@ from mvn.utils.misc import is_master, is_distributed
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--config", type=str, required=True, help="Path, where config file is stored")
-    parser.add_argument('--eval', action='store_true', help="If set, then only evaluation will be done")
-    parser.add_argument('--eval_dataset', type=str, default='val', help="Dataset split on which evaluate. Can be 'train' and 'val'")
+    parser.add_argument(
+        '--config', type=str, required=True, help='Path, where config file is stored'
+    )
+    parser.add_argument(
+        '--eval', action='store_true', help='If set, then only evaluation will be done'
+    )
+    parser.add_argument(
+        '--eval_dataset', type=str, default='val', help='Dataset split on which evaluate. Can be \'train\' and \'val\''
+    )
+    parser.add_argument(
+        '--local_rank', type=int, help='Local rank of the process on the node'
+    )
+    parser.add_argument(
+        '--seed', type=int, default=42, help="Random seed for reproducibility"
+    )
+    parser.add_argument(
+        '--logdir', type=str, required=True, help='Path, where logs will be stored'
+    )
 
-    parser.add_argument("--local_rank", type=int, help="Local rank of the process on the node")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
-
-    parser.add_argument("--logdir", type=str, required=True, help="Path, where logs will be stored")
-
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def init_distributed(args):
@@ -39,7 +49,7 @@ def init_distributed(args):
     return True
 
 
-def main(args):
+def main(args, config):
     print('# available GPUs: {:d}'.format(torch.cuda.device_count()))
 
     is_distributed = init_distributed(args)
@@ -47,15 +57,18 @@ def main(args):
     device = torch.device(args.local_rank) if is_distributed else torch.device(0)
     print('using dev {}'.format(device))
 
-    config = load_config(args.config)
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
-    do_train(args.config, args.logdir, config, device, is_distributed, master)
-    # todo do eval based on args
+    if args.eval:
+        do_eval(args.config, args.logdir, config, device, is_distributed, master)
+    else:
+        do_train(args.config, args.logdir, config, device, is_distributed, master)
 
 
 if __name__ == '__main__':
     args = parse_args()
     print("args: {}".format(args))
 
-    main(args)
+    config = load_config(args.config)
+
+    main(args, config)

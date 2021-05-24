@@ -18,7 +18,7 @@ date +"%Y-%m-%d %H:%M:%S"
 source ./requirements.sh
 source ./utils/versioning.sh
 
-showGitVersion
+showGitDiff
 
 source /sw/installed/Anaconda3/2019.03/etc/profile.d/conda.sh
 conda deactivate

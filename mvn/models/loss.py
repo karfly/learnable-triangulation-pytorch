@@ -250,7 +250,7 @@ def self_consistency_loss(cameras, keypoints_mastercam_pred, cam2cam_preds, init
             projections[batch_i].cuda(),
         )
 
-    return loss_R / batch_size, loss_t / batch_size, loss_proj / batch_size
+    return loss_R, loss_t, loss_proj
 
 
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):

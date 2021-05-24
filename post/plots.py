@@ -81,7 +81,15 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         loss_keys = ['training loss / batch']
         colors = ['red']
     else:
-        colors = mcolors.BASE_COLORS
+        colors = [
+            'tomato',
+            'forestgreen',
+            'lime',
+            'dodgerblue',
+            'midnightblue',
+            'darkviolet',
+            'fuchsia',
+        ]
 
     loss_keys = [
         'geodesic',
@@ -89,19 +97,19 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 proj',
         'L2 on 3D',
         # 'total',
-        # 'self-consistency R',
-        # 'self-consistency t',
+        'self-consistency R',
+        'self-consistency t',
         'self-consistency P',
     ]  # forced
     multipliers = [
-        3e1,
-        4e0,
+        4e1,
+        3e0,
         1e-2,
-        1e-1,
+        1.5e-1,
         # 1e0,
-        # 0.0,
-        # 0.0,
-        5e-2,
+        4e1,
+        3e-1,
+        1e-2,
     ]
 
     for key, color, multip in zip(loss_keys, colors, multipliers):

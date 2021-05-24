@@ -53,13 +53,13 @@ cam2cam:
   drop_out: 0
 
   loss:
-    geo_weight: 20.0
-    trans_weight: 5.0
+    geo_weight: 0.0
+    trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 1.0
+    tred_weight: 2.0
     self_consistency:
-      R: 1.0
-      t: 0.1
+      R: 10.0
+      t: 10.0
       proj: 0.001
 
   opt:
@@ -81,7 +81,7 @@ cam2cam:
     trans:
       n_layers: 2
 
-    init_weights: true
+    init_weights: false
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
 model:

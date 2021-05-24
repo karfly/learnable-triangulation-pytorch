@@ -304,16 +304,11 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         minimon.enter()
 
         current_lr = opt.param_groups[0]['lr']
-        n_batch_per_epoch = 2  # todo find with config
-        n_iters = epoch_i * n_batch_per_epoch
-        if n_iters < 4e2:
-            clip = config.cam2cam.opt.grad_clip / current_lr
-        else:  # gradient boost
-            clip = config.cam2cam.opt.grad_clip * 2.0 / current_lr
+        clip = config.cam2cam.opt.grad_clip / current_lr
 
         backprop(
             opt, total_loss, scheduler,
-            scalar_metric + 10,  # give some slack (mm)
+            scalar_metric + 20,  # give some slack (mm)
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')

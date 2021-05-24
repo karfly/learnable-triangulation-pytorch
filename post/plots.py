@@ -7,8 +7,10 @@ from mvn.utils.misc import find_min, drop_na
 
 def plot_SOTA(axis, _xrange):
     # show original paper results
+    diff = _xrange[-1] - _xrange[0]
+
     axis.hlines(
-        21.3, xmin=_xrange[0], xmax=_xrange[-1],
+        21.3, xmin=_xrange[0] + diff / 2, xmax=_xrange[-1],
         color='blue', linestyle=':', label='algebraic SOTA = 21.3'
     )
 
@@ -89,6 +91,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'midnightblue',
             'darkviolet',
             'fuchsia',
+            'gray'
         ]
 
     loss_keys = [
@@ -96,7 +99,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 on T',
         'L2 proj',
         'L2 on 3D',
-        # 'total',
+        'total',
         'self-consistency R',
         'self-consistency t',
         'self-consistency P',
@@ -106,9 +109,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         3e0,
         1e-2,
         1.5e-1,
-        # 1e0,
-        4e1,
-        3e1,
+        2e-2,
+        2e1,
+        3e0,
         1e-2,
     ]
 

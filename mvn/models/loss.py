@@ -244,7 +244,7 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cam2cam_preds, ma
     ])
 
 
-def _self_consistency_ext(cam2cam_preds, scale_trans2trans, criterion=geodesic_distance):
+def _self_consistency_ext(cam2cam_preds, scale_trans2trans):
     n_cameras = cam2cam_preds.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_preds.shape[1]
@@ -258,29 +258,28 @@ def _self_consistency_ext(cam2cam_preds, scale_trans2trans, criterion=geodesic_d
         ])
 
         for batch_i in range(batch_size):
-            whole = torch.bmm(
-                cam2cam_preds[master_cam_i, batch_i],
-                inverses[:, batch_i]
+            rots = torch.bmm(
+                cam2cam_preds[master_cam_i, batch_i, :, :3, :3],
+                inverses[:, batch_i, :3, :3]
             )
 
-            loss_R += criterion(
-                whole[..., :3, :3],
+            loss_R += geodesic_distance(
+                rots,
                 torch.eye(
                     3, device=cam2cam_preds.device, requires_grad=False
                 ).unsqueeze(0).repeat((n_pairs, 1, 1))
             )
 
             loss_t += MSESmoothLoss(threshold=1e1)(
-                whole[..., :3, 3] / scale_trans2trans,
-                torch.zeros(
-                    3, device=cam2cam_preds.device, requires_grad=False
-                ).unsqueeze(0).repeat((n_pairs, 1, 1))
+                cam2cam_preds[master_cam_i, batch_i, :, :3, 3] / np.sqrt(scale_trans2trans),
+                torch.inverse(inverses[:, batch_i])[:, :3, 3] / np.sqrt(scale_trans2trans)
             )
 
-    w_R, w_t = 2.0, 1.0
+    w_R, w_t = 4.0, 1.0
+    normalization = batch_size * n_cameras
 
-    return w_R * loss_R / batch_size +\
-        w_t * loss_t / (batch_size * n_cameras)
+    return w_R * loss_R / normalization +\
+        w_t * loss_t / normalization
 
 
 def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):

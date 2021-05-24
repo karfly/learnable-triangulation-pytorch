@@ -108,7 +108,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         1.5e-1,
         # 1e0,
         4e1,
-        3e0,
+        3e1,
         1e-2,
     ]
 

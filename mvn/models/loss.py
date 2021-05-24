@@ -284,13 +284,19 @@ def _self_consistency_t(cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
             for _, other_cam in pairs
         ])
         
-        for batch_i in range(batch_size):  # todo batched
+        for batch_i in range(batch_size):
             loss += criterion(
-                cam2cam_preds[master_cam_i, batch_i][:, :3, 3] / scale_trans2trans,  # just t,
-                torch.inverse(inverses[:, batch_i, ...])[:, :3, 3] / scale_trans2trans,  # just t
+                torch.bmm(
+                    cam2cam_preds[master_cam_i, batch_i],
+                    inverses[:, batch_i]
+                )[:, :3, 3],  # just t
+                torch.zeros(
+                    (1, 3), device=cam2cam_preds.device, requires_grad=False
+                ).unsqueeze(0).repeat((n_pairs, 1, 1))
             )
 
-    return loss / n_cameras  # normalize
+    n_comparisons = batch_size * n_cameras  # normalize
+    return loss / (n_comparisons * np.sqrt(scale_trans2trans))
 
 
 def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):

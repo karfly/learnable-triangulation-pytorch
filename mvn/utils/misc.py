@@ -132,10 +132,24 @@ def live_debug_log(tag, message, master_only=True):
         ))
 
 
-def get_pairs(n_items, ravel=False):
+def get_pairs():
     return [
-        [0, 1], [0, 2], [0, 3]
+        [ (0, 1), (0, 2), (0, 3) ],
+        [ (1, 0), (1, 2), (1, 3) ],
+        [ (2, 0), (2, 1), (2, 3) ],
+        [ (3, 0), (3, 1), (3, 2) ],
     ]  # todo auto
+
+
+def get_i_from_pair(i, j):
+    return (
+        i,
+        j - 1 if j > i else j
+    )
+
+
+def get_inverse_i_from_pair(i, j):
+    return get_i_from_pair(j, i)
 
 
 def get_master_pairs():

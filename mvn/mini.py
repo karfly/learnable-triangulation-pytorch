@@ -16,7 +16,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.opt.n_epochs = 2
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
-    config.opt.batch_size = 5
+    config.opt.batch_size = 6
     config.opt.val_batch_size = 2
 
     config.opt.loss_3d = False

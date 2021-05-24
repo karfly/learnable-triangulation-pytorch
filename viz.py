@@ -24,24 +24,25 @@ def load_data(config, dumps_folder=Path('~/_tmp/').expanduser()):
 
     keypoints_3d_gt = _load('keypoints_3d_gt.trc')  # see `cam2cam:_save_stuff`
     keypoints_3d_pred = _load('keypoints_3d_pred.trc')
+    indices = _load('batch_indexes')
     _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
 
-    return keypoints_3d_gt, keypoints_3d_pred, val_dataloader
+    return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
 
 
 def main(config):
     fig = plt.figure()
     axis = fig.gca(projection='3d')
 
-    gts, pred, dataloader = load_data(config)
+    gts, pred, indices, dataloader = load_data(config)
 
     scalar_metric, full_metric = dataloader.dataset.evaluate(
         pred,
-        indices_predicted=[0, 3, 2, 4, 1],
+        indices_predicted=indices,  # [0, 3, 2, 4, 1]
         split_by_subject=True
     )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
-    print(scalar_metric)
+    print(scalar_metric)  # full_metric
 
     plot_kps(axis, gts[2], 'o')  # todo also others
     plot_kps(axis, pred[2], '^')

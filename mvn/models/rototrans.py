@@ -37,7 +37,7 @@ class RototransNet(nn.Module):
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.roto.n_layers,
-                out_features=n_params_per_R * self.n_pairs,
+                out_features=n_params_per_R * self.n_views_comparing,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
@@ -51,7 +51,7 @@ class RototransNet(nn.Module):
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.trans.n_layers,
-                out_features=3 * self.n_pairs,
+                out_features=1 * self.n_views_comparing,  # just d
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
@@ -65,16 +65,43 @@ class RototransNet(nn.Module):
         features = self.backbone(x)  # batch_size, ...
 
         r_features = self.R_backbone(features)
-        features_per_pair = r_features.shape[-1] // self.n_pairs
+        features_per_pair = r_features.shape[-1] // self.n_views_comparing
         r_features = r_features.view(
-            batch_size, self.n_pairs, features_per_pair
+            batch_size, self.n_views_comparing, features_per_pair
         )
-        rot2rot = torch.cat([
+        rots = torch.cat([  # ext.R in each view
             self.r_model(r_features[batch_i]).unsqueeze(0)
             for batch_i in range(batch_size)
-        ])  # batch_size, 3, (3 x 3)
+        ])  # ~ batch_size, | comparisons |, (3 x 3)
 
-        trans2trans = self.t_backbone(features)  # ~ (batch_size, 3)
-        trans2trans = trans2trans.view(batch_size, self.n_pairs, 3)
+        trans = self.t_backbone(features)  # ~ (batch_size, 3)
+        trans = trans.view(batch_size, self.n_views_comparing, 1)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
-        return rot2rot, trans2trans
+        trans = torch.cat([  # ext.t in each view
+            torch.zeros(batch_size, self.n_views_comparing, 2, 1).to(x.device),
+            trans.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
+        ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+
+        roto_trans = torch.cat([  # ext (not padded) in each view
+            rots, trans
+        ], dim=-1)  # hstack => ~ batch_size, | comparisons |, 3, 4
+        roto_trans = torch.cat([  # padd each view
+            roto_trans,
+            torch.cuda.DoubleTensor(
+                [0, 0, 0, 1]
+            ).repeat(batch_size, self.n_views_comparing, 1, 1)
+        ], dim=2)  # hstack => ~ batch_size, | comparisons |, 3, 4
+
+        master_cam_i = 0  # first view acting as master
+        cam2cam = torch.cat([
+            torch.cat([
+                torch.matmul(
+                    roto_trans[batch_i, target_view],
+                    torch.inverse(roto_trans[batch_i, master_cam_i])
+                ).unsqueeze(0)  # 1 x 4 x 4
+                for target_view in range(1, self.n_views_comparing)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])  # todo tensored
+
+        return cam2cam

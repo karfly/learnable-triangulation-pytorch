@@ -88,18 +88,16 @@ def _get_cam2cam_gt(cameras):
 
 def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
     batch_size = detections.shape[0]
-    n_views = 4  # todo infer
-    preds = torch.empty(batch_size, n_views - 1, 4, 4)
+    n_views = detections.shape[1]
 
-    rot2rot, trans2trans = cam2cam_model(
-        detections  # ~ (*, | pairs |, 2, n_joints=17, 2D)
-    )  # (batch_size, | pairs |, 3, 3), (batch_size, | pairs |, 3)
+    preds = cam2cam_model(
+        detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
+    )  # (batch_size, | pairs |, 3, 3)
 
     for batch_i in range(batch_size):  # todo batched
         for pair_i in range(n_views - 1):
-            R = rot2rot[batch_i, pair_i]
-            t = trans2trans[batch_i, pair_i].unsqueeze(0).T * scale_trans2trans
-
+            preds[batch_i, pair_i, :3, 3] *= scale_trans2trans
+            
             if not (gt is None):
                 R = gt[batch_i, pair_i, :3, :3].cuda().detach().clone()
                 t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
@@ -108,14 +106,8 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
                     R = R + 2e-1 * torch.rand_like(R)
                     t = t + 5e2 * torch.rand_like(t)
 
-            extrinsic = torch.cat([  # `torch.hstack`, for compatibility with cluster
-                R, t.view(3, 1)
-            ], dim=1)
-
-            preds[batch_i, pair_i] = torch.cat([  # `torch.vstack`, for compatibility with cluster
-                extrinsic,
-                torch.cuda.DoubleTensor([0, 0, 0, 1]).unsqueeze(0)
-            ], dim=0)  # add [0, 0, 0, 1] at the bottom -> 4 x 4
+                preds[batch_i, pair_i, :3, :3] = R
+                preds[batch_i, pair_i, :3, 3] = t
 
     return preds.cuda()
 

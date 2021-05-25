@@ -101,7 +101,7 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
                 R = gt[batch_i, pair_i, :3, :3].cuda().detach().clone()
                 t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
 
-                if False:  # noisy
+                if True:  # noisy
                     R = R + 1e-1 * torch.rand_like(R)
                     t = t + 1e1 * torch.rand_like(t)
 
@@ -347,7 +347,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             cam2cam_model,
             detections[master_i],
             config.cam2cam.scale_trans2trans,
-            cam2cam_gts[master_i],
+            # cam2cam_gts[master_i],
         ).unsqueeze(0)
         for master_i in range(n_cameras)
     ])  # n_cameras, batch_size, n_pairs=n_cameras - 1, (4 x 4)

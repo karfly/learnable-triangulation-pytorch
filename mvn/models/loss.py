@@ -255,7 +255,6 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
         for _, other_cam in pairs
     ])
 
-    loss_on_pelvis_distance = torch.tensor(0.0).to(keypoints_cam_pred.device)
     loss_on_kps = torch.tensor(0.0).to(keypoints_cam_pred.device)
 
     for batch_i in range(batch_size):  # todo tensored
@@ -279,19 +278,20 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
             pelvis_d = preds[pelvis_i]
             preds_pelvis_centered = preds - pelvis_d
 
-            loss_on_pelvis_distance += MSESmoothLoss(threshold=1e3)(
-                pelvis_mastercam_d.unsqueeze(0),
-                pelvis_d.unsqueeze(0),
-            )
+            # loss_on_pelvis_distance += MSESmoothLoss(threshold=1e3)(
+            #     pelvis_mastercam_d.unsqueeze(0),
+            #     pelvis_d.unsqueeze(0),
+            # )
 
+            norms = torch.norm(kp_in_mastercam_pelvis_centered, p='fro') +\
+                torch.norm(preds_pelvis_centered, p='fro')
             loss_on_kps += criterion(
                 kp_in_mastercam_pelvis_centered.unsqueeze(0),
                 preds_pelvis_centered.unsqueeze(0)
-            )
+            ) / norms
 
     normalization = n_comparisons * batch_size
-    return loss_on_pelvis_distance / normalization +\
-        0.1 * loss_on_kps / normalization
+    return loss_on_kps / normalization
 
     # loss_R, loss_t = torch.tensor(0.0).to('cuda'), torch.tensor(0.0).to('cuda')
     # for master_cam_i in range(n_cameras):

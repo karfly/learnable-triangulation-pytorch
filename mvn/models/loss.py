@@ -260,9 +260,9 @@ def _self_consistency_ext(cam2cam_preds, scale_trans2trans):
         for batch_i in range(batch_size):
             # rotation
             pred = torch.bmm(
-                cam2cam_preds[master_cam_i, batch_i, :, :3, :3],
-                inverses[:, batch_i, :3, :3]
-            )
+                cam2cam_preds[master_cam_i, batch_i],
+                inverses[:, batch_i]
+            )[:, :3, :3]
             gt = torch.eye(  # comparing VS eye ... makes autograd cry
                 3, device=cam2cam_preds.device, requires_grad=False
             ).unsqueeze(0).repeat((n_pairs, 1, 1))

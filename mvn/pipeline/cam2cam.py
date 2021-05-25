@@ -34,8 +34,7 @@ def _normalize_fro_kps(keypoints_2d, pelvis_center_kps=True):
     return torch.cat([
         torch.cat([
             (
-                kps[batch_i, view_i] / 
-                torch.norm(kps[batch_i, view_i], p='fro')
+                kps[batch_i, view_i] / torch.norm(kps[batch_i, view_i], p='fro')
             ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)

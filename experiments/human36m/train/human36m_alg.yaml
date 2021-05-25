@@ -57,15 +57,15 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 20.0
+    tred_weight: 30.0
     self_consistency:
-      ext: 10.0
-      proj: 0.01
+      ext: 5.0
+      proj: 0.1
 
   opt:
-    grad_clip: 0.25
+    grad_clip: 20.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.0002
+    lr: 0.00015
 
   model:
     n_features: 512
@@ -76,7 +76,7 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "6d"
+      parametrization: "rod"
 
     trans:
       n_layers: 2

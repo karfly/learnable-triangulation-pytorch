@@ -78,7 +78,7 @@ def plot_loss(axis, loss_history, label, xrange, color):
 
 def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='# epoch'):
     loss_keys = list(filter(
-        lambda x: 'loss / batch' in x,  # and 'training' not in x,
+        lambda x: 'loss / batch' in x and 'total' not in x,
         epochs[0].keys()
     ))
     if len(loss_keys) == 0:  # at least just show the training loss
@@ -89,34 +89,16 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'tomato',
             'forestgreen',
             'lime',
-            'maroon',
             'royalblue',
             'darkviolet',
             'fuchsia',
             'gray'
         ]
 
-    loss_keys = [
-        'geodesic',
-        'L2 on T',
-        'L2 proj',
-        'L2 on 3D',
-        # 'total',
-        'self-consistency ext',
-        'self-consistency P',
-    ]  # forced
-    multipliers = [
-        3e1,
-        3e-1,
-        1e-2,
-        1.5e-1,
-        # 1e-2,
-        5e-1,
-        1e-2,
-    ]
+    #              geo   T   proj    3D  self.ext self.proj
+    loss_scalers = [3e1, 3e0, 1e-1, 1.5e-1, 6e-1, 1e-1,]
 
-    for key, color, multip in zip(loss_keys, colors, multipliers):
-        key += ' loss / batch'
+    for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
             loss_history = np.float32([
                 np.mean(epoch[key])

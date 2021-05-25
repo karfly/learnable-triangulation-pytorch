@@ -95,8 +95,8 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'gray'
         ]
 
-    #               geo   T   proj    3D   s.ext  s.proj
-    loss_scalers = [3e1, 2e0, 1e0, 5e-2, 5e0, 4e0]
+    #              geo   T   proj    3D   s.ext  s.proj
+    loss_scalers = [3e1, 2e0, 1e0, 5e-2, 5e0, 4e1]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM

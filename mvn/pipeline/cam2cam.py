@@ -102,8 +102,8 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
                 t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
 
                 if False:  # noisy
-                    R = R + 2e-1 * torch.rand_like(R)
-                    t = t + 5e2 * torch.rand_like(t)
+                    R = R + 1e-1 * torch.rand_like(R)
+                    t = t + 1e1 * torch.rand_like(t)
 
                 preds[batch_i, pair_i, :3, :3] = R
                 preds[batch_i, pair_i, :3, 3] = t

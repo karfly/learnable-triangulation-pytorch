@@ -266,12 +266,12 @@ def _self_consistency_ext(cam2cam_preds, scale_trans2trans):
             gt = torch.eye(  # comparing VS eye ... makes autograd cry
                 3, device=cam2cam_preds.device, requires_grad=False
             ).unsqueeze(0).repeat((n_pairs, 1, 1))
-            loss_R += geodesic_distance(pred, gt)
+            loss_R += geodesic_distance(pred, gt)  # todo add rot i -> i
 
             # translation
             pred = cam2cam_preds[master_cam_i, batch_i, :, :3, 3]
             gt = torch.inverse(inverses[:, batch_i])[:, :3, 3]
-            loss_t += MSESmoothLoss(threshold=1e2)(pred, gt) / np.sqrt(scale_trans2trans)
+            loss_t += MSESmoothLoss(threshold=1e3)(pred, gt) / np.sqrt(scale_trans2trans)
 
     w_R, w_t = 1.0, 1.0
     normalization = batch_size * n_cameras
@@ -313,10 +313,10 @@ def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
     """ heuristic: if loss is low, do not overoptimize, and viceversa """
 
     # https://www.healthline.com/health/unexplained-weight-loss
-    # if loss <= min_thres:
-    #     w /= multi  # UNDER-optimize (don't care)
+    if loss <= min_thres:
+        w /= multi  # UNDER-optimize (don't care)
 
-    # if loss >= max_thres:
-    #     w *= multi  # OVER-optimize
+    if loss >= max_thres:
+        w *= multi  # OVER-optimize
 
     return w * loss

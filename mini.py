@@ -1,7 +1,8 @@
 import argparse
-import torch
+import sys
+import os
 
-from mvn.utils.misc import flush_cache
+from mvn.utils.misc import flush_cache, get_exception_trace
 from mvn.mini import get_config, build_labels
 
 from main import main
@@ -42,8 +43,15 @@ if __name__ == '__main__':
 
     try:
         main(args, config)
-    except ZeroDivisionError:
-        print('Have you forgotten a breakpoint?')
+    except ZeroDivisionError as ex:
+        print('Have you forgotten a breakpoint? ...')
+
+        trace = get_exception_trace(ex)
+        last = trace['trace'][-1]
+        print('... maybe in {}:{} ?'.format(
+            last['filename'], last['lineno']
+        ))
+
 
 
     # just to get a feeling of the dataset

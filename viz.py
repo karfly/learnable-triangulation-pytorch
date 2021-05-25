@@ -2,20 +2,65 @@ from pathlib import Path
 import torch
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 
 
-def plot_kps(axis, kps, marker):
-    axis.scatter(
-        kps[:, 0],
-        kps[:, 1],
-        kps[:, 2],
-        marker=marker,
-        s=30,
-    )
+def get_joints_connections():
+    return [
+        (6, 1),
+        (1, 0),
+        (1, 4),
+        (4, 5),
+        (6, 3),
+        (6, 2),
+        (6, 7),
+        (7, 8),
+        (8, 9),
+        (9, 16),
+        (8, 13),
+        (13, 14),
+        (15, 14),
+        (8, 12),
+        (12, 11),
+        (11, 10)
+    ]
+
+
+def draw_kp_in_2d(axis, keypoints_2d_in_view, color):
+    for joint_pair in get_joints_connections():
+        joints = [
+            keypoints_2d_in_view[joint_pair[0]],
+            keypoints_2d_in_view[joint_pair[1]]
+        ]
+        xs = joints[0][0], joints[1][0]
+        ys = joints[0][1], joints[1][1]
+        axis.plot(
+            xs, ys,
+            marker='o',
+            markersize=15,
+            color=color,
+        )
+
+
+def draw_kp_in_3d(axis, keypoints_3d, marker='o', color='blue'):
+    for joint_pair in get_joints_connections():
+        joints = [
+            keypoints_3d[joint_pair[0]],
+            keypoints_3d[joint_pair[1]]
+        ]
+        xs = joints[0][0], joints[1][0]
+        ys = joints[0][1], joints[1][1]
+        zs = joints[0][2], joints[1][2]
+        axis.plot(
+            xs, ys, zs,
+            marker=marker,
+            markersize=15,
+            color=color,
+        )
 
 
 def load_data(config, dumps_folder=Path('~/_tmp/').expanduser()):
@@ -45,8 +90,8 @@ def main(config):
 
     print(scalar_metric)  # full_metric
 
-    plot_kps(axis, gts[4], 'o')  # todo also others
-    plot_kps(axis, pred[4], '^')
+    draw_kp_in_3d(axis, gts[4], 'o', 'blue')  # todo also others samples
+    draw_kp_in_3d(axis, pred[4], '^', 'red')
 
     plt.show()
 

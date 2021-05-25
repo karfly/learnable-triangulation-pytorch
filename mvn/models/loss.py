@@ -337,10 +337,13 @@ def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keyp
             initial_keypoints[batch_i, i].unsqueeze(0)
             for _, i in pairs
         ])
+
+        norms = torch.norm(kps, p='fro') +\
+            torch.norm(projections[batch_i], p='fro')
         loss += criterion(
             kps.to(keypoints_cam_pred.device),
             projections[batch_i].to(keypoints_cam_pred.device),
-        )
+        ) / norms.to(keypoints_cam_pred.device)
 
     return loss
 

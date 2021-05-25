@@ -347,7 +347,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             cam2cam_model,
             detections[master_i],
             config.cam2cam.scale_trans2trans,
-            #cam2cam_gts[master_i],
+            cam2cam_gts[master_i],
         ).unsqueeze(0)
         for master_i in range(n_cameras)
     ])  # n_cameras, batch_size, n_pairs=n_cameras - 1, (4 x 4)

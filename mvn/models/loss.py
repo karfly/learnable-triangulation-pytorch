@@ -261,9 +261,7 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
     for batch_i in range(batch_size):  # todo tensored
         kp_in_mastercam = keypoints_cam_pred[batch_i]
         pelvis_mastercam_d = kp_in_mastercam[pelvis_i]
-        kp_in_mastercam_pelvis_centered = kp_in_mastercam.subtract(
-            pelvis_mastercam_d.unsqueeze(0)
-        )
+        kp_in_mastercam_pelvis_centered = kp_in_mastercam - pelvis_mastercam_d
 
         invs = inverses[:, batch_i]
 
@@ -279,9 +277,7 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
                 )
             )
             pelvis_d = preds[pelvis_i]
-            preds_pelvis_centered = preds.subtract(
-                pelvis_d.unsqueeze(0)
-            )
+            preds_pelvis_centered = preds - pelvis_d
 
             loss_on_pelvis_distance += MSESmoothLoss(threshold=1e3)(
                 pelvis_mastercam_d.unsqueeze(0),

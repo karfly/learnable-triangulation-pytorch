@@ -38,7 +38,8 @@ class Human36MMultiViewDataset(Dataset):
                  ignore_cameras=[],
                  crop=True,
                  resample=False,
-                 look_at_pelvis=False
+                 look_at_pelvis=False,
+                 sit_on_pelvis=False,
                  ):
         """
             h36m_root:
@@ -70,9 +71,11 @@ class Human36MMultiViewDataset(Dataset):
         self.kind = kind
         self.undistort_images = undistort_images
         self.ignore_cameras = ignore_cameras
+
         self.crop = crop
         self.do_resample = resample
         self.look_at_pelvis = look_at_pelvis
+        self.sit_on_pelvis = sit_on_pelvis
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
@@ -266,6 +269,21 @@ class Human36MMultiViewDataset(Dataset):
                 #todo image = crop_image(image, list(map(int, cropping_box)))
                 retval_camera.update_after_crop(cropping_box)
 
+            if self.sit_on_pelvis:
+                pelvis_index = 6  # H36M dataset, not CMU
+
+                kp_in_world = shot['keypoints'][:self.num_keypoints]
+                pelvis_in_world = kp_in_world[pelvis_index].reshape(3, 1)
+
+                origin = np.zeros_like(pelvis_in_world)
+                t_from_pelvis2origin = origin - pelvis_in_world
+
+                # "re-parameterize everything so that the world origin sits in the pelvis"
+                shot['keypoints'] = np.float64([
+                    kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
+                    for kp in shot['keypoints']
+                ]).squeeze(-1)
+
             if self.look_at_pelvis:
                 pelvis_index = 6  # H36M dataset, not CMU
 
@@ -277,35 +295,8 @@ class Human36MMultiViewDataset(Dataset):
                 z_axis = [0, 0, 1]
                 Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
 
-                # ... and update E
+                # "At that point, after you re-sample, camera translation should be [0,0,d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
-
-            if False:  # self.sit_at_pelvis:
-                kp_in_cam = retval_camera.world2cam()(kp_in_world)
-                pelvis_vector = kp_in_cam[pelvis_index]
-                print(pelvis_vector)
-                Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
-                print(Rt)
-                1/0
-
-                pelvis_index = 6  # H36M dataset, not CMU
-
-                kp_in_world = shot['keypoints'][:self.num_keypoints]
-                kp_in_cam = retval_camera.world2cam()(kp_in_world)
-
-                pelvis = kp_in_cam[pelvis_index]
-
-                # "the world origin sits in the pelvis" ...
-                origin = [0, 0, 0]
-                t = origin - pelvis
-
-                # ... and update E
-                retval_camera.update_trans_extrsinsic(t)
-
-                print(retval_camera.extrinsics)
-                print(retval_camera.world2cam()(kp_in_world)[pelvis_index - 2: pelvis_index + 2])
-
-                1/0
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

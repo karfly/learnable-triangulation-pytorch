@@ -102,11 +102,11 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
 
             if not (gt is None):
                 R = gt[batch_i, pair_i, :3, :3].cuda().detach().clone()
-                t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
+                #t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
 
                 if False:  # noisy
-                    R = R + 0.3 * torch.rand_like(R)
-                    t = t + 1e3 * torch.rand_like(t)
+                    R = R + 2e-1 * torch.rand_like(R)
+                    t = t + 5e2 * torch.rand_like(t)
 
             extrinsic = torch.cat([  # `torch.hstack`, for compatibility with cluster
                 R, t.view(3, 1)

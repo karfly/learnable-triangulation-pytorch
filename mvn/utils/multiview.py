@@ -84,9 +84,6 @@ class Camera:
         self.R = E[:3, :3]
         self.t = E[:3, 3].reshape(3, 1)
 
-    def update_trans_extrsinsic(self, t):
-        self.t = self.t + t.copy().reshape(3, 1)
-
     @property
     def extrinsics(self):  # 3D world -> 3D camera space
         return np.hstack([self.R, self.t])  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)

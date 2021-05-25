@@ -258,26 +258,23 @@ def _self_consistency_ext(cam2cam_preds, scale_trans2trans):
         ])
 
         for batch_i in range(batch_size):
-            rots = torch.bmm(
+            # rotation
+            pred = torch.bmm(
                 cam2cam_preds[master_cam_i, batch_i, :, :3, :3],
                 inverses[:, batch_i, :3, :3]
             )
+            gt = torch.eye(  # comparing VS eye ... makes autograd cry
+                3, device=cam2cam_preds.device, requires_grad=False
+            ).unsqueeze(0).repeat((n_pairs, 1, 1))
+            loss_R += geodesic_distance(pred, gt)
 
-            loss_R += MSESmoothLoss(threshold=1e0)(
-                rots,
-                torch.eye(
-                    3, device=cam2cam_preds.device, requires_grad=False
-                ).unsqueeze(0).repeat((n_pairs, 1, 1))
-            )
+            # translation
+            pred = cam2cam_preds[master_cam_i, batch_i, :, :3, 3]
+            gt = torch.inverse(inverses[:, batch_i])[:, :3, 3]
+            loss_t += MSESmoothLoss(threshold=1e2)(pred, gt) / np.sqrt(scale_trans2trans)
 
-            loss_t += MSESmoothLoss(threshold=1e1)(
-                cam2cam_preds[master_cam_i, batch_i, :, :3, 3] / np.sqrt(scale_trans2trans),
-                torch.inverse(inverses[:, batch_i])[:, :3, 3] / np.sqrt(scale_trans2trans)
-            )
-
-    w_R, w_t = 4.0, 1.0
+    w_R, w_t = 1.0, 1.0
     normalization = batch_size * n_cameras
-
     return w_R * loss_R / normalization +\
         w_t * loss_t / normalization
 

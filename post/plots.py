@@ -109,12 +109,12 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     ]  # forced
     multipliers = [
         3e1,
-        3e0,
+        3e-1,
         1e-2,
         1.5e-1,
         # 1e-2,
         2e1,
-        3e0,
+        3e1,
         3e0,
         1e-2,
     ]

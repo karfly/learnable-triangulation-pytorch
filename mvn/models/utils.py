@@ -119,7 +119,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
                 }
             )
 
-        opt = base_optim(params, weight_decay=1e1)
+        opt = base_optim(params, weight_decay=config.cam2cam.opt.weight_decay)
     elif config.model.name == "vol":
         print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
             'backbone',

@@ -1,5 +1,7 @@
 from pathlib import Path
+from pickle import dumps
 import torch
+import argparse
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -46,7 +48,7 @@ def draw_kp_in_2d(axis, keypoints_2d_in_view, color):
         )
 
 
-def draw_kp_in_3d(axis, keypoints_3d, marker='o', color='blue'):
+def draw_kp_in_3d(axis, keypoints_3d, label, marker='o', color='blue'):
     for joint_pair in get_joints_connections():
         joints = [
             keypoints_3d[joint_pair[0]],
@@ -58,48 +60,90 @@ def draw_kp_in_3d(axis, keypoints_3d, marker='o', color='blue'):
         axis.plot(
             xs, ys, zs,
             marker=marker,
-            markersize=15,
+            markersize=10,
             color=color,
+            # label=label,
         )
 
 
-def load_data(config, dumps_folder=Path('~/_tmp/').expanduser()):
+def load_data(config, dumps_folder):
     def _load(file_name):
         f_path = dumps_folder / file_name
         return torch.load(f_path).cpu().numpy()
 
     keypoints_3d_gt = _load('keypoints_3d_gt.trc')  # see `cam2cam:_save_stuff`
     keypoints_3d_pred = _load('keypoints_3d_pred.trc')
-    indices = _load('batch_indexes')  # [0, 3, 2, 4, 1]
+    indices = _load('batch_indexes.trc')
     _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
 
     return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
 
 
-def main(config):
-    fig = plt.figure()
-    axis = fig.gca(projection='3d')
+def get_dump_folder(milestone, experiment):
+    tesi_folder = Path('~/Scuola/now/thesis').expanduser()
+    milestones = tesi_folder / 'milestones'
+    current_milestone = milestones / milestone
+    folder = 'human36m_alg_AlgebraicTriangulationNet@{}'.format(experiment)
+    return current_milestone / folder / 'epoch-0-iter-0'
 
-    gts, pred, indices, dataloader = load_data(config)
 
-    scalar_metric, full_metric = dataloader.dataset.evaluate(
-        pred,
-        indices_predicted=indices,
-        split_by_subject=True
-    )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
+def main(config, milestone, experiment_name):
+    dumps_folder = get_dump_folder(milestone, experiment_name)
+    gts, pred, indices, dataloader = load_data(config, dumps_folder)
 
-    print(scalar_metric)  # full_metric
+    try:
+        scalar_metric, full_metric = dataloader.dataset.evaluate(
+            pred,
+            indices_predicted=indices,
+            split_by_subject=True
+        )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
+        print(scalar_metric)  # full_metric
+    except IndexError:
+        print('cannot evaluate using local data ... did you sample != 500?')
 
-    draw_kp_in_3d(axis, gts[4], 'o', 'blue')  # todo also others samples
-    draw_kp_in_3d(axis, pred[4], '^', 'red')
+    max_plots = 6
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    fig.set_facecolor('white')
+    for i in range(min(max_plots, len(indices))):
+        axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
+        draw_kp_in_3d(axis, gts[i], 'GT (resampled)', 'o', 'blue')
+        draw_kp_in_3d(axis, pred[i], 'prediction', '^', 'red')
+        print(
+            'sample #{}: pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
+                i,
+                pred[i, 6, 0],
+                pred[i, 6, 1],
+                pred[i, 6, 2],
+            )
+        )
+
+        axis.legend(loc='lower left')
+
+    plt.tight_layout()
     plt.show()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--milestone', type=str, required=True,
+        help='milestone name, e.g "20.05_27.05_rodrigezzzzzzzzzz"'
+    )
+    parser.add_argument(
+        '--exp', type=str, required=True,
+        help='experiment name, e.g "25.05.2021-18:58:36")'
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
+    args = parse_args()
     config = get_config('experiments/human36m/train/human36m_alg.yaml')
 
     try:
-        main(config)
+        main(config, args.milestone, args.exp)
     except ZeroDivisionError:
         print('Have you forgotten a breakpoint?')

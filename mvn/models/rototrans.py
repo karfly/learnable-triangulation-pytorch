@@ -64,9 +64,9 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
+            nn.BatchNorm1d(n_features),
         ])
 
-        # todo try specific norm
         n_params_per_R = 6 if config.cam2cam.model.roto.parametrization == '6d' else 3
         self.R_backbone = nn.Sequential(*[
             MLPResNet(
@@ -81,7 +81,6 @@ class RotoTransNet(nn.Module):
         ])
         self.r_model = R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
 
-        # todo try specific norm
         self.t_backbone = nn.Sequential(*[
             MLPResNet(
                 in_features=n_features,

@@ -19,7 +19,7 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
 
     if master:
         experiment_dir = setup_experiment(
-            config_path, logdir, config, type(model).__name__, is_train=True
+            config_path, logdir, config, type(model).__name__
         )
     else:
         experiment_dir = None

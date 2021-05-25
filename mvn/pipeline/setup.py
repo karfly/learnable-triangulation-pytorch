@@ -102,15 +102,13 @@ def setup_dataloaders(config, is_train=True, distributed_train=False):
     return train_dataloader, val_dataloader, train_sampler
 
 
-def setup_experiment(config_path, logdir, config, model_name, is_train=True):
-    prefix = "" if is_train else "eval_"
-
+def setup_experiment(config_path, logdir, config, model_name):
     if config.title:
         experiment_title = config.title + "_" + model_name
     else:
         experiment_title = model_name
 
-    experiment_title = prefix + experiment_title
+    experiment_title = experiment_title
 
     experiment_name = '{}@{}'.format(experiment_title, datetime.now().strftime("%d.%m.%Y-%H:%M:%S"))
     print("Experiment name: {}".format(experiment_name))

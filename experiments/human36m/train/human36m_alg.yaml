@@ -65,7 +65,7 @@ cam2cam:
   opt:
     grad_clip: 4.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.0003
+    lr: 0.003
 
   model:
     n_features: 1024

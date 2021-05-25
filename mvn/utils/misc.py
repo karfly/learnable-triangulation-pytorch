@@ -88,14 +88,15 @@ def get_size(obj):
     return size  # bytes
 
 
-def flush_cache(in_torch=True, with_garbage_collector=True):
+def flush_cache(in_torch=True, with_garbage_collector=True, verbose=False):
     if with_garbage_collector:
         gc.collect()
 
     if in_torch:
         torch.cuda.empty_cache()
 
-    print(torch.cuda.memory_summary(device=None, abbreviated=False))
+    if verbose:
+        print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
 
 def is_distributed():

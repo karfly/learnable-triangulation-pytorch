@@ -5,7 +5,43 @@ from mvn.models.resnet import MLPResNet
 from mvn.models.layers import R6DBlock, RodriguesBlock
 
 
-class RototransNet(nn.Module):
+class RotoTransCombiner(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, rotations, translations):
+        batch_size = rotations.shape[0]
+        n_views = rotations.shape[1]
+
+        trans = torch.cat([  # ext.t in each view
+            torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
+            translations.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
+        ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+
+        roto_trans = torch.cat([  # ext (not padded) in each view
+            rotations, trans
+        ], dim=-1)  # hstack => ~ batch_size, | comparisons |, 3, 4
+        roto_trans = torch.cat([  # padd each view
+            roto_trans,
+            torch.cuda.DoubleTensor(
+                [0, 0, 0, 1]
+            ).repeat(batch_size, n_views, 1, 1)
+        ], dim=2)  # hstack => ~ batch_size, | comparisons |, 3, 4
+
+        master_cam_i = 0  # first view acting as master
+        return torch.cat([
+            torch.cat([
+                torch.matmul(
+                    roto_trans[batch_i, target_view],
+                    torch.inverse(roto_trans[batch_i, master_cam_i])
+                ).unsqueeze(0)  # 1 x 4 x 4
+                for target_view in range(1, n_views)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])  # todo tensored
+
+
+class RotoTransNet(nn.Module):
     def __init__(self, config):
         super().__init__()
 
@@ -58,6 +94,8 @@ class RototransNet(nn.Module):
             ),
         ])
 
+        self.combiner = RotoTransCombiner()
+
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
@@ -77,31 +115,4 @@ class RototransNet(nn.Module):
         trans = self.t_backbone(features)  # ~ (batch_size, 3)
         trans = trans.view(batch_size, self.n_views_comparing, 1)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
-        trans = torch.cat([  # ext.t in each view
-            torch.zeros(batch_size, self.n_views_comparing, 2, 1).to(x.device),
-            trans.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
-        ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
-
-        roto_trans = torch.cat([  # ext (not padded) in each view
-            rots, trans
-        ], dim=-1)  # hstack => ~ batch_size, | comparisons |, 3, 4
-        roto_trans = torch.cat([  # padd each view
-            roto_trans,
-            torch.cuda.DoubleTensor(
-                [0, 0, 0, 1]
-            ).repeat(batch_size, self.n_views_comparing, 1, 1)
-        ], dim=2)  # hstack => ~ batch_size, | comparisons |, 3, 4
-
-        master_cam_i = 0  # first view acting as master
-        cam2cam = torch.cat([
-            torch.cat([
-                torch.matmul(
-                    roto_trans[batch_i, target_view],
-                    torch.inverse(roto_trans[batch_i, master_cam_i])
-                ).unsqueeze(0)  # 1 x 4 x 4
-                for target_view in range(1, self.n_views_comparing)
-            ]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])  # todo tensored
-
-        return cam2cam
+        return self.combiner(rots, trans)

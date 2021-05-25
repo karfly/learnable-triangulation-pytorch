@@ -102,8 +102,6 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'L2 proj',
         'L2 on 3D',
         # 'total',
-        'self-consistency R',
-        'self-consistency t',
         'self-consistency ext',
         'self-consistency P',
     ]  # forced
@@ -113,9 +111,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         1e-2,
         1.5e-1,
         # 1e-2,
-        2e1,
-        3e1,
-        3e0,
+        5e-1,
         1e-2,
     ]
 

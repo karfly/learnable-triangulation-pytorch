@@ -57,7 +57,7 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 10.0
+    tred_weight: 20.0
     self_consistency:
       ext: 10.0
       proj: 0.01

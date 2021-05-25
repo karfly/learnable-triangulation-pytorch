@@ -9,7 +9,7 @@ from mvn.datasets import human36m
 from mvn.models.utils import build_opt, show_params, load_checkpoint
 from mvn.datasets.utils import worker_init_fn, make_collate_fn
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
-from mvn.models.rototrans import RototransNet
+from mvn.models.rototrans import RotoTransNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss
 
 
@@ -145,7 +145,7 @@ def build_env(config, device):
         if config.cam2cam.using_heatmaps:
             roto_net = None  # todo
         else:
-            roto_net = RototransNet
+            roto_net = RotoTransNet
 
         cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
     else:

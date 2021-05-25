@@ -96,7 +96,7 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
 
     for batch_i in range(batch_size):  # todo batched
         for pair_i in range(n_views - 1):
-            preds[batch_i, pair_i, :3, 3] *= scale_trans2trans
+            preds[batch_i, pair_i, :3, 3] = preds[batch_i, pair_i, :3, 3] * scale_trans2trans
             
             if not (gt is None):
                 R = gt[batch_i, pair_i, :3, :3].cuda().detach().clone()

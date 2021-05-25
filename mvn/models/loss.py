@@ -278,11 +278,6 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
             pelvis_d = preds[pelvis_i]
             preds_pelvis_centered = preds - pelvis_d
 
-            # loss_on_pelvis_distance += MSESmoothLoss(threshold=1e3)(
-            #     pelvis_mastercam_d.unsqueeze(0),
-            #     pelvis_d.unsqueeze(0),
-            # )
-
             norms = torch.norm(kp_in_mastercam_pelvis_centered, p='fro') +\
                 torch.norm(preds_pelvis_centered, p='fro')
             loss_on_kps += criterion(
@@ -292,35 +287,6 @@ def _self_consistency_ext(cam2cam_preds, keypoints_cam_pred, master_cam_i=0, cri
 
     normalization = n_comparisons * batch_size
     return loss_on_kps / normalization
-
-    # loss_R, loss_t = torch.tensor(0.0).to('cuda'), torch.tensor(0.0).to('cuda')
-    # for master_cam_i in range(n_cameras):
-    #     pairs = get_pairs()[master_cam_i]
-    #     inverses = torch.cat([
-    #         cam2cam_preds[other_cam, :, get_inverse_i_from_pair(master_cam_i, other_cam)[1]].unsqueeze(0)
-    #         for _, other_cam in pairs
-    #     ])
-
-    #     for batch_i in range(batch_size):
-    #         # rotation
-    #         pred = torch.bmm(
-    #             cam2cam_preds[master_cam_i, batch_i],
-    #             inverses[:, batch_i]
-    #         )[:, :3, :3]
-    #         gt = torch.eye(  # comparing VS eye ... makes autograd cry
-    #             3, device=cam2cam_preds.device, requires_grad=False
-    #         ).unsqueeze(0).repeat((n_pairs, 1, 1))
-    #         loss_R += geodesic_distance(pred, gt)  # todo add rot i -> i
-
-    #         # translation
-    #         pred = cam2cam_preds[master_cam_i, batch_i, :, :3, 3]
-    #         gt = torch.inverse(inverses[:, batch_i])[:, :3, 3]
-    #         loss_t += MSESmoothLoss(threshold=1e3)(pred, gt) / np.sqrt(scale_trans2trans)
-
-    # w_R, w_t = 1.0, 1.0
-    # normalization = batch_size * n_cameras
-    # return w_R * loss_R / normalization +\
-    #     w_t * loss_t / normalization
 
 
 def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):

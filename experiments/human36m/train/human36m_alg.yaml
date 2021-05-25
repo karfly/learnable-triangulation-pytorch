@@ -46,7 +46,7 @@ cam2cam:
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
-  pelvis_center_kps: true
+  pelvis_center_kps: false
   normalize_kps: "fro"
 
   batch_norm: true
@@ -63,7 +63,7 @@ cam2cam:
       proj: 100.0
 
   opt:
-    grad_clip: 20.0
+    grad_clip: 3.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.00015
 

@@ -63,10 +63,10 @@ cam2cam:
       proj: 100.0
 
   opt:
-    grad_clip: 3.0
+    grad_clip: 1.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.003
-    weight_decay: 100.0
+    weight_decay: 2.0
 
   model:
     n_features: 1024

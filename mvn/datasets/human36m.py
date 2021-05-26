@@ -255,9 +255,9 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(square)
 
                 # have same intrinsics
-                image = resample_image(
-                    image, TARGET_INTRINSICS, retval_camera.K
-                )
+                # todo using GT ... image = resample_image(
+                #     image, TARGET_INTRINSICS, retval_camera.K
+                # )
                 retval_camera.K = TARGET_INTRINSICS.copy()
 
             if self.sit_on_pelvis:

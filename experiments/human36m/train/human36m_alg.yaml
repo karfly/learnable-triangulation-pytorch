@@ -13,6 +13,8 @@ debug:
   dump_checkpoints: true
   dump_results: false
   dump_tensors: false
+  noisy: false
+  show_minimon: true
 
 opt:
   criterion: "MSESmooth"
@@ -65,7 +67,7 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "rod"
+      parametrization: "6d"
 
     trans:
       n_layers: 2

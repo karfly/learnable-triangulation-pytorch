@@ -73,5 +73,5 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
 
         live_debug_log(_iter_tag, 'epoch {:4d} complete!'.format(epoch))
 
-    if master:
+    if config.debug.show_minimon:
         minimon.print_stats(as_minutes=False)

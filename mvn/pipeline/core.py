@@ -155,7 +155,5 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
             with open(metric_filename, 'w') as fout:
                 json.dump(full_metric, fout, indent=4, sort_keys=True)
 
-            # if config.debug.dump_results and experiment_dir and not is_train:
-            #     results_filename = os.path.join(checkpoint_dir, 'results.pkl')
-            #     with open(results_filename, 'wb') as fout:
-            #         pickle.dump(results, fout)
+    if config.debug.show_minimon:
+        minimon.print_stats(as_minutes=False)

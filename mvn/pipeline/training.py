@@ -54,7 +54,7 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
                 if config.model.cam2cam_estimation:
                     torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "cam2cam_model.pth"))
 
-                    if not config.cam2cam.using_gt:  # model was actually trained
+                    if False:  # not config.cam2cam.using_gt:  # model was actually trained
                         torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
                 else:  # usual algebraic / vol model
                     torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))

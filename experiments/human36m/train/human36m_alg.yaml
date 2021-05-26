@@ -42,7 +42,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  using_gt: true
+  using_gt: false
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
@@ -66,7 +66,7 @@ cam2cam:
     grad_clip: 1.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.003
-    weight_decay: 2.0
+    weight_decay: 1.0
 
   model:
     n_features: 1024

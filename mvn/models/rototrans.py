@@ -52,8 +52,8 @@ class RotoTransNet(nn.Module):
         self.n_pairs = self.n_views_comparing - 1
 
         n_joints = config.model.backbone.num_joints
-        batch_norm = config.cam2cam.batch_norm
-        drop_out = config.cam2cam.drop_out
+        batch_norm = config.cam2cam.model.batch_norm
+        drop_out = config.cam2cam.model.drop_out
         n_features = config.cam2cam.model.n_features
 
         self.backbone = nn.Sequential(*[

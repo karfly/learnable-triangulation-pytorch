@@ -37,9 +37,9 @@ class Human36MMultiViewDataset(Dataset):
                  undistort_images=False,
                  ignore_cameras=[],
                  crop=True,
-                 resample=False,
+                 resample_same_K=False,
                  look_at_pelvis=False,
-                 sit_on_pelvis=False,
+                 pelvis_in_origin=False,
                  ):
         """
             h36m_root:
@@ -73,9 +73,9 @@ class Human36MMultiViewDataset(Dataset):
         self.ignore_cameras = ignore_cameras
 
         self.crop = crop
-        self.do_resample = resample
+        self.resample_same_K = resample_same_K
         self.look_at_pelvis = look_at_pelvis
-        self.sit_on_pelvis = sit_on_pelvis
+        self.pelvis_in_origin = pelvis_in_origin
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
@@ -208,6 +208,20 @@ class Human36MMultiViewDataset(Dataset):
 
         raise IOError('fix that cluster !!!')
 
+    def _reparameterize_pelvis_in_origin(self, shot, pelvis_i=6):
+        """ "re-parameterize everything so that the world origin sits in the pelvis" """
+
+        kp_in_world = shot['keypoints'][:self.num_keypoints]
+        pelvis_in_world = kp_in_world[pelvis_i].reshape(3, 1)
+
+        origin = np.zeros_like(pelvis_in_world)
+        t_from_pelvis2origin = origin - pelvis_in_world
+
+        return np.float64([
+            kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
+            for kp in shot['keypoints']
+        ]).squeeze(-1)
+
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
@@ -249,7 +263,7 @@ class Human36MMultiViewDataset(Dataset):
                 image = crop_image(image, bbox)
                 retval_camera.update_after_crop(bbox)
 
-            if self.do_resample:
+            if self.resample_same_K:
                 square = (0, 0, 1000, 1000)  # get rid of 1K + eps
                 image = crop_image(image, square)
                 retval_camera.update_after_crop(square)
@@ -260,20 +274,10 @@ class Human36MMultiViewDataset(Dataset):
                 # )
                 retval_camera.K = TARGET_INTRINSICS.copy()
 
-            if self.sit_on_pelvis:
-                pelvis_index = 6  # H36M dataset, not CMU
-
-                kp_in_world = shot['keypoints'][:self.num_keypoints]
-                pelvis_in_world = kp_in_world[pelvis_index].reshape(3, 1)
-
-                origin = np.zeros_like(pelvis_in_world)
-                t_from_pelvis2origin = origin - pelvis_in_world
-
-                # "re-parameterize everything so that the world origin sits in the pelvis"
-                shot['keypoints'] = np.float64([
-                    kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
-                    for kp in shot['keypoints']
-                ]).squeeze(-1)
+            if self.pelvis_in_origin:
+                shot['keypoints'] = self._reparameterize_pelvis_in_origin(
+                    shot
+                )
 
             if self.look_at_pelvis:
                 pelvis_index = 6  # H36M dataset, not CMU

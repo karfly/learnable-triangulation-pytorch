@@ -44,16 +44,34 @@ cam2cam:
   data:
     pelvis_in_origin: false
     using_gt: true
+    using_heatmaps: false
 
-  scale_trans2trans: 1000.0
+  preprocess:
+    pelvis_center_kps: true
+    normalize_kps: "fro"
 
-  using_heatmaps: false
-  pelvis_center_kps: false
-  normalize_kps: "fro"
+  postprocess:
+    scale_trans2trans: 1000.0
 
-  batch_norm: true
+  model:
+    batch_norm: true
 # `Martin` would disapprove
-  drop_out: 0
+    drop_out: 0
+    n_features: 1024
+
+    backbone:
+      inner_size: 1024
+      n_layers: 6
+
+    roto:
+      n_layers: 2
+      parametrization: "rod"
+
+    trans:
+      n_layers: 2
+
+    init_weights: false
+    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
   loss:
     geo_weight: 20.0
@@ -79,23 +97,6 @@ cam2cam:
 # https://stats.stackexchange.com/a/352037
     lr: 0.0005
     weight_decay: 2.0
-
-  model:
-    n_features: 1024
-
-    backbone:
-      inner_size: 1024
-      n_layers: 6
-
-    roto:
-      n_layers: 2
-      parametrization: "rod"
-
-    trans:
-      n_layers: 2
-
-    init_weights: false
-    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
 model:
   name: "alg"

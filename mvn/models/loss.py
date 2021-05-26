@@ -20,10 +20,12 @@ class KeypointsMSELoss(nn.Module):
 
 
 class KeypointsMSESmoothLoss(nn.Module):
-    def __init__(self, threshold=20*20):
+    def __init__(self, threshold=20*20, alpha=0.1, beta=0.9):
         super().__init__()
 
         self.threshold = threshold
+        self.alpha = alpha
+        self.beta = beta
 
     def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity=None):
         dimension = keypoints_pred.shape[-1]
@@ -32,7 +34,10 @@ class KeypointsMSESmoothLoss(nn.Module):
         if not (keypoints_binary_validity is None):
             diff *= keypoints_binary_validity
 
-        diff[diff > self.threshold] = torch.pow(diff[diff > self.threshold], 0.1) * (self.threshold ** 0.9)  # soft version
+        diff[diff > self.threshold] = torch.pow(
+            diff[diff > self.threshold],
+            self.alpha
+        ) * (self.threshold ** self.beta)  # soft version
         loss = torch.sum(diff) / dimension
         
         if not (keypoints_binary_validity is None):
@@ -126,28 +131,6 @@ def geodesic_distance(m1, m2):
     return theta.mean()  # ~ (batch_size,)
 
 
-def L2_R_loss(cam2cam_gts, cam2cam_preds, pairs):
-    batch_size = cam2cam_gts.shape[0]
-    loss = 0.0
-    
-    for batch_i in range(batch_size):
-        cam2cam_gt = torch.cat([
-            cam2cam_gts[batch_i][pair[0]][pair[1]].unsqueeze(0)
-            for pair in pairs
-        ])
-        cam2cam_pred = torch.cat([
-            cam2cam_preds[batch_i][pair[0]][pair[1]].unsqueeze(0)
-            for pair in pairs
-        ])
-
-        loss += KeypointsMSESmoothLoss(threshold=0.5)(
-            cam2cam_pred[:, :3, :3].cuda(),  # just R
-            cam2cam_gt[:, :3, :3].cuda()
-        )  # ~ (len(pairs), )
-
-    return loss / batch_size
-
-
 def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance):
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
@@ -167,7 +150,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance):
     return loss / n_cameras
 
 
-def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e2)):
+def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e3)):
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_gts.shape[1]

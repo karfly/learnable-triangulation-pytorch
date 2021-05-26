@@ -42,18 +42,18 @@ def _normalize_fro_kps(keypoints_2d, pelvis_center_kps):
     else:
         kps = keypoints_2d
 
-    # scaling = torch.cat([
-    #     torch.max(torch.cat([
-    #         dist2pelvis(kps[batch_i, view_i])
-    #         for view_i in range(n_views)
-    #     ]).unsqueeze(0)).unsqueeze(0)
-    #     for batch_i in range(batch_size)
-    # ])
+    scaling = torch.cat([
+        torch.max(torch.cat([
+            dist2pelvis(kps[batch_i, view_i]) * 1e1
+            for view_i in range(n_views)
+        ]).unsqueeze(0)).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
     return torch.cat([
         torch.cat([
             (
-                kps[batch_i, view_i] / dist2pelvis(kps[batch_i, view_i])
+                kps[batch_i, view_i] / scaling[batch_i]
             ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)
@@ -109,7 +109,7 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda(), pairs_per_master
 
 
-def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans=1e3, gt=None):
+def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans, gt=None):
     batch_size = detections.shape[0]
     n_views = detections.shape[1]
 
@@ -197,7 +197,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         total_loss += config.cam2cam.loss.geo_weight * geodesic_loss
 
     trans_loss = t_loss(
-        cam2cam_gts, master2other_preds, config.cam2cam.scale_trans2trans
+        cam2cam_gts, master2other_preds, config.cam2cam.postprocess.scale_trans2trans
     )
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
@@ -221,7 +221,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     ])
 
     loss_ext, loss_proj = self_consistency_loss(
-        cameras, master2other_preds, config.cam2cam.scale_trans2trans,
+        cameras, master2other_preds, config.cam2cam.postprocess.scale_trans2trans,
         keypoints_cam_pred, keypoints_2d_pred, master_cam_i
     )
     if config.cam2cam.loss.self_consistency.ext > 0:
@@ -345,14 +345,14 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if config.cam2cam.using_heatmaps:
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
-        if hasattr(config.cam2cam, 'normalize_kps'):
-            if config.cam2cam.normalize_kps == 'fro':
+        if hasattr(config.cam2cam.preprocess, 'normalize_kps'):
+            if config.cam2cam.preprocess.normalize_kps == 'fro':
                 kps = _normalize_fro_kps(
-                    keypoints_2d_pred, config.cam2cam.pelvis_center_kps
+                    keypoints_2d_pred, config.cam2cam.preprocess.pelvis_center_kps
                 )
-            elif config.cam2cam.normalize_kps == 'mean':
+            elif config.cam2cam.preprocess.normalize_kps == 'mean':
                 kps = _normalize_mean_kps(
-                    keypoints_2d_pred, config.cam2cam.pelvis_center_kps
+                    keypoints_2d_pred, config.cam2cam.preprocess.pelvis_center_kps
                 )
 
             detections = _prepare_cam2cam_keypoints_batch(kps)
@@ -370,7 +370,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         _forward_cam2cam(
             cam2cam_model,
             detections[master_i],
-            config.cam2cam.scale_trans2trans,
+            config.cam2cam.postprocess.scale_trans2trans,
             # cam2cam_gts[master_i],
         ).unsqueeze(0)
         for master_i in range(n_cameras)

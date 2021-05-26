@@ -354,19 +354,17 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     minimon.enter()
 
-    # forward all cam2cam for self.losses
+    
     n_cameras = len(batch['cameras'])
     master_i = 0  # todo rand
-    cam2cam_preds = torch.cat([
-        _forward_cam2cam(
-            cam2cam_model,
-            detections[master_i],
-            config.cam2cam.postprocess.scale_trans2trans,
-            #cam2cam_gts[master_i],
-            noisy=config.debug.noisy
-        ).unsqueeze(0)
-        for master_i in range(n_cameras)
-    ])  # n_cameras, batch_size, n_pairs=n_cameras - 1, (4 x 4)
+    cam2cam_preds = _forward_cam2cam(
+        cam2cam_model,
+        detections[master_i],
+        config.cam2cam.postprocess.scale_trans2trans,
+        #cam2cam_gts[master_i],
+        noisy=config.debug.noisy
+    ).unsqueeze(0)
+    # for master_i in range(n_cameras)  # forward all cam2cam for self.losses
     if config.debug.dump_tensors:
         _save_stuff(cam2cam_preds, 'cam2cam_preds')
 

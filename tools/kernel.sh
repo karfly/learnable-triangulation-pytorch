@@ -15,8 +15,10 @@ conda create --prefix ${KERNELS_DIR}/${KERNEL_NAME} python=3.7.4
 conda deactivate
 conda activate ${KERNELS_DIR}/${KERNEL_NAME}  # or source
 which python  # just to check 
-conda install ipykernel
-python -m ipykernel install --user --name "${KERNEL_NAME}"
+
+# optional: install kernel
+# conda install ipykernel
+# python -m ipykernel install --user --name "${KERNEL_NAME}"
 
 # optional: install other packages (don't need to be in srun)
 # source /sw/installed/Anaconda3/2019.03/etc/profile.d/conda.sh

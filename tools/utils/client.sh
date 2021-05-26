@@ -9,7 +9,7 @@ function backupJobViaSSH () {
     full_path="${url}:${folder}/${job_id}.out"
 
     echo "backing up ${full_path} ..."
-    sshpass -p ${password} scp ${full_path} .
+    sshpass -p ${password} rsync --progress -avz ${full_path} .
 }
 
 # usage: backupExperimentViaSSH "hackme" "25.05.2021-18:51:38"
@@ -25,7 +25,7 @@ function backupExperimentViaSSH () {
     mkdir -p ${local_path}
 
     echo "backing up ${full_path} -> ${local_path}"
-    sshpass -p ${password} scp -r ${full_path} ${local_path}
+    sshpass -p ${password} rsync --progress -avz -e ${full_path} ${local_path}
 }
 
 # usage: monatorJobViaSSH "hackme" "15719703"

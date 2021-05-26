@@ -17,8 +17,6 @@ conda install -y PyWavelets==1.0.3
 conda install -y PyYAML==5.1.2
 conda install -y scikit-image==0.15.0
 
-# scipy
-
 conda install -y six==1.12.0
 conda install -y -c conda-forge tensorboardX==1.8
 
@@ -26,4 +24,5 @@ conda install -y -c conda-forge tensorboardX==1.8
 conda install -y -c pytorch torchvision
 conda install -y subprocess32
 
+# can take several "minutes"
 conda install -y h5py==2.10.0

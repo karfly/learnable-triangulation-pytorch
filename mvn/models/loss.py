@@ -34,8 +34,7 @@ class KeypointsMSESmoothLoss(nn.Module):
             diff *= keypoints_binary_validity
 
         diff[diff > self.threshold] = torch.pow(
-            diff[diff > self.threshold],
-            self.alpha
+            diff[diff > self.threshold], self.alpha
         ) * (self.threshold ** self.beta)  # soft version
         loss = torch.sum(diff) / dimension
         
@@ -134,7 +133,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance, master_cam
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_gts.shape[1]
-    return criterion(
+    return criterion(  # just on master cam
         cam2cam_preds[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda(),  # just R
         cam2cam_gts[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda()
     )
@@ -144,9 +143,7 @@ def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_gts.shape[1]
-
-    # just on master cam
-    return criterion(
+    return criterion(  # just on master cam
         cam2cam_preds[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, 3].cuda() / scale_trans2trans,  # just t
         cam2cam_gts[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, 3].cuda() / scale_trans2trans
     )
@@ -154,10 +151,10 @@ def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
 
 def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     return criterion(
-        keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-        keypoints_3d_gt * scale_keypoints_3d,  # ~ 8, 17, 3
-        keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
-    ).to(keypoints_3d_pred.device)
+        keypoints_3d_pred.to(keypoints_3d_pred.device) * scale_keypoints_3d,
+        keypoints_3d_gt.to(keypoints_3d_pred.device) * scale_keypoints_3d,
+        keypoints_3d_binary_validity_gt.to(keypoints_3d_pred.device)
+    )
 
 
 def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
@@ -282,7 +279,7 @@ def _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keyp
 
 def self_consistency_loss(cameras, cam2cam_preds, scale_trans2trans, keypoints_cam_pred, initial_keypoints, master_cam_i):
 
-    loss_ext = _self_consistency_ext(cam2cam_preds, keypoints_cam_pred)
+    loss_ext = torch.tensor(0.0).to(keypoints_cam_pred.device)  # _self_consistency_ext(cam2cam_preds, keypoints_cam_pred)
     loss_proj = _self_consistency_P(cameras, cam2cam_preds, keypoints_cam_pred, initial_keypoints, master_cam_i)
 
     return loss_ext, loss_proj

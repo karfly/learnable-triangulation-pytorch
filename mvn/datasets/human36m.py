@@ -11,8 +11,8 @@ from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors, resample_image
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(5e2, 5e2),
-    f=(5e2, 5e2),
+    translation=(0, 0),  # (5e2, 5e2)
+    f=(1e2, 1e2),  # (5e2, 5e2)
     shear=0
 )
 

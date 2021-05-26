@@ -5,7 +5,6 @@ from torch import nn
 
 from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous
 from mvn.utils.misc import get_pairs, get_inverse_i_from_pair
-from mvn.models.layers import RodriguesBlock
 
 
 class KeypointsMSELoss(nn.Module):
@@ -47,7 +46,7 @@ class KeypointsMSESmoothLoss(nn.Module):
 
 
 class MSESmoothLoss(nn.Module):
-    def __init__(self, threshold):
+    def __init__(self, threshold, alpha=0.1, beta=0.9):
         super().__init__()
 
         self.threshold = threshold
@@ -150,7 +149,7 @@ def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance):
     return loss / n_cameras
 
 
-def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e3)):
+def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=1e2)):
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_gts.shape[1]
@@ -177,7 +176,7 @@ def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_g
     ).to(keypoints_3d_pred.device)
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=10*10)):
+def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     """ project GT VS pred points to all views """
 
     n_views = len(cameras)

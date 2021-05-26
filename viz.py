@@ -3,8 +3,8 @@ import torch
 import argparse
 
 import matplotlib.pyplot as plt
-
 from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
+
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 

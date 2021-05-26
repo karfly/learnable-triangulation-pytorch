@@ -157,7 +157,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
     scheduler = ReduceLROnPlateau(
         opt,
         factor=7e-1,  # new lr = x * lr
-        patience=151,  # n max iterations since optimum, come la carica
+        patience=151,  # n max iterations since optimum
         # threshold=42,  # no matter what, do lr decay
         mode='min',
         cooldown=10,

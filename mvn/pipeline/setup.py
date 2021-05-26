@@ -140,7 +140,7 @@ def build_env(config, device):
 
     # ... and cam2cam ...
     if config.model.cam2cam_estimation:
-        if config.cam2cam.using_heatmaps:
+        if config.cam2cam.data.using_heatmaps:
             roto_net = None  # todo
         else:
             roto_net = RotoTransNet

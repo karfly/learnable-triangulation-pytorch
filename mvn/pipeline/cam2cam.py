@@ -32,7 +32,7 @@ def dist2pelvis(keypoints_2d_in_view, pelvis_i=6):
     ])).unsqueeze(0)
 
 
-def _normalize_fro_kps(keypoints_2d, pelvis_center_kps):
+def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     """ "divided by its Frobenius norm in the preprocessing" """
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
@@ -42,40 +42,39 @@ def _normalize_fro_kps(keypoints_2d, pelvis_center_kps):
     else:
         kps = keypoints_2d
 
-    scaling = torch.cat([
-        torch.max(torch.cat([
-            dist2pelvis(kps[batch_i, view_i]) * 1e1
-            for view_i in range(n_views)
-        ]).unsqueeze(0)).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
+    if normalization == 'd2pelvis':
+        scaling = torch.cat([
+            torch.max(
+                torch.cat([
+                    dist2pelvis(kps[batch_i, view_i]) * 1e1
+                    for view_i in range(n_views)
+                ]).unsqueeze(0)
+            ).unsqueeze(0).repeat(1, n_views)  # same for each view
+            for batch_i in range(batch_size)
+        ])
+    elif normalization == 'fro':
+        scaling = torch.cat([
+            torch.cat([
+                torch.norm(kps[batch_i, view_i], p='fro').unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])
+    elif normalization == 'maxfro':
+        scaling = torch.cat([
+            torch.max(
+                torch.cat([
+                    torch.norm(kps[batch_i, view_i], p='fro').unsqueeze(0)
+                    for view_i in range(n_views)
+                ]).unsqueeze(0)
+            ).unsqueeze(0).repeat(1, n_views)  # same for each view
+            for batch_i in range(batch_size)
+        ])
 
     return torch.cat([
         torch.cat([
             (
-                kps[batch_i, view_i] / scaling[batch_i]
-            ).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
-
-
-def _normalize_mean_kps(keypoints_2d, pelvis_center_kps=True):
-    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
-
-    if pelvis_center_kps:
-        kps = _center_to_pelvis(keypoints_2d)
-    else:
-        kps = keypoints_2d
-
-    return torch.cat([
-        torch.cat([
-            (
-                (
-                    kps[batch_i, view_i] -
-                    kps[batch_i, view_i].mean(axis=0)
-                ) / 1.0  # todo std?
+                kps[batch_i, view_i] / scaling[batch_i, view_i]
             ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)
@@ -100,11 +99,6 @@ def _get_cam2cam_gt(cameras):
                 ).unsqueeze(0)  # 1 x 4 x 4
                 for (i, j) in pairs
             ])  # ~ (| pairs |, 4, 4)
-
-    # print([
-    #     cameras[view_i][0].t[-1, 0]
-    #     for view_i in range(len(cameras))
-    # ])
 
     return cam2cam_gts.cuda(), pairs_per_master
 
@@ -342,18 +336,15 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.leave('BB forward')
 
     cam2cam_gts, _ = _get_cam2cam_gt(batch['cameras'])
-    if config.cam2cam.using_heatmaps:
+    if config.cam2cam.data.using_heatmaps:
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if hasattr(config.cam2cam.preprocess, 'normalize_kps'):
-            if config.cam2cam.preprocess.normalize_kps == 'fro':
-                kps = _normalize_fro_kps(
-                    keypoints_2d_pred, config.cam2cam.preprocess.pelvis_center_kps
-                )
-            elif config.cam2cam.preprocess.normalize_kps == 'mean':
-                kps = _normalize_mean_kps(
-                    keypoints_2d_pred, config.cam2cam.preprocess.pelvis_center_kps
-                )
+            kps = _normalize_keypoints(
+                keypoints_2d_pred,
+                config.cam2cam.preprocess.pelvis_center_kps,
+                config.cam2cam.preprocess.normalize_kps
+            )
 
             detections = _prepare_cam2cam_keypoints_batch(kps)
             if config.debug.dump_tensors:

@@ -2,6 +2,8 @@
 *.out
 data/
 logs/
+.jpg
+.trc
 
 .venv/
 *.zip

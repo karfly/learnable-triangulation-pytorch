@@ -68,7 +68,7 @@ def plot_loss(axis, loss_history, label, xrange, color):
         label=label,
         xrange=xrange,
         color=color,
-        alpha=0.9 if 'total' in label else 0.3,
+        alpha=0.9 if 'total' in label else 0.4,
         legend_loc=legend_loc,
         show_min=False,
         marker='o',
@@ -86,9 +86,9 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         colors = ['red']
     else:
         colors = [
-            'tomato',
+            'darkorange',
             'forestgreen',
-            'lime',
+            'lightskyblue',
             'royalblue',
             'darkviolet',
             'fuchsia',
@@ -96,7 +96,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         ]
 
     #              geo   T   proj    3D   s.ext  s.proj
-    loss_scalers = [3e1, 2e0, 1e-1, 1e-1, 5e0, 4e1]
+    loss_scalers = [3e1, 3e0, 1e-1, 1e-1, 5e0, 1e1]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM

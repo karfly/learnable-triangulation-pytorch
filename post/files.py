@@ -84,10 +84,7 @@ def parse_job_log(f_path, verbose=False):
             eval_data_amount = float(line.split()[-1])
 
         if 'has started!' in line:  # new epoch
-            try:
-                current_epoch_details['epoch'] = int(line.split()[1])
-            except:
-                current_epoch_details['epoch'] = int(line.split()[2])
+            current_epoch_details['epoch'] = len(epochs) + 1
             
             for key in current_epoch_details:
                 if 'loss' in key:

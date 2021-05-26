@@ -42,7 +42,7 @@ svd:
 
 cam2cam:
   data:
-    pelvis_in_origin: true
+    pelvis_in_origin: false
     using_gt: true
 
   scale_trans2trans: 1000.0

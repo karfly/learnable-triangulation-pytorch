@@ -101,10 +101,10 @@ def _get_cam2cam_gt(cameras):
                 for (i, j) in pairs
             ])  # ~ (| pairs |, 4, 4)
 
-    print([
-        cameras[view_i][0].t[-1, 0]
-        for view_i in range(len(cameras))
-    ])
+    # print([
+    #     cameras[view_i][0].t[-1, 0]
+    #     for view_i in range(len(cameras))
+    # ])
 
     return cam2cam_gts.cuda(), pairs_per_master
 
@@ -263,7 +263,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             torch.save(torch.tensor(stuff), f_out)
 
     def _forward_kp():
-        if config.cam2cam.using_gt:
+        if config.cam2cam.data.using_gt:
             return get_kp_gt(keypoints_3d_gt, batch['cameras'])
         else:
             return model(
@@ -355,8 +355,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
                     keypoints_2d_pred, config.cam2cam.pelvis_center_kps
                 )
 
-            _save_stuff(kps, 'kps')
-            1/0
             detections = _prepare_cam2cam_keypoints_batch(kps)
             if config.debug.dump_tensors:
                 _save_stuff(detections, 'detections')

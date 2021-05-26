@@ -41,11 +41,14 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  using_gt: true
+  data:
+    pelvis_in_origin: true
+    using_gt: true
+
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
-  pelvis_center_kps: true
+  pelvis_center_kps: false
   normalize_kps: "fro"
 
   batch_norm: true
@@ -53,19 +56,29 @@ cam2cam:
   drop_out: 0
 
   loss:
-    geo_weight: 0.0
-    trans_weight: 0.0
-    proj_weight: 15.0
-    tred_weight: 0.0
+    geo_weight: 20.0
+    trans_weight: 5.0
+    proj_weight: 0.0
+    tred_weight: 1.0
     self_consistency:
-      ext: 100.0
-      proj: 100.0
+      ext: 0.0
+      proj: 0.0
+
+  # SOTA supervising 2D
+  # proj_weight: 15.0
+  # ext: 100.0
+  # proj: 100.0
+
+  # SOTA supervising 3D
+  # geo_weight: 20.0
+  # trans_weight: 5.0
+  # tred_weight: 1.0
 
   opt:
     grad_clip: 1.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.003
-    weight_decay: 1.0
+    lr: 0.0005
+    weight_decay: 2.0
 
   model:
     n_features: 1024

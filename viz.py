@@ -30,20 +30,30 @@ def get_joints_connections():
     ]
 
 
-def draw_kp_in_2d(axis, keypoints_2d_in_view, color):
-    for joint_pair in get_joints_connections():
+def draw_kp_in_2d(axis, keypoints_2d_in_view, label, color):
+    for i, joint_pair in enumerate(get_joints_connections()):
         joints = [
             keypoints_2d_in_view[joint_pair[0]],
             keypoints_2d_in_view[joint_pair[1]]
         ]
         xs = joints[0][0], joints[1][0]
         ys = joints[0][1], joints[1][1]
-        axis.plot(
-            xs, ys,
-            marker='o',
-            markersize=15,
-            color=color,
-        )
+
+        if i == 0:
+            axis.plot(
+                xs, ys,
+                marker='o',
+                markersize=10,
+                color=color,
+                label=label
+            )
+        else:
+            axis.plot(
+                xs, ys,
+                marker='o',
+                markersize=15,
+                color=color,
+            )
 
 
 def draw_kp_in_3d(axis, keypoints_3d, label, marker='o', color='blue'):

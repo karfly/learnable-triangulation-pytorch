@@ -21,7 +21,18 @@ def _center_to_pelvis(keypoints_2d, pelvis_i=6):
     return keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
 
 
-def _normalize_fro_kps(keypoints_2d, pelvis_center_kps=True):
+def dist2pelvis(keypoints_2d_in_view, pelvis_i=6):
+    return torch.mean(torch.cat([
+        torch.norm(
+            keypoints_2d_in_view[i] -\
+            keypoints_2d_in_view[pelvis_i]
+        ).unsqueeze(0)
+        for i in range(keypoints_2d_in_view.shape[0])
+        if i != pelvis_i
+    ])).unsqueeze(0)
+
+
+def _normalize_fro_kps(keypoints_2d, pelvis_center_kps):
     """ "divided by its Frobenius norm in the preprocessing" """
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
@@ -31,10 +42,18 @@ def _normalize_fro_kps(keypoints_2d, pelvis_center_kps=True):
     else:
         kps = keypoints_2d
 
+    # scaling = torch.cat([
+    #     torch.max(torch.cat([
+    #         dist2pelvis(kps[batch_i, view_i])
+    #         for view_i in range(n_views)
+    #     ]).unsqueeze(0)).unsqueeze(0)
+    #     for batch_i in range(batch_size)
+    # ])
+
     return torch.cat([
         torch.cat([
             (
-                kps[batch_i, view_i] / torch.norm(kps[batch_i, view_i], p='fro')
+                kps[batch_i, view_i] / dist2pelvis(kps[batch_i, view_i])
             ).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0)
@@ -81,6 +100,11 @@ def _get_cam2cam_gt(cameras):
                 ).unsqueeze(0)  # 1 x 4 x 4
                 for (i, j) in pairs
             ])  # ~ (| pairs |, 4, 4)
+
+    print([
+        cameras[view_i][0].t[-1, 0]
+        for view_i in range(len(cameras))
+    ])
 
     return cam2cam_gts.cuda(), pairs_per_master
 
@@ -331,6 +355,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
                     keypoints_2d_pred, config.cam2cam.pelvis_center_kps
                 )
 
+            _save_stuff(kps, 'kps')
+            1/0
             detections = _prepare_cam2cam_keypoints_batch(kps)
             if config.debug.dump_tensors:
                 _save_stuff(detections, 'detections')

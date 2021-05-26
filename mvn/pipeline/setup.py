@@ -33,7 +33,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             crop=config.dataset.train.crop,
             resample=config.model.cam2cam_estimation,
             look_at_pelvis=config.model.cam2cam_estimation,
-            sit_on_pelvis=config.model.cam2cam_estimation,
+            sit_on_pelvis=config.cam2cam.data.pelvis_in_origin,
         )
         print("  training dataset length:", len(train_dataset))
 
@@ -72,7 +72,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         crop=config.dataset.val.crop,
         resample=config.model.cam2cam_estimation,
         look_at_pelvis=config.model.cam2cam_estimation,
-        sit_on_pelvis=config.model.cam2cam_estimation,
+        sit_on_pelvis=config.cam2cam.data.pelvis_in_origin,
     )
     print("  validation dataset length:", len(val_dataset))
 

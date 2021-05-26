@@ -9,14 +9,15 @@ class RotoTransCombiner(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, rotations, translations):
+    def forward(self, rotations, trans):
         batch_size = rotations.shape[0]
         n_views = rotations.shape[1]
 
-        trans = torch.cat([  # ext.t in each view
-            torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
-            translations.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
-        ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+        if trans.shape[-1] == 1:  # predicted just distance
+            trans = torch.cat([  # ext.t in each view
+                torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
+                trans.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
+            ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
 
         roto_trans = torch.cat([  # ext (not padded) in each view
             rotations, trans
@@ -64,7 +65,7 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(n_features),
+            # can be helpful sometimes nn.BatchNorm1d(n_features),
         ])
 
         n_params_per_R = 6 if config.cam2cam.model.roto.parametrization == '6d' else 3
@@ -81,12 +82,13 @@ class RotoTransNet(nn.Module):
         ])
         self.r_model = R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
 
+        self.t_d = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
         self.t_backbone = nn.Sequential(*[
             MLPResNet(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.trans.n_layers,
-                out_features=1 * self.n_views_comparing,  # just d
+                out_features=self.t_d * self.n_views_comparing,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
@@ -112,6 +114,6 @@ class RotoTransNet(nn.Module):
         ])  # ~ batch_size, | comparisons |, (3 x 3)
 
         trans = self.t_backbone(features)  # ~ (batch_size, 3)
-        trans = trans.view(batch_size, self.n_views_comparing, 1)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
+        trans = trans.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
         return self.combiner(rots, trans)

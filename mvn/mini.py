@@ -31,7 +31,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
-    config.cam2cam.using_gt = True
+    config.cam2cam.data.using_gt = True
     config.cam2cam.using_heatmaps = False  # KPs seem to work much better
     config.cam2cam.model.init_weights = False
     # config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'

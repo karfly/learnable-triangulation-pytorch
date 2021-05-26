@@ -10,12 +10,6 @@ from torch.utils.data import Dataset
 from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors, resample_image
 
-TARGET_INTRINSICS = build_intrinsics(
-    translation=(0, 0),
-    f=(1e2, 1e2),
-    shear=0
-)
-
 class Human36MMultiViewDataset(Dataset):
     """
         Human3.6M for multiview tasks.
@@ -222,6 +216,14 @@ class Human36MMultiViewDataset(Dataset):
             for kp in shot['keypoints']
         ]).squeeze(-1)
 
+    @staticmethod
+    def target_K():
+        return build_intrinsics(
+            translation=(0, 0),
+            f=(1e2, 1e2),
+            shear=0
+        ).copy()  # to be sure
+
     def __getitem__(self, idx):
         sample = defaultdict(list)  # return value
         shot = self.labels['table'][idx]
@@ -272,7 +274,7 @@ class Human36MMultiViewDataset(Dataset):
                 # todo using GT ... image = resample_image(
                 #     image, TARGET_INTRINSICS, retval_camera.K
                 # )
-                retval_camera.K = TARGET_INTRINSICS.copy()
+                retval_camera.K = self.target_K()
 
             if self.pelvis_in_origin:
                 shot['keypoints'] = self._reparameterize_pelvis_in_origin(

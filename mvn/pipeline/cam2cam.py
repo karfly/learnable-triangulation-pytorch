@@ -120,8 +120,8 @@ def _forward_cam2cam(cam2cam_model, detections, scale_trans2trans, gt=None, nois
                 t = gt[batch_i, pair_i, :3, 3].cuda().detach().clone()
 
                 if noisy:  # noisy
-                    R = R + 1e-1 * torch.rand_like(R)
-                    t = t + 1e1 * torch.rand_like(t)
+                    R = R + 1e-2 * torch.rand_like(R)
+                    t = t + 1e2 * torch.rand_like(t)
 
                 preds[batch_i, pair_i, :3, :3] = R
                 preds[batch_i, pair_i, :3, 3] = t
@@ -215,8 +215,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     ])
 
     loss_ext, loss_proj = self_consistency_loss(
-        cameras, master2other_preds, config.cam2cam.postprocess.scale_trans2trans,
-        keypoints_cam_pred, keypoints_2d_pred, master_cam_i
+        cameras, master2other_preds, keypoints_cam_pred, keypoints_2d_pred, master_cam_i
     )
     if config.cam2cam.loss.self_consistency.ext > 0:
         total_loss += get_weighted_loss(
@@ -357,14 +356,16 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     
     n_cameras = len(batch['cameras'])
     master_i = 0  # todo rand
-    cam2cam_preds = _forward_cam2cam(
-        cam2cam_model,
-        detections[master_i],
-        config.cam2cam.postprocess.scale_trans2trans,
-        #cam2cam_gts[master_i],
-        noisy=config.debug.noisy
-    ).unsqueeze(0)
-    # for master_i in range(n_cameras)  # forward all cam2cam for self.losses
+    cam2cam_preds = torch.cat([
+        _forward_cam2cam(
+            cam2cam_model,
+            detections[master_i],
+            config.cam2cam.postprocess.scale_trans2trans,
+            # cam2cam_gts[master_i],
+            noisy=config.debug.noisy
+        ).unsqueeze(0)
+        for master_i in range(n_cameras)  # forward all cam2cam for self.losses
+    ])
     if config.debug.dump_tensors:
         _save_stuff(cam2cam_preds, 'cam2cam_preds')
 

@@ -13,7 +13,7 @@ debug:
   dump_checkpoints: true
   dump_results: false
   dump_tensors: false
-  noisy: false
+  noisy: true
   show_minimon: true
 
 opt:
@@ -50,7 +50,7 @@ cam2cam:
 
   preprocess:
     pelvis_center_kps: true
-    normalize_kps: "fro"
+    normalize_kps: "maxfro"
 
   postprocess:
     scale_trans2trans: 1000.0
@@ -77,9 +77,9 @@ cam2cam:
 
   loss:
     geo_weight: 20.0
-    trans_weight: 5.0
+    trans_weight: 20.0
     proj_weight: 0.0
-    tred_weight: 1.0
+    tred_weight: 2.0
     self_consistency:
       ext: 0.0
       proj: 0.0
@@ -92,13 +92,13 @@ cam2cam:
   # SOTA supervising 3D
   # geo_weight: 20.0
   # trans_weight: 5.0
-  # tred_weight: 1.0
+  # tred_weight: 5.0
 
   opt:
-    grad_clip: 1.0
+    grad_clip: 10.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.001
-    weight_decay: 2.0
+    lr: 0.0002
+    weight_decay: 0.0
 
 model:
   name: "alg"

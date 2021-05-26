@@ -111,5 +111,5 @@ function showJobConfig () {
 function monatorCam2cam () {
     job_id=$1
 
-    watch -n5 "tail -n20 ${job_id}.out | grep -i cam2cam"
+    watch -n5 "tail -n50 ${job_id}.out | grep -E 'cam2cam|epoc|loss' | grep -E 'comple|mm|loss'"
 }

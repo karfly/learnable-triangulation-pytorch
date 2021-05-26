@@ -4,7 +4,6 @@ vis_freq: 1000
 vis_n_elements: 10
 
 image_shape: [384, 384]
-# `[128, 128]` does not work with pretrained weights (not even BB)
 
 debug:
   show_models: true
@@ -46,7 +45,7 @@ cam2cam:
   scale_trans2trans: 1000.0
 
   using_heatmaps: false
-  pelvis_center_kps: false
+  pelvis_center_kps: true
   normalize_kps: "fro"
 
   batch_norm: true

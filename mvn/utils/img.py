@@ -28,6 +28,7 @@ def crop_image(image, bbox):
 def resize_image(image, shape):
     return cv2.resize(image, (shape[1], shape[0]), interpolation=cv2.INTER_AREA)
 
+
 def get_square_bbox(bbox):
     """Makes square bbox from any bbox by stretching of minimal length side
 
@@ -140,8 +141,8 @@ def resample_channel(image, target_intrinsics, intrinsics, padding_size=10):
         padding_size + image.shape[0] - 1
     )
 
-    # pad image and look up values
-    padded_image = np.ones(
+    # pad image and copy values
+    padded_image = np.zeros(
         (
             2 * padding_size + image.shape[0],
             2 * padding_size + image.shape[1]
@@ -150,7 +151,7 @@ def resample_channel(image, target_intrinsics, intrinsics, padding_size=10):
     padded_image[padding_size:-padding_size,
                  padding_size:-padding_size] = image
 
-    q = padded_image[padding_size+y, padding_size+x]
+    q = padded_image[padding_size + y, padding_size + x]
 
     resampled_img = q.reshape(image.shape[0], image.shape[1])
     resampled_img = resampled_img[
@@ -163,15 +164,15 @@ def resample_channel(image, target_intrinsics, intrinsics, padding_size=10):
 
 # thanks to @edo
 def resample_image(image, target_intrinsics, intrinsics):
-    r_img = resample_channel(image[:,:,0], target_intrinsics, intrinsics)
-    g_img = resample_channel(image[:,:,1], target_intrinsics, intrinsics)
-    b_img = resample_channel(image[:,:,2], target_intrinsics, intrinsics)
+    r_img = resample_channel(image[:, :, 0], target_intrinsics, intrinsics)
+    g_img = resample_channel(image[:, :, 1], target_intrinsics, intrinsics)
+    b_img = resample_channel(image[:, :, 2], target_intrinsics, intrinsics)
 
     return np.concatenate(
         (
-            r_img[:,:,np.newaxis],
-            g_img[:,:,np.newaxis],
-            b_img[:,:,np.newaxis],
+            r_img[:, :, np.newaxis],
+            g_img[:, :, np.newaxis],
+            b_img[:, :, np.newaxis],
         ),
         2
     )
@@ -211,7 +212,7 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
 
 def rotation_matrix_from_vectors(vec1, vec2):
     """ https://stackoverflow.com/a/59204638/7643222 based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula"""
-    
+
     a, b = (
         (vec1 / np.linalg.norm(vec1)).reshape(3),  # normalize
         (vec2 / np.linalg.norm(vec2)).reshape(3)

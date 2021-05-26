@@ -8,11 +8,11 @@ import cv2
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
-from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors
+from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors, resample_image
 
 TARGET_INTRINSICS = build_intrinsics(
-    translation=(0, 0),
-    f=(1e2, 1e2),
+    translation=(5e2, 5e2),
+    f=(5e2, 5e2),
     shear=0
 )
 
@@ -245,29 +245,20 @@ class Human36MMultiViewDataset(Dataset):
                 camera_name
             )
 
-            if self.crop:  # crop image
+            if self.crop:
                 image = crop_image(image, bbox)
                 retval_camera.update_after_crop(bbox)
 
             if self.do_resample:
-                square = (0, 0, 1000, 1000)  # get rid of 1k + eps
+                square = (0, 0, 1000, 1000)  # get rid of 1K + eps
                 image = crop_image(image, square)
                 retval_camera.update_after_crop(square)
 
                 # have same intrinsics
-                new_shape, cropping_box = make_with_target_intrinsics(
-                    image,
-                    retval_camera.K,
-                    TARGET_INTRINSICS
+                image = resample_image(
+                    image, TARGET_INTRINSICS, retval_camera.K
                 )
-                image_shape_before_resize = image.shape[:2]
-                # todo image = resize_image(image, list(map(int, new_shape)))
-                retval_camera.update_after_resize(
-                    image_shape_before_resize, new_shape
-                )
-
-                #todo image = crop_image(image, list(map(int, cropping_box)))
-                retval_camera.update_after_crop(cropping_box)
+                retval_camera.K = TARGET_INTRINSICS.copy()
 
             if self.sit_on_pelvis:
                 pelvis_index = 6  # H36M dataset, not CMU

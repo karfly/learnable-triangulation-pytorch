@@ -130,23 +130,14 @@ def geodesic_distance(m1, m2):
     return theta.mean()  # ~ (batch_size,)
 
 
-def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance):
+def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance, master_cam_i=0):
     n_cameras = cam2cam_gts.shape[0]
     n_pairs = n_cameras - 1
     batch_size = cam2cam_gts.shape[1]
-
-    loss = torch.tensor(0.0).to('cuda')
-    for master_cam_i in range(n_cameras):
-        loss += criterion(
-            cam2cam_preds[master_cam_i].view(
-                batch_size * n_pairs, 4, 4
-            )[:, :3, :3].cuda(),  # just R
-            cam2cam_gts[master_cam_i].view(
-                batch_size * n_pairs, 4, 4
-            )[:, :3, :3].cuda()
-        )
-
-    return loss / n_cameras
+    return criterion(
+        cam2cam_preds[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda(),  # just R
+        cam2cam_gts[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda()
+    )
 
 
 def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=4e2), master_cam_i=0):

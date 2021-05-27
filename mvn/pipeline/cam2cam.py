@@ -205,13 +205,6 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
         for batch_i in range(batch_size)
     ])
 
-    # return torch.cat([
-    #     cameras[master_cam_i][batch_i].cam2world()(
-    #         keypoints_3d_pred[batch_i]
-    #     ).unsqueeze(0)
-    #     for batch_i in range(batch_size)
-    # ])
-
     return torch.cat([
         homogeneous_to_euclidean(
             euclidean_to_homogeneous(
@@ -219,11 +212,6 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
             ).to(cam2cams.device)
             @
             masters2world[batch_i]
-            # torch.inverse(
-            #     torch.DoubleTensor(
-            #         cameras[master_cam_i][batch_i].extrinsics_padded.T
-            #     )  # using GT
-            # ).to(cam2cams.device)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -274,8 +262,8 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         )
 
     loss_3d = tred_loss(
-        keypoints_3d_gt,
         keypoints_3d_pred,
+        keypoints_3d_gt,
         keypoints_3d_binary_validity_gt,
         config.opt.scale_keypoints_3d
     )
@@ -433,11 +421,13 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         master_i
     )
 
-    print('pred')
-    print(cam2cam_preds)
-    
-    print('gt')
-    print(cam2cam_gts)
+    # print('epoch {:.0f} / iter {:.0f}'.format(epoch_i, iter_i))
+    # print('pred 3D in world (sample 0):')
+    # print(keypoints_3d_pred[0, :8])
+    # print('GT in world (sample 0):')
+    # print(keypoints_3d_gt[0, :8])
+    # print('pred cams (sample 0):')
+    # print(cam2cam_preds[0])
 
     if config.debug.dump_tensors:
         _save_stuff(keypoints_3d_pred, 'keypoints_3d_pred')

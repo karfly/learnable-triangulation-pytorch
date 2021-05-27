@@ -168,7 +168,7 @@ def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
     )
 
 
-def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def tred_loss(keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     return criterion(
         keypoints_3d_pred.to(keypoints_3d_pred.device) * scale_keypoints_3d,
         keypoints_3d_gt.to(keypoints_3d_pred.device) * scale_keypoints_3d,
@@ -199,8 +199,8 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
         ])  # ~ n_views - 1, 17, 2
     
         loss += criterion(
-            gt.cuda(),
-            pred.cuda(),
+            pred.to(keypoints_3d_pred.device),
+            gt.to(keypoints_3d_pred.device),
         )
 
     return loss / batch_size

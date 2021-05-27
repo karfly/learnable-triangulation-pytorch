@@ -4,7 +4,7 @@ import torch
 from mvn.utils.img import image_batch_to_torch
 
 
-def make_collate_fn(randomize_n_views=True, min_n_views=10, max_n_views=31):
+def make_collate_fn(randomize_n_views=True, min_n_views=4, max_n_views=31):
     def collate_fn(items):
         items = list(filter(lambda x: x is not None, items))
         if len(items) == 0:

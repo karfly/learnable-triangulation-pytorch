@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: true
-  gt_cams: true
+  gt_cams: false
 
 opt:
   criterion: "MSESmooth"
@@ -77,10 +77,10 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 200.0
-    trans_weight: 100.0
+    geo_weight: 20.0
+    trans_weight: 10.0
     proj_weight: 0.0
-    tred_weight: 5.0
+    tred_weight: 1.0
     self_consistency:
       ext: 0.0
       proj: 0.0

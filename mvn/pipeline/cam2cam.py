@@ -206,15 +206,13 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     #     for batch_i in range(batch_size)
     # ])
 
-    masters2world = torch.cat([
-        torch.inverse(cam2cams[batch_i, master_cam_i].T).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
     return torch.cat([
         homogeneous_to_euclidean(
-            euclidean_to_homogeneous(keypoints_3d_pred[batch_i]).to(masters2world.device)
+            euclidean_to_homogeneous(keypoints_3d_pred[batch_i]).to(cam2cams.device)
             @
-            masters2world[batch_i]
+            torch.inverse(
+                torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics_padded.T)  # using GT
+            ).to(cam2cams.device)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -407,7 +405,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         cam2cam_model,
         detections[master_i],
         config.cam2cam.postprocess.scale_trans2trans,
-        # cam2cam_gts,
+        cam2cam_gts,
         noisy=config.debug.noisy
     )
     if config.debug.dump_tensors:

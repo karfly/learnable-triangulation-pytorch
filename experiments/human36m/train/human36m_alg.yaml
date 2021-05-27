@@ -13,7 +13,7 @@ debug:
   dump_checkpoints: true
   dump_results: false
   dump_tensors: false
-  noisy: true
+  noisy: false
   show_minimon: true
 
 opt:
@@ -67,7 +67,7 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "6d"
+      parametrization: "rod"
 
     trans:
       n_layers: 2
@@ -77,9 +77,9 @@ cam2cam:
 
   loss:
     geo_weight: 20.0
-    trans_weight: 20.0
+    trans_weight: 15.0
     proj_weight: 0.0
-    tred_weight: 20.0
+    tred_weight: 5.0
     self_consistency:
       ext: 0.0
       proj: 0.0

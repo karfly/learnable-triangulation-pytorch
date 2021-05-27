@@ -168,12 +168,17 @@ def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLos
     )
 
 
-def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
-    return criterion(
-        keypoints_3d_pred.to(keypoints_3d_pred.device) * scale_keypoints_3d,
-        keypoints_3d_gt.to(keypoints_3d_pred.device) * scale_keypoints_3d,
-        keypoints_3d_binary_validity_gt.to(keypoints_3d_pred.device)
+def tred_loss(keypoints_3d_gt, keypoints_3d_pred, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20), pelvis_i=6):
+    return MSESmoothLoss(threshold=2e2)(
+        keypoints_3d_pred.to(keypoints_3d_pred.device)[:, pelvis_i] * scale_keypoints_3d,
+        keypoints_3d_gt.to(keypoints_3d_pred.device)[:, pelvis_i] * scale_keypoints_3d,
     )
+
+    # all_kps_loss = criterion(
+    #     keypoints_3d_pred.to(keypoints_3d_pred.device) * scale_keypoints_3d,
+    #     keypoints_3d_gt.to(keypoints_3d_pred.device) * scale_keypoints_3d,
+    #     keypoints_3d_binary_validity_gt.to(keypoints_3d_pred.device)
+    # )  # todo add loss pelvis VS pelvis
 
 
 def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=20*20)):

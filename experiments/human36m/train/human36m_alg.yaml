@@ -77,8 +77,8 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 200.0
-    trans_weight: 50.0
+    geo_weight: 400.0
+    trans_weight: 11.0
     proj_weight: 0.0
     tred_weight: 5.0
     self_consistency:

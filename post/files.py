@@ -134,15 +134,18 @@ def parse_job_log(f_path, verbose=False):
         if 'training MPJPE' in line:
             tokens = line.split(':')
             relative_metric = parse_fp_number(tokens[2].split()[0])
-            current_epoch_details['training metrics'] = relative_metric
-            
-            # absolute_metric = parse_fp_number(tokens[3].split()[0])
-            # current_epoch_details['training metrics (absolute)'] = absolute_metric
+            current_epoch_details['training metrics (rel)'] = relative_metric
+
+            absolute_metric = parse_fp_number(tokens[3].split()[0])
+            current_epoch_details['training metrics (abs)'] = absolute_metric
 
         if 'eval MPJPE' in line:
             tokens = line.split(':')
             relative_metric = parse_fp_number(tokens[2].split()[0])
-            current_epoch_details['eval metrics'] = relative_metric
+            current_epoch_details['eval metrics (rel)'] = relative_metric
+
+            absolute_metric = parse_fp_number(tokens[3].split()[0])
+            current_epoch_details['eval metrics (abs)'] = absolute_metric
 
         if 'complete!' in line:  # end of epoch
             epochs.append(current_epoch_details.copy())

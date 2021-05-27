@@ -55,13 +55,13 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.dataset.train.crop = not config.model.cam2cam_estimation  # doing resampling when estimating cam2cam => no crop
     config.dataset.train.h36m_root = data_folder + 'processed/'
     config.dataset.train.labels_path = data_folder + 'human36m-multiview-labels-GTbboxes.npy'
-    config.dataset.train.num_workers = 0
+    config.dataset.train.num_workers = 1
     config.dataset.train.retain_every_n_frames_in_train = 10000  # 12 images when in full dataset
 
     config.dataset.val.crop = config.dataset.train.crop
     config.dataset.val.h36m_root = config.dataset.train.h36m_root
     config.dataset.val.labels_path = config.dataset.train.labels_path
-    config.dataset.val.num_workers = 0
+    config.dataset.val.num_workers = 1
     config.dataset.val.retain_every_n_frames_in_test = 500  # 5 images when in full dataset
     
     return config

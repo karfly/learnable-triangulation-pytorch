@@ -14,7 +14,7 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  noisy: false
+  noisy: true
   gt_cams: true
 
 opt:

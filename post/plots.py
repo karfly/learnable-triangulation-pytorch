@@ -141,11 +141,11 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     legend_loc = 'upper right'
     marker = '+'
 
-    metrics = drop_na(map(lambda x: x['training metrics'], epochs))
+    metrics = drop_na(map(lambda x: x['training metrics (rel)'], epochs))
     plot_stuff(
         axis,
         metrics,
-        'training metrics = {:.1f}'.format(metrics[-1]),
+        'training rel MPJPE = {:.1f}'.format(metrics[-1]),
         xrange=xrange,
         ylim=train_metric_ylim,
         color='aquamarine',
@@ -156,11 +156,11 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         verbose=False
     )
 
-    metrics = drop_na(map(lambda x: x['eval metrics'], epochs))
+    metrics = drop_na(map(lambda x: x['eval metrics (rel)'], epochs))
     plot_stuff(
         axis,
         metrics,
-        'eval metrics = {:.1f}'.format(metrics[-1]),
+        'eval rel MPJPE = {:.1f}'.format(metrics[-1]),
         xrange=xrange,
         ylim=eval_metric_ylim,
         color='blue',

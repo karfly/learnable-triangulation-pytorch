@@ -202,19 +202,23 @@ class Human36MMultiViewDataset(Dataset):
 
         raise IOError('fix that cluster !!!')
 
-    def _reparameterize_pelvis_in_origin(self, shot, pelvis_i=6):
-        """ "re-parameterize everything so that the world origin sits in the pelvis" """
-
-        kp_in_world = shot['keypoints'][:self.num_keypoints]
-        pelvis_in_world = kp_in_world[pelvis_i].reshape(3, 1)
+    @staticmethod
+    def _reparameterize_pelvis_in_origin(kps, pelvis_i):
+        pelvis_in_world = kps[pelvis_i].reshape(3, 1)
 
         origin = np.zeros_like(pelvis_in_world)
         t_from_pelvis2origin = origin - pelvis_in_world
 
         return np.float64([
             kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
-            for kp in shot['keypoints']
+            for kp in kps
         ]).squeeze(-1)
+
+    def _reparameterize_shot_in_origin(self, shot, pelvis_i=6):
+        """ "re-parameterize everything so that the world origin sits in the pelvis" """
+
+        kps = shot['keypoints'][:self.num_keypoints]
+        return self._reparameterize_pelvis_in_origin(kps, pelvis_i)
 
     @staticmethod
     def target_K():
@@ -277,7 +281,7 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.K = self.target_K()
 
             if self.pelvis_in_origin:
-                shot['keypoints'] = self._reparameterize_pelvis_in_origin(
+                shot['keypoints'] = self._reparameterize_shot_in_origin(
                     shot
                 )
 
@@ -454,6 +458,12 @@ class Human36MMultiViewDataset(Dataset):
 
         if not (indices_predicted is None):
             keypoints_gt = keypoints_gt[indices_predicted]
+
+        if self.pelvis_in_origin:
+            keypoints_gt = np.float64([
+                self._reparameterize_pelvis_in_origin(kps, 6)
+                for kps in keypoints_gt
+            ])
 
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(

@@ -200,12 +200,7 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     # ... they're in master cam space => cam2world
     masters2world = torch.cat([
         torch.inverse(
-            torch.cat([
-                cam2cams[batch_i, master_cam_i, :, :3],  # predicted R
-                torch.DoubleTensor(
-                    cameras[master_cam_i][batch_i].extrinsics_padded[:, 3]
-                ).unsqueeze(-1).to(cam2cams.device)  # GT t
-            ], dim=-1).T
+            cam2cams[batch_i, master_cam_i].T
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -223,12 +218,12 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
                 keypoints_3d_pred[batch_i]
             ).to(cam2cams.device)
             @
-            # masters2world[batch_i]
-            torch.inverse(
-                torch.DoubleTensor(
-                    cameras[master_cam_i][batch_i].extrinsics_padded.T
-                )  # using GT
-            ).to(cam2cams.device)
+            masters2world[batch_i]
+            # torch.inverse(
+            #     torch.DoubleTensor(
+            #         cameras[master_cam_i][batch_i].extrinsics_padded.T
+            #     )  # using GT
+            # ).to(cam2cams.device)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])

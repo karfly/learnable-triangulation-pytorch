@@ -78,7 +78,7 @@ def plot_loss(axis, loss_history, label, xrange, color):
 
 def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='# epoch'):
     loss_keys = list(filter(
-        lambda x: 'loss / batch' in x and 'total' not in x,
+        lambda x: 'loss / batch' in x and 'total' not in x and 'proj' not in x,
         epochs[0].keys()
     ))
     if len(loss_keys) == 0:  # at least just show the training loss

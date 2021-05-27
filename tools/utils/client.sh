@@ -33,8 +33,8 @@ function monatorJobViaSSH () {
     password=$1
     job_id=$2
 
-    sleep_seconds=120  # 2 minutes
-    n_times=30  # 1 hour
+    sleep_seconds=60
+    n_times=60
 
     for n_time in $(seq 1 ${n_times}) ; do {
         now=$(date +%H:%M:%S)

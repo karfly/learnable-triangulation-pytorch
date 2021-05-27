@@ -77,8 +77,9 @@ class RodriguesBlock(nn.Module):
     def _compute_rotation_matrix_taylor(angle_axis):
         rx, ry, rz = torch.chunk(angle_axis, 3, dim=1)
         k_one = torch.ones_like(rx)
-        rotation_matrix = torch.cat(
-            [k_one, -rz, ry, rz, k_one, -rx, -ry, rx, k_one], dim=1)
+        rotation_matrix = torch.cat([
+            k_one, -rz, ry, rz, k_one, -rx, -ry, rx, k_one
+        ], dim=1)
         return rotation_matrix.view(-1, 3, 3)
 
     def forward(self, angle_axis):
@@ -87,7 +88,7 @@ class RodriguesBlock(nn.Module):
         # stolen from ceres/rotation.h
 
         _angle_axis = torch.unsqueeze(angle_axis, dim=1)
-        theta2 = torch.mm(_angle_axis, _angle_axis.transpose(1, 2))
+        theta2 = torch.bmm(_angle_axis, _angle_axis.transpose(1, 2))
         theta2 = torch.squeeze(theta2, dim=1)
 
         # compute rotation matrices
@@ -106,9 +107,9 @@ class RodriguesBlock(nn.Module):
         rotation_matrix = rotation_matrix.view(1, 4, 4).repeat(batch_size, 1, 1)
         # fill output matrix with masked values
         rotation_matrix[..., :3, :3] = \
-            mask_pos * rotation_matrix_normal + mask_neg * rotation_matrix_taylor
+        mask_pos * rotation_matrix_normal + mask_neg * rotation_matrix_taylor
         
-        return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
+        return rotation_matrix[:3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
 
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP

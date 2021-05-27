@@ -96,14 +96,8 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.ReLU(),
-            nn.Linear(self.td * self.n_views_comparing, self.td * self.n_views_comparing, bias=True)
         ])
-        self.t_model = nn.Linear(
-            self.td,
-            self.td,
-            bias=True
-        )
+        # todo self.t_model
 
         self.combiner = RotoTransCombiner()
 
@@ -118,16 +112,13 @@ class RotoTransNet(nn.Module):
         R_feats = R_feats.view(
             batch_size, self.n_views_comparing, features_per_pair
         )
+        print(R_feats.shape)
         rots = torch.cat([  # ext.R in each view
             self.r_model(R_feats[batch_i]).unsqueeze(0)
             for batch_i in range(batch_size)
         ])  # ~ batch_size, | comparisons |, (3 x 3)
 
         t_feats = self.t_backbone(features)  # ~ (batch_size, 3)
-        t_feats = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
-        trans = torch.cat([  # ext.t in each view
-            self.t_model(t_feats[batch_i]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])  # ~ batch_size, | comparisons |, (3 x 3)
+        trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
         return self.combiner(rots, trans)

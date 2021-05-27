@@ -96,7 +96,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         ]
 
     #              geo   T   proj    3D   s.ext  s.proj
-    loss_scalers = [1e2, 1e2, 1e0, 1e0, 5e0, 1e1]
+    loss_scalers = [1e2, 1e1, 1e0, 1e0, 5e0, 1e1]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
@@ -142,10 +142,17 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     marker = '+'
 
     metrics = drop_na(map(lambda x: x['training metrics (rel)'], epochs))
+    abs_metrics = drop_na(map(lambda x: x['training metrics (abs)'], epochs))
+    label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
+    if abs_metrics[-1] != metrics[-1]:
+        label += ', abs MPJPE = {:.0f}'.format(
+            abs_metrics[-1]
+        )
+
     plot_stuff(
         axis,
         metrics,
-        'training rel MPJPE = {:.1f}'.format(metrics[-1]),
+        label,
         xrange=xrange,
         ylim=train_metric_ylim,
         color='aquamarine',
@@ -157,10 +164,17 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     )
 
     metrics = drop_na(map(lambda x: x['eval metrics (rel)'], epochs))
+    abs_metrics = drop_na(map(lambda x: x['eval metrics (abs)'], epochs))
+    label = 'eval rel MPJPE = {:.0f}'.format(metrics[-1])
+    if abs_metrics[-1] != metrics[-1]:
+        label += ', abs MPJPE = {:.0f}'.format(
+            abs_metrics[-1]
+        )
+
     plot_stuff(
         axis,
         metrics,
-        'eval rel MPJPE = {:.1f}'.format(metrics[-1]),
+        label,
         xrange=xrange,
         ylim=eval_metric_ylim,
         color='blue',

@@ -14,7 +14,7 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  noisy: false
+  noisy: true
   gt_cams: false
 
 opt:
@@ -45,7 +45,7 @@ svd:
 
 cam2cam:
   data:
-    pelvis_in_origin: false
+    pelvis_in_origin: true
     using_gt: true
     using_heatmaps: false
 
@@ -77,23 +77,12 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 20.0
-    trans_weight: 10.0
+    geo_weight: 0.0
+    trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 2.0
+    tred_weight: 1.0
     self_consistency:
-      ext: 0.0
-      proj: 0.0
-
-  # SOTA supervising R|t
-  # geo_weight: 20.0
-  # trans_weight: 20.0
-
-  # SOTA supervising 2D
-  # proj_weight: 15.0
-
-  # SOTA supervising 3D
-  # tred_weight: 2.0
+      proj: 10.0
 
   opt:
     grad_clip: 10.0

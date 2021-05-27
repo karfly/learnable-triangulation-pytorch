@@ -14,7 +14,6 @@ from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsM
 
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
-    train_dataloader = None
     if is_train:
         train_dataset = human36m.Human36MMultiViewDataset(
             h36m_root=config.dataset.train.h36m_root,
@@ -53,6 +52,8 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             worker_init_fn=worker_init_fn,
             pin_memory=True
         )
+    else:
+        train_dataloader = None
 
     # val
     val_dataset = human36m.Human36MMultiViewDataset(

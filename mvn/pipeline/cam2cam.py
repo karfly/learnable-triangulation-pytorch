@@ -433,6 +433,12 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         master_i
     )
 
+    print('pred')
+    print(cam2cam_preds)
+    
+    print('gt')
+    print(cam2cam_gts)
+
     if config.debug.dump_tensors:
         _save_stuff(keypoints_3d_pred, 'keypoints_3d_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')

@@ -78,7 +78,7 @@ def plot_loss(axis, loss_history, label, xrange, color):
 
 def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='# epoch'):
     loss_keys = list(filter(
-        lambda x: 'loss / batch' in x and 'total' not in x and 'proj' not in x,
+        lambda x: 'loss / batch' in x and 'total' not in x,
         epochs[0].keys()
     ))
     if len(loss_keys) == 0:  # at least just show the training loss
@@ -96,7 +96,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         ]
 
     #              geo   T   proj    3D   s.ext  s.proj
-    loss_scalers = [1e1, 3e0, 1e-1, 1e0, 5e0, 1e1]
+    loss_scalers = [1e2, 1e2, 1e0, 1e0, 5e0, 1e1]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM

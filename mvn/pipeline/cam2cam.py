@@ -405,7 +405,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         cam2cam_model,
         detections[master_i],
         config.cam2cam.postprocess.scale_trans2trans,
-        cam2cam_gts,
+        # cam2cam_gts,
         noisy=config.debug.noisy
     )
     if config.debug.dump_tensors:

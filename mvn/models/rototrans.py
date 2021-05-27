@@ -17,7 +17,7 @@ class RotoTransCombiner(nn.Module):
             trans = torch.cat([  # ext.t in each view
                 torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
                 translations.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
-            ], dim=2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+            ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
         else:
             trans = translations.unsqueeze(-1)
 
@@ -29,9 +29,9 @@ class RotoTransCombiner(nn.Module):
             torch.cuda.DoubleTensor(
                 [0, 0, 0, 1]
             ).repeat(batch_size, n_views, 1, 1)
-        ], dim=2)  # hstack => ~ batch_size, | comparisons |, 3, 4
+        ], dim=-2)  # hstack => ~ batch_size, | comparisons |, 3, 4
 
-        master_cam_i = 0  # first view acting as master
+        # master_cam_i = 0  # first view acting as master
         return torch.cat([
             torch.cat([
                 # torch.mm(
@@ -112,7 +112,6 @@ class RotoTransNet(nn.Module):
         R_feats = R_feats.view(
             batch_size, self.n_views_comparing, features_per_pair
         )
-        print(R_feats.shape)
         rots = torch.cat([  # ext.R in each view
             self.r_model(R_feats[batch_i]).unsqueeze(0)
             for batch_i in range(batch_size)

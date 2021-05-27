@@ -21,11 +21,11 @@ function backupExperimentViaSSH () {
     folder="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@${experiment_name}/epoch-0-iter-0"
 
     full_path="${url}:${folder}"
-    local_path="./human36m_alg_AlgebraicTriangulationNet@${experiment_name}"
+    local_path="./human36m_alg_AlgebraicTriangulationNet@${experiment_name}/"
     mkdir -p ${local_path}
 
     echo "backing up ${full_path} -> ${local_path}"
-    sshpass -p ${password} rsync --progress -avz -e ${full_path} ${local_path}
+    sshpass -p ${password} scp -r ${full_path} ${local_path}
 }
 
 # usage: monatorJobViaSSH "hackme" "15719703"

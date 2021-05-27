@@ -44,7 +44,7 @@ svd:
 
 cam2cam:
   data:
-    pelvis_in_origin: false
+    pelvis_in_origin: true
     using_gt: true
     using_heatmaps: false
 
@@ -53,7 +53,7 @@ cam2cam:
     normalize_kps: "fro"
 
   postprocess:
-    scale_trans2trans: 1000.0
+    scale_trans2trans: 100.0
 
   model:
     batch_norm: true
@@ -76,13 +76,13 @@ cam2cam:
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
   loss:
-    geo_weight: 20.0
-    trans_weight: 20.0
-    proj_weight: 0.0
-    tred_weight: 2.0
+    geo_weight: 0.0
+    trans_weight: 0.0
+    proj_weight: 10.0
+    tred_weight: 0.0
     self_consistency:
-      ext: 0.0
-      proj: 0.0
+      ext: 100.0
+      proj: 100.0
 
   # SOTA supervising 2D
   # proj_weight: 15.0
@@ -97,8 +97,8 @@ cam2cam:
   opt:
     grad_clip: 10.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.0001
-    weight_decay: 0.0
+    lr: 0.00015
+    weight_decay: 0.1
 
 model:
   name: "alg"

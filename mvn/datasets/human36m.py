@@ -446,8 +446,11 @@ class Human36MMultiViewDataset(Dataset):
 
         return subject_scores
 
-    def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False):
-        keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
+    def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False, keypoints_gt_provided=None):
+        if not (keypoints_gt_provided is None):
+            keypoints_gt = keypoints_gt_provided
+        else:
+            keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
 
         if not (indices_predicted is None):
             keypoints_gt = keypoints_gt[indices_predicted]
@@ -468,7 +471,9 @@ class Human36MMultiViewDataset(Dataset):
             keypoints_3d_predicted = keypoints_3d_predicted[:, cmu_joints]
 
         # mean error per 16/17 joints in mm, for each pose
-        per_pose_error = np.sqrt(((keypoints_gt - keypoints_3d_predicted) ** 2).sum(2)).mean(1)
+        per_pose_error = np.sqrt((
+            (keypoints_gt - keypoints_3d_predicted) ** 2
+        ).sum(2)).mean(1)
 
         # relative (to the pelvis) mean error per 16/17 joints in mm, for each pose
         if not (transfer_cmu_to_human36m or transfer_human36m_to_human36m):
@@ -486,5 +491,6 @@ class Human36MMultiViewDataset(Dataset):
             'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, indices_predicted, split_by_subject)
         }
 
-        scalar_metric = result['per_pose_error_relative']['Average']['Average']
-        return scalar_metric, result
+        per_pose_error_relative = result['per_pose_error_relative']['Average']['Average']
+        per_pose_error_absolute = result['per_pose_error']['Average']['Average']
+        return per_pose_error_relative, per_pose_error_absolute, result

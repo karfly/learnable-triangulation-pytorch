@@ -223,10 +223,12 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
                 keypoints_3d_pred[batch_i]
             ).to(cam2cams.device)
             @
-            masters2world[batch_i]
-            # torch.inverse(
-            #     torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics_padded.T)  # using GT
-            # ).to(cam2cams.device)
+            # masters2world[batch_i]
+            torch.inverse(
+                torch.DoubleTensor(
+                    cameras[master_cam_i][batch_i].extrinsics_padded.T
+                )  # using GT
+            ).to(cam2cams.device)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -354,7 +356,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         )
         live_debug_log(_ITER_TAG, message)
 
-        scalar_metric, _ = dataloader.dataset.evaluate(
+        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
             keypoints_3d_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
@@ -362,7 +364,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         message = '{} batch iter {:d} MPJPE: ~ {:.3f} mm'.format(
             'training' if is_train else 'validation',
             iter_i,
-            scalar_metric
+            per_pose_error_relative
         )
         live_debug_log(_ITER_TAG, message)
 
@@ -373,7 +375,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
         backprop(
             opt, total_loss, scheduler,
-            scalar_metric + 15,  # give some slack (mm)
+            per_pose_error_relative + 15,  # give some slack (mm)
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')

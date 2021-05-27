@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: true
-  gt_cams: true
+  gt_cams: false
 
 opt:
   criterion: "MSESmooth"
@@ -68,17 +68,17 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "rod"
+      parametrization: "6d"
 
     trans:
       n_layers: 2
 
     init_weights: false
-    checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
+    checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 20.0
-    trans_weight: 15.0
+    geo_weight: 200.0
+    trans_weight: 50.0
     proj_weight: 0.0
     tred_weight: 5.0
     self_consistency:
@@ -98,8 +98,8 @@ cam2cam:
   opt:
     grad_clip: 10.0
 # https://stats.stackexchange.com/a/352037
-    lr: 0.00015
-    weight_decay: 0.1
+    lr: 0.0002
+    weight_decay: 0.01
 
 model:
   name: "alg"

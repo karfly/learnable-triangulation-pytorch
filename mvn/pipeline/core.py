@@ -130,15 +130,16 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
         minimon.enter()
 
         results['preds'] = np.vstack(results['preds'])
-        scalar_metric, full_metric = dataloader.dataset.evaluate(
+        per_pose_error_relative, per_pose_error_absolute, full_metric = dataloader.dataset.evaluate(
             results['preds'],
             indices_predicted=results['indexes'],
             split_by_subject=True
         )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
-        message = '{} MPJPE relative to pelvis: {:.3f} mm'.format(
+        message = '{} MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
             'training' if is_train else 'eval',
-            scalar_metric
+            per_pose_error_relative,
+            per_pose_error_absolute
         )  # just a little bit of live debug
         live_debug_log(_iter_tag, message)
 

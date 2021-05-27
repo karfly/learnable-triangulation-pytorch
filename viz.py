@@ -1,5 +1,6 @@
 from pathlib import Path
 import torch
+import numpy as np
 import argparse
 
 import matplotlib.pyplot as plt
@@ -81,7 +82,8 @@ def load_data(config, dumps_folder):
 
     keypoints_3d_gt = _load('keypoints_3d_gt.trc')  # see `cam2cam:_save_stuff`
     keypoints_3d_pred = _load('keypoints_3d_pred.trc')
-    indices = _load('batch_indexes.trc')
+
+    indices = None  # _load('batch_indexes.trc')
     _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
 
     return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
@@ -100,19 +102,24 @@ def main(config, milestone, experiment_name):
     gts, pred, indices, dataloader = load_data(config, dumps_folder)
 
     try:
-        scalar_metric, full_metric = dataloader.dataset.evaluate(
+        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
             pred,
-            indices_predicted=indices,
-            split_by_subject=True
+            split_by_subject=True,
+            keypoints_gt_provided=gts,
         )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
-        print(scalar_metric)  # full_metric
+        
+        message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
+            per_pose_error_relative,
+            per_pose_error_absolute
+        )  # just a little bit of live debug
+        print(message)
     except IndexError:
         print('cannot evaluate using local data ... did you sample != 500?')
 
     max_plots = 6
     fig = plt.figure(figsize=plt.figaspect(1.5))
     fig.set_facecolor('white')
-    for i in range(min(max_plots, len(indices))):
+    for i in range(min(max_plots, gts.shape[0])):
         axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
         draw_kp_in_3d(axis, gts[i], 'GT (resampled)', 'o', 'blue')
@@ -126,7 +133,7 @@ def main(config, milestone, experiment_name):
             )
         )
 
-        axis.legend(loc='lower left')
+        # axis.legend(loc='lower left')
 
     plt.tight_layout()
     plt.show()

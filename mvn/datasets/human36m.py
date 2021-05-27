@@ -131,8 +131,18 @@ class Human36MMultiViewDataset(Dataset):
 
         self.meshgrids = None
 
+        self._preprocess()
+
+
     def __len__(self):
         return len(self.labels['table'])
+
+    def _preprocess(self):
+        if self.pelvis_in_origin:
+            self.labels['table']['keypoints'] = np.float64([
+                self._reparameterize_pelvis_in_origin(kps, 6)
+                for kps in self.labels['table']['keypoints']
+            ])
 
     def _get_frame_info(self, idx):
         shot = self.labels['table'][idx]
@@ -269,7 +279,7 @@ class Human36MMultiViewDataset(Dataset):
                 # todo using GT ... image = crop_image(image, bbox)
                 retval_camera.update_after_crop(bbox)
 
-            if self.resample_same_K:
+            if self.resample_same_K:  # todo move to __init__
                 square = (0, 0, 1000, 1000)  # get rid of 1K + eps
                 # todo using GT ... image = crop_image(image, square)
                 retval_camera.update_after_crop(square)
@@ -280,12 +290,7 @@ class Human36MMultiViewDataset(Dataset):
                 # )
                 retval_camera.K = self.target_K()
 
-            if self.pelvis_in_origin:
-                shot['keypoints'] = self._reparameterize_shot_in_origin(
-                    shot
-                )
-
-            if self.look_at_pelvis:
+            if self.look_at_pelvis:  # todo move to __init__
                 pelvis_index = 6  # H36M dataset, not CMU
 
                 kp_in_world = shot['keypoints'][:self.num_keypoints]
@@ -437,13 +442,15 @@ class Human36MMultiViewDataset(Dataset):
         per_pose_error = per_pose_errors
 
         subject_scores = {
-            'Average': self.evaluate_by_actions(per_pose_error, mask, split_by_subject)
+            'Average': self.evaluate_by_actions(
+                per_pose_error, mask, split_by_subject
+            )
         }
 
         if split_by_subject:
             for subject_idx in range(len(self.labels['subject_names'])):
                 subject_mask = self.labels['table']['subject_idx'] == subject_idx
-                
+
                 subject_scores[self.labels['subject_names'][subject_idx]] = self.evaluate_by_actions(
                     per_pose_error, subject_mask, split_by_subject
                 )
@@ -453,17 +460,12 @@ class Human36MMultiViewDataset(Dataset):
     def evaluate(self, keypoints_3d_predicted, indices_predicted=None, split_by_subject=False, transfer_cmu_to_human36m=False, transfer_human36m_to_human36m=False, keypoints_gt_provided=None):
         if not (keypoints_gt_provided is None):
             keypoints_gt = keypoints_gt_provided
+            indices_predicted = np.arange(len(keypoints_gt_provided))
         else:
             keypoints_gt = self.labels['table']['keypoints'][:, :self.num_keypoints]
 
         if not (indices_predicted is None):
             keypoints_gt = keypoints_gt[indices_predicted]
-
-        if self.pelvis_in_origin:
-            keypoints_gt = np.float64([
-                self._reparameterize_pelvis_in_origin(kps, 6)
-                for kps in keypoints_gt
-            ])
 
         if keypoints_3d_predicted.shape != keypoints_gt.shape:
             raise ValueError(
@@ -496,11 +498,14 @@ class Human36MMultiViewDataset(Dataset):
 
         per_pose_error_relative = np.sqrt(((keypoints_gt_relative - keypoints_3d_predicted_relative) ** 2).sum(2)).mean(1)  # should be (alg, vol) = (22.6, 20.8), excluding 'with_damaged_actions' frames
 
-        result = {
-            'per_pose_error': self.evaluate_using_per_pose_error(per_pose_error, indices_predicted, split_by_subject),
-            'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, indices_predicted, split_by_subject)
-        }
+        try:
+            result = {
+                'per_pose_error': self.evaluate_using_per_pose_error(per_pose_error, indices_predicted, split_by_subject),
+                'per_pose_error_relative': self.evaluate_using_per_pose_error(per_pose_error_relative, indices_predicted, split_by_subject)
+            }
 
-        per_pose_error_relative = result['per_pose_error_relative']['Average']['Average']
-        per_pose_error_absolute = result['per_pose_error']['Average']['Average']
-        return per_pose_error_relative, per_pose_error_absolute, result
+            per_pose_error_relative = result['per_pose_error_relative']['Average']['Average']
+            per_pose_error_absolute = result['per_pose_error']['Average']['Average']
+            return per_pose_error_relative, per_pose_error_absolute, result
+        except:
+            return per_pose_error_relative.mean(), per_pose_error.mean(), None

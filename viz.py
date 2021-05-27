@@ -101,25 +101,27 @@ def main(config, milestone, experiment_name):
     dumps_folder = get_dump_folder(milestone, experiment_name)
     gts, pred, indices, dataloader = load_data(config, dumps_folder)
 
-    try:
-        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-            pred,
-            split_by_subject=True,
-            keypoints_gt_provided=gts,
-        )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
-        
-        message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
-            per_pose_error_relative,
-            per_pose_error_absolute
-        )  # just a little bit of live debug
-        print(message)
-    except IndexError:
-        print('cannot evaluate using local data ... did you sample != 500?')
+    per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
+        pred,
+        split_by_subject=True,
+        keypoints_gt_provided=gts,
+    )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
+
+    message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
+        per_pose_error_relative,
+        per_pose_error_absolute
+    )  # just a little bit of live debug
+    print(message)
 
     max_plots = 6
+    n_samples = gts.shape[0]
+    n_plots = min(max_plots, n_samples)
+
+    print('found {} samples but plotting {}'.format(n_samples, n_plots))
+
     fig = plt.figure(figsize=plt.figaspect(1.5))
     fig.set_facecolor('white')
-    for i in range(min(max_plots, gts.shape[0])):
+    for i in range(n_plots):
         axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
         draw_kp_in_3d(axis, gts[i], 'GT (resampled)', 'o', 'blue')

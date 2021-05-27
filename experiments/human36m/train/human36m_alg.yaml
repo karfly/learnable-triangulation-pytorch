@@ -76,22 +76,22 @@ cam2cam:
     checkpoint: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs/human36m_alg_AlgebraicTriangulationNet@23.05.2021-17:49:46/checkpoints/0995/cam2cam_model.pth"
 
   loss:
-    geo_weight: 0.0
-    trans_weight: 0.0
-    proj_weight: 10.0
-    tred_weight: 0.0
+    geo_weight: 20.0
+    trans_weight: 20.0
+    proj_weight: 0.0
+    tred_weight: 20.0
     self_consistency:
-      ext: 100.0
-      proj: 100.0
+      ext: 0.0
+      proj: 0.0
+
+  # SOTA supervising R|t
+  # geo_weight: 20.0
+  # trans_weight: 20.0
 
   # SOTA supervising 2D
   # proj_weight: 15.0
-  # ext: 100.0
-  # proj: 100.0
 
   # SOTA supervising 3D
-  # geo_weight: 20.0
-  # trans_weight: 20.0
   # tred_weight: 2.0
 
   opt:

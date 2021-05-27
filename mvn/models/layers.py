@@ -87,7 +87,7 @@ class RodriguesBlock(nn.Module):
         # stolen from ceres/rotation.h
 
         _angle_axis = torch.unsqueeze(angle_axis, dim=1)
-        theta2 = torch.matmul(_angle_axis, _angle_axis.transpose(1, 2))
+        theta2 = torch.mm(_angle_axis, _angle_axis.transpose(1, 2))
         theta2 = torch.squeeze(theta2, dim=1)
 
         # compute rotation matrices

@@ -258,7 +258,7 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
 
     if confidences is None:
         confidences = torch.ones(
-            n_views, dtype=torch.float32, device=points.device  # same device
+            n_views, dtype=torch.double, device=points.device  # same device
         )
 
     A = proj_matricies[:, 2:3].expand(n_views, 2, 4) * points.view(n_views, 2, 1)
@@ -327,7 +327,7 @@ def triangulate_batch_of_points_using_gpu_friendly_svd(proj_matricies_batch, poi
         batch_size,
         n_joints,
         3,  # because we're in 3D space
-        dtype=torch.float32,
+        dtype=torch.double,
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
 
@@ -352,7 +352,7 @@ def triangulate_points_in_camspace(points_batch, matrices_batch, confidences_bat
     point_3d_batch = torch.zeros(
         n_joints,
         3,
-        dtype=torch.float32
+        dtype=torch.double
     )  # ~ (batch_size=8, n_joints=17, 3D)
 
     for joint_i in range(n_joints):  # triangulate joint
@@ -383,7 +383,7 @@ def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, trian
         batch_size,
         n_joints,
         3,
-        dtype=torch.float32
+        dtype=torch.double
     )  # ~ (batch_size=8, n_joints=17, 3D)
 
     for batch_i in range(batch_size):
@@ -404,7 +404,7 @@ def triangulate_batch_of_points(proj_matricies_batch, points_batch, triangulator
         batch_size,
         n_joints,
         3,
-        dtype=torch.float32,
+        dtype=torch.double,
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
 

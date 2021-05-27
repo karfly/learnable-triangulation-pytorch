@@ -34,11 +34,12 @@ class RotoTransCombiner(nn.Module):
         master_cam_i = 0  # first view acting as master
         return torch.cat([
             torch.cat([
-                torch.matmul(
-                    roto_trans[batch_i, target_view],
-                    torch.inverse(roto_trans[batch_i, master_cam_i])
-                ).unsqueeze(0)  # 1 x 4 x 4
-                for target_view in range(1, n_views)
+                # torch.mm(
+                #     roto_trans[batch_i, target_view],
+                #     torch.inverse(roto_trans[batch_i, master_cam_i])
+                # ).unsqueeze(0)  # 1 x 4 x 4
+                roto_trans[batch_i, view_i].unsqueeze(0)
+                for view_i in range(n_views)
             ]).unsqueeze(0)
             for batch_i in range(batch_size)
         ])  # todo tensored

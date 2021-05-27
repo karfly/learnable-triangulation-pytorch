@@ -133,6 +133,15 @@ def live_debug_log(tag, message, master_only=True):
         ))
 
 
+def get_others():
+    return [
+        [ 1, 2, 3 ],
+        [ 0, 2, 3 ],
+        [ 0, 1, 3 ],
+        [ 0, 1, 2 ],
+    ]  # todo auto
+
+
 def get_pairs():
     return [
         [ (0, 1), (0, 2), (0, 3) ],

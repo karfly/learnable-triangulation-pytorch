@@ -13,8 +13,9 @@ debug:
   dump_checkpoints: true
   dump_results: false
   dump_tensors: false
-  noisy: false
   show_minimon: true
+  noisy: true
+  gt_cams: true
 
 opt:
   criterion: "MSESmooth"

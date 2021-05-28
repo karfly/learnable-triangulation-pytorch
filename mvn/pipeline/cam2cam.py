@@ -214,11 +214,11 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
 
-    pose_loss = twod_proj_loss(
-        keypoints_3d_gt, keypoints_3d_pred, cameras
+    loss_2d = twod_proj_loss(
+        keypoints_3d_gt, keypoints_3d_pred, cameras, master2other_preds[master_cam_i]
     )
     if config.cam2cam.loss.proj_weight > 0:
-        total_loss += config.cam2cam.loss.proj_weight * pose_loss
+        total_loss += config.cam2cam.loss.proj_weight * loss_2d
 
     batch_size = keypoints_3d_pred.shape[0]
     keypoints_master_cam_pred = torch.cat([
@@ -230,16 +230,16 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
-    loss_cam2cam, loss_proj = self_consistency_loss(
+    loss_self_cam, loss_self_2d = self_consistency_loss(
         cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i
     )
     if config.cam2cam.loss.self_consistency.cam2cam > 0:
         total_loss += get_weighted_loss(
-            loss_cam2cam, config.cam2cam.loss.self_consistency.cam2cam, 1e1, 4e4
+            loss_self_cam, config.cam2cam.loss.self_consistency.cam2cam, 1e1, 4e4
         )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += get_weighted_loss(
-            loss_proj, config.cam2cam.loss.self_consistency.proj, 1e1, 4e4
+            loss_self_2d, config.cam2cam.loss.self_consistency.proj, 1e1, 4e4
         )
 
     loss_3d = tred_loss(
@@ -254,8 +254,8 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         )
 
     return geodesic_loss, trans_loss,\
-        pose_loss, loss_3d,\
-        loss_cam2cam, loss_proj,\
+        loss_2d, loss_3d,\
+        loss_self_cam, loss_self_2d,\
         total_loss
 
 
@@ -296,7 +296,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, loss_3d, loss_cam2cam, loss_proj, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -312,10 +312,10 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             iter_i,
             geodesic_loss.item(),
             trans_loss.item(),
-            loss_cam2cam.item(),
-            pose_loss.item(),
+            loss_2d.item(),
             loss_3d.item(),
-            loss_proj.item(),
+            loss_self_cam.item(),
+            loss_self_2d.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)

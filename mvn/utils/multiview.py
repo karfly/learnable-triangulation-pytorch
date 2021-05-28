@@ -131,9 +131,9 @@ class Camera:
         """ 3D world (N x 3) -> 2D image (N x 2) """
 
         def _f(x):
-            device = x.device
-            homo = euclidean_to_homogeneous(x).type('torch.DoubleTensor').to(device)
-            proj = torch.DoubleTensor(self.projection.T).to(device)
+            dev = x.device
+            homo = euclidean_to_homogeneous(x).type('torch.DoubleTensor').to(dev)
+            proj = torch.DoubleTensor(self.projection.T).to(dev)
 
             return homogeneous_to_euclidean(homo @ proj)
 
@@ -453,5 +453,20 @@ def _2proj(ext_from, ext_to, K_to):
         to_camspace = euclidean_to_homogeneous(x) @ trans_camspace
         projected = to_camspace @ K_to.T
         return homogeneous_to_euclidean(projected)
+
+    return _f
+
+
+def _my_proj(ext, K):
+    projection = torch.mm(
+        K,
+        ext
+    ).T
+
+    def _f(x):
+        homo = euclidean_to_homogeneous(x)
+        return homogeneous_to_euclidean(
+            homo @ projection.to(x.device)
+        )
 
     return _f

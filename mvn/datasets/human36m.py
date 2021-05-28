@@ -308,9 +308,9 @@ class Human36MMultiViewDataset(Dataset):
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
                 image = resize_image(image, self.image_shape)
-                retval_camera.update_after_resize(
-                    image_shape_before_resize, self.image_shape
-                )
+                # todo using GT ... retval_camera.update_after_resize(
+                #     image_shape_before_resize, self.image_shape
+                # )
 
             if self.norm_image:
                 pass  # todo using GT ... image = normalize_image(image)

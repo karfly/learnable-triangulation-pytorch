@@ -95,8 +95,8 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'gray'
         ]
 
-    #              geo   T   proj    3D   s.ext  s.proj
-    loss_scalers = [1e1, 1e0, 1e0, 1e0, 5e0, 1e1]
+    #                 R     T   2D   3D    s.C   s.2D
+    loss_scalers = [5e1, 5e-1, 5e-1, 2e-1, 2e-1, 3e-3]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
@@ -142,12 +142,14 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     marker = '+'
 
     metrics = np.float32(list(map(lambda x: x['training metrics (rel)'], epochs)))
+    label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
+
     if 'training metrics (abs)' in epochs[-1]:
         last_abs_metrics = np.float32(epochs[-1]['training metrics (abs)'])
     else:
         last_abs_metrics = None
     
-    label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
+    # mabe pelvis is in origin ...
     if last_abs_metrics and last_abs_metrics != metrics[-1]:
         label += ', abs MPJPE = {:.0f}'.format(
             last_abs_metrics[-1]
@@ -170,10 +172,11 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     metrics = np.float32(list(map(lambda x: x['eval metrics (rel)'], epochs)))
     label = 'eval rel MPJPE = {:.0f}'.format(metrics[-1])
     if 'eval metrics (abs)' in epochs[-1]:
-        last_abs_metrics = np.float32(epochs[-1]['training metrics (abs)'])
+        last_abs_metrics = np.float32(epochs[-1]['eval metrics (abs)'])
     else:
         last_abs_metrics = None
-    
+
+    # mabe pelvis is in origin ...
     if last_abs_metrics and last_abs_metrics != metrics[-1]:
         label += ', abs MPJPE = {:.0f}'.format(
             last_abs_metrics

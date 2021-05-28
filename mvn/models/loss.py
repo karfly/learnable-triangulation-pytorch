@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from mvn.utils.multiview import _2camspace, _2proj
+from mvn.utils.multiview import _2camspace, _2proj, _my_proj
 from mvn.utils.misc import get_pairs, get_inverse_i_from_pair, get_master_pairs
 
 
@@ -130,80 +130,60 @@ def geodesic_distance(m1, m2):
     return theta.mean()  # ~ (batch_size,)
 
 
-def geo_loss(cam2cam_gts, cam2cam_preds, criterion=geodesic_distance):
-    n_cameras = cam2cam_gts.shape[1]
-    n_pairs = n_cameras - 1
-    batch_size = cam2cam_gts.shape[0]
-
-    # return torch.mean(torch.cat([
-    #     criterion(
-    #         cam2cam_preds[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda(),  # just R
-    #         cam2cam_gts[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, :3].cuda()
-    #     ).unsqueeze(0)
-    #     for master_cam_i in range(n_cameras)
-    # ]))
+def geo_loss(gts, preds, criterion=geodesic_distance):
+    n_cameras = gts.shape[1]
+    batch_size = gts.shape[0]
 
     return criterion(
-        cam2cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda(),  # just R
-        cam2cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda()
+        preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda(),  # just R
+        gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda()
     )
 
 
-def t_loss(cam2cam_gts, cam2cam_preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=4e2)):
-    n_cameras = cam2cam_gts.shape[1]
-    n_pairs = n_cameras - 1
-    batch_size = cam2cam_gts.shape[0]
-
-    # return torch.mean(torch.cat([
-    #     criterion(
-    #         cam2cam_preds[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, 3].cuda() / scale_trans2trans,  # just t
-    #         cam2cam_gts[master_cam_i].view(batch_size * n_pairs, 4, 4)[:, :3, 3].cuda() / scale_trans2trans
-    #     ).unsqueeze(0)
-    #     for master_cam_i in range(n_cameras)
-    # ]))
+def t_loss(gts, preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=4e2)):
+    dev = preds.device
+    n_cameras = gts.shape[1]
+    batch_size = gts.shape[0]
 
     return criterion(
-        cam2cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3].cuda() / scale_trans2trans,  # just t
-        cam2cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3].cuda() / scale_trans2trans
+        preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_trans2trans,  # just t
+        gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_trans2trans
     )
 
 
-def tred_loss(keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+    dev = preds.device
     return criterion(
-        keypoints_3d_pred.to(keypoints_3d_pred.device) * scale_keypoints_3d,
-        keypoints_3d_gt.to(keypoints_3d_pred.device) * scale_keypoints_3d,
-        keypoints_3d_binary_validity_gt.to(keypoints_3d_pred.device)
+        preds.to(dev) * scale_keypoints_3d,
+        gts.to(dev) * scale_keypoints_3d,
+        keypoints_3d_binary_validity_gt.to(dev)
     )
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     """ project GT VS pred points to all views """
 
     n_views = len(cameras)
     batch_size = keypoints_3d_gt.shape[0]
-    loss = 0.0
-    
-    for batch_i in range(batch_size):
-        gt = torch.cat([
-            cameras[view_i][batch_i].world2proj()(
-                keypoints_3d_gt[batch_i]
-            ).unsqueeze(0)
-            for view_i in range(1, n_views)  # 0 is "master" cam
-        ])  # ~ n_views - 1, 17, 2
-        
-        pred = torch.cat([
-            cameras[view_i][batch_i].world2proj()(  # todo use ext
-                keypoints_3d_pred[batch_i]
-            ).unsqueeze(0)
-            for view_i in range(1, n_views)  # not considering master (0)
-        ])  # ~ n_views - 1, 17, 2
-    
-        loss += criterion(
-            pred.to(keypoints_3d_pred.device),
-            gt.to(keypoints_3d_pred.device),
-        )
-
-    return loss / batch_size
+    dev = cam_preds.device
+    return torch.mean(torch.cat([
+        criterion(
+            torch.cat([
+                _my_proj(
+                    cam_preds[batch_i, view_i],
+                    torch.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded).to(dev)
+                )(keypoints_3d_pred[batch_i]).unsqueeze(0)
+                for view_i in range(1, n_views)  # not considering master (0)
+            ]).to(dev),  # pred
+            torch.cat([
+                cameras[view_i][batch_i].world2proj()(
+                    keypoints_3d_gt[batch_i]
+                ).unsqueeze(0)
+                for view_i in range(1, n_views)  # 0 is "master" cam
+            ]).to(dev),  # gt
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ]))
 
 
 def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master_cam_i):
@@ -216,7 +196,7 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
             _2proj(
                 cams_pred[master_cam_i, batch_i, master_cam_i],
                 cams_pred[master_cam_i, batch_i, target],
-                torch.DoubleTensor(cameras[i][0].intrinsics_padded).to('cuda'),
+                torch.DoubleTensor(cameras[i][0].intrinsics_padded).to(keypoints_mastercam_pred.device),
             )(keypoints_mastercam_pred[batch_i]).unsqueeze(0)
             for i, (_, target) in enumerate(pairs)
         ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2
@@ -249,7 +229,7 @@ def _self_consistency_cam2cam(cams_preds):
             loss_R += MSESmoothLoss(threshold=1e2)(Rs, mean)  # todo use geodesic
 
             ts = cams[:, 2, 3]
-            mean = torch.mean(ts).unsqueeze(0).repeat(n_cams, 1)
+            mean = torch.mean(ts).unsqueeze(0)
             loss_t += MSESmoothLoss(threshold=1e2)(ts, mean)
 
     normalization = n_cams * batch_size
@@ -260,6 +240,17 @@ def _self_consistency_cam2cam(cams_preds):
     return loss_R + loss_t
 
 
+def _masochism(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+    """ penalize trivial solutions """
+
+    projections = _project_in_other_views(
+        cameras, keypoints_cam_pred, cams_preds, master_cam_i
+    )  # ~ 8, 3, 17, 2
+
+    # todo
+
+
+
 def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     projections = _project_in_other_views(
         cameras, keypoints_cam_pred, cams_preds, master_cam_i
@@ -268,6 +259,9 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
+
+    # print(projections[0])
+    # print(initial_keypoints[0])
 
     return torch.mean(
         torch.cat([

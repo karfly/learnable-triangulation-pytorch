@@ -1,10 +1,12 @@
+from itertools import combinations
+
 import numpy as np
 
 import torch
 from torch import nn
 
-from mvn.utils.multiview import _2camspace, _2proj, _my_proj
-from mvn.utils.misc import get_pairs, get_inverse_i_from_pair, get_master_pairs
+from mvn.utils.multiview import _2proj, _my_proj
+from mvn.utils.misc import get_pairs, get_master_pairs
 
 
 class KeypointsMSELoss(nn.Module):
@@ -133,10 +135,11 @@ def geodesic_distance(m1, m2):
 def geo_loss(gts, preds, criterion=geodesic_distance):
     n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
+    dev = preds.device
 
     return criterion(
-        preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda(),  # just R
-        gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3].cuda()
+        preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3],  # just R
+        gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3].to(dev)
     )
 
 
@@ -213,6 +216,7 @@ def _self_consistency_cam2cam(cams_preds):
     loss_R = torch.tensor(0.0).to(dev)
     loss_t = torch.tensor(0.0).to(dev)
 
+    comparisons = list(combinations(range(n_cams), 2))  # pair comparison
     for cam_i in range(n_cams):  # todo tensored
         index_cam = [
             master_views.index(cam_i)
@@ -224,14 +228,25 @@ def _self_consistency_cam2cam(cams_preds):
                 for row_i, i in enumerate(index_cam)
             ])  # same extrinsics cam but predicted from a different master ...
 
-            # ... should be the same
-            Rs = cams[:, :3, :3]
-            mean = torch.mean(Rs, axis=0).unsqueeze(0)
-            loss_R += MSESmoothLoss(threshold=1e2)(Rs, mean)  # todo use geodesic
-
-            ts = cams[:, 2, 3]
-            mean = torch.mean(ts).unsqueeze(0)
-            loss_t += MSESmoothLoss(threshold=1e2)(ts, mean)
+            compare_i = torch.cat([
+                cams[:, :3, :3][i].unsqueeze(0)  # just R
+                for i, _ in comparisons
+            ])
+            compare_j = torch.cat([
+                cams[:, :3, :3][j].unsqueeze(0)  # just R
+                for _, j in comparisons
+            ])
+            loss_R += geodesic_distance(compare_i, compare_j)
+            
+            compare_i = torch.cat([
+                cams[:, 2, 3][i].unsqueeze(0)  # just t
+                for i, _ in comparisons
+            ])
+            compare_j = torch.cat([
+                cams[:, 2, 3][j].unsqueeze(0)  # just t
+                for _, j in comparisons
+            ])
+            loss_t += MSESmoothLoss(threshold=1e2)(compare_i, compare_j)
 
     normalization = n_cams * batch_size
 
@@ -239,17 +254,6 @@ def _self_consistency_cam2cam(cams_preds):
     loss_t = loss_t / normalization  # to compare against t
 
     return loss_R + loss_t
-
-
-def _masochism(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
-    """ penalize trivial solutions """
-
-    projections = _project_in_other_views(
-        cameras, keypoints_cam_pred, cams_preds, master_cam_i
-    )  # ~ 8, 3, 17, 2
-
-    # todo
-
 
 
 def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
@@ -261,7 +265,7 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
 
-    norm_criterion = lambda gt, pred: criterion(gt, pred) / torch.norm(pred, p='fro')
+    norm_criterion = lambda gt, pred: criterion(gt, pred) / torch.norm(pred, p='fro')  # penalize trivial solutions
     return torch.mean(
         torch.cat([
             norm_criterion(

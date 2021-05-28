@@ -303,6 +303,7 @@ class Human36MMultiViewDataset(Dataset):
 
                 # "At that point, after you re-sample, camera translation should be [0,0,d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
+                kp_in_cam = retval_camera.world2cam()(kp_in_world)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

@@ -192,7 +192,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
         ])  # ~ n_views - 1, 17, 2
         
         pred = torch.cat([
-            cameras[view_i][batch_i].world2proj()(
+            cameras[view_i][batch_i].world2proj()(  # todo use ext
                 keypoints_3d_pred[batch_i]
             ).unsqueeze(0)
             for view_i in range(1, n_views)  # not considering master (0)
@@ -209,6 +209,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, criterion=Keypoi
 def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master_cam_i):
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
+    pairs = [(0, 0)] + pairs  # project also to master
 
     def _2camspace(ext_from, ext_to):
         return torch.mm(
@@ -226,17 +227,6 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
 
         return _f
 
-    # print(_2proj(
-    #     torch.DoubleTensor(cameras[0][0].extrinsics_padded).to('cuda'),
-    #     torch.DoubleTensor(cameras[1][0].extrinsics_padded).to('cuda'),
-    #     torch.DoubleTensor(cameras[1][0].intrinsics_padded).to('cuda'),
-    # )(keypoints_mastercam_pred[0]))
-
-    # print('gt')
-    # print(cameras[0][0].cam2other(cameras[2][0])(
-    #     euclidean_to_homogeneous(keypoints_mastercam_pred[0].detach().cpu())
-    # ))
-
     return torch.cat([
         torch.cat([
             _2proj(
@@ -250,29 +240,27 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
     ])
 
 
-def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=10*10)):
+def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     projections = _project_in_other_views(
         cameras, keypoints_cam_pred, cams_preds, master_cam_i
     )  # ~ 8, 3, 17, 2
 
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
+    pairs = [(0, 0)] + pairs  # project also to master
 
-    loss = torch.tensor(0.0).to(keypoints_cam_pred.device)
-    for batch_i in range(batch_size):
-        kps = torch.cat([
-            initial_keypoints[batch_i, i].unsqueeze(0)
-            for _, i in pairs
+    return torch.mean(
+        torch.cat([
+            criterion(
+                torch.cat([
+                    initial_keypoints[batch_i, i].unsqueeze(0)
+                    for _, i in pairs
+                ]).to(keypoints_cam_pred.device),
+                projections[batch_i].to(keypoints_cam_pred.device),
+            ).unsqueeze(0)
+            for batch_i in range(batch_size)
         ])
-
-        norms = torch.norm(kps, p='fro') +\
-            torch.norm(projections[batch_i], p='fro')
-        loss += criterion(
-            kps.to(keypoints_cam_pred.device),
-            projections[batch_i].to(keypoints_cam_pred.device),
-        ) / norms.to(keypoints_cam_pred.device)
-
-    return loss
+    )
 
 
 def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i):

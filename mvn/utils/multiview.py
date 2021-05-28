@@ -132,7 +132,6 @@ class Camera:
 
         def _f(x):
             device = x.device
-            
             homo = euclidean_to_homogeneous(x).type('torch.DoubleTensor').to(device)
             proj = torch.DoubleTensor(self.projection.T).to(device)
 

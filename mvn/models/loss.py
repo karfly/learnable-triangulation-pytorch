@@ -206,7 +206,7 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
     ])
 
 
-def _self_consistency_cam2cam(cams_preds, scale_t):
+def _self_consistency_cam(cams_preds, scale_t):
     ordered_views = get_master_pairs()
     n_cams = cams_preds.shape[0]
     batch_size = cams_preds.shape[1]
@@ -278,17 +278,18 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     )
 
 
-def _self_separation():
+def _self_separation(keypoints_cam_pred):
     """ see eq 8 in https://papers.nips.cc/paper/2018/file/24146db4eb48c718b84cae0a0799dcfc-Paper.pdf """
 
-    return None  # todo
+    return None
 
 
 def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, scale_t):
-    loss_cam2cam = _self_consistency_cam2cam(cams_preds, scale_t)
+    loss_cam2cam = _self_consistency_cam(cams_preds, scale_t)
     loss_proj = _self_consistency_P(
         cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i
     )
+    # todo loss_sep = _self_separation(keypoints_cam_pred)
     return loss_cam2cam, loss_proj  # todo and others
 
 

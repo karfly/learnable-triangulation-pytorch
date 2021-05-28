@@ -47,3 +47,16 @@ function monatorJobViaSSH () {
     }
     done
 }
+
+# usage: backupJobsArchive "hackme"
+function backupJobsArchive () {
+    password=$1
+
+    url="stfo194b@taurus.hrsk.tu-dresden.de"
+    f_path="/home/stfo194b/tesi/learnable-triangulation-pytorch/tools/job_logs.tar.gz"
+
+    full_path="${url}:${f_path}"
+
+    echo "backing up ${full_path} ..."
+    sshpass -p ${password} rsync --progress -avz ${full_path} .
+}

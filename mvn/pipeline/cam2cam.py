@@ -174,7 +174,7 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     )
 
     # ... perform DLT in master cam space, but since ...
-    keypoints_3d_pred = triangulate_batch_of_points_in_cam_space(
+    kps_world_pred = triangulate_batch_of_points_in_cam_space(
         full_cam2cams.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
@@ -184,7 +184,7 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     return torch.cat([
         homogeneous_to_euclidean(
             euclidean_to_homogeneous(
-                keypoints_3d_pred[batch_i]
+                kps_world_pred[batch_i]
             ).to(cam2cams.device)
             @
             torch.inverse(
@@ -195,7 +195,7 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     ])
 
 
-def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoints_3d_pred, keypoints_3d_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     total_loss = 0.0  # real loss, the one grad is applied to
 
     master_cam_i = 0
@@ -215,18 +215,18 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
 
     loss_2d = twod_proj_loss(
-        keypoints_3d_gt, keypoints_3d_pred, cameras, master2other_preds[master_cam_i]
+        kps_world_gt, kps_world_pred, cameras, master2other_preds[master_cam_i]
     )
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * loss_2d
 
-    batch_size = keypoints_3d_pred.shape[0]
+    batch_size = kps_world_pred.shape[0]
     keypoints_master_cam_pred = torch.cat([
         torch.mm(
             euclidean_to_homogeneous(
-                keypoints_3d_pred[batch_i]  # [x y z] -> [x y z 1]
+                kps_world_pred[batch_i]  # [x y z] -> [x y z 1]
             ),
-            torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics.T).to(keypoints_3d_pred.device)
+            torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics.T).to(kps_world_pred.device)
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
@@ -243,8 +243,8 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         )
 
     loss_3d = tred_loss(
-        keypoints_3d_pred,
-        keypoints_3d_gt,
+        kps_world_pred,
+        kps_world_gt,
         keypoints_3d_binary_validity_gt,
         config.opt.scale_keypoints_3d
     )
@@ -259,7 +259,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         total_loss
 
 
-def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
+def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
     n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
@@ -273,7 +273,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     def _forward_kp():
         if config.cam2cam.data.using_gt:
-            return get_kp_gt(keypoints_3d_gt, batch['cameras'])
+            return get_kp_gt(kps_world_gt, batch['cameras'])
         else:
             return model(
                 images_batch, None, minimon
@@ -300,8 +300,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
-            keypoints_3d_pred,
-            keypoints_3d_gt,
+            kps_world_pred,
+            kps_world_gt,
             keypoints_3d_binary_validity_gt,
             batch['cameras'],
             config
@@ -321,7 +321,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         live_debug_log(_ITER_TAG, message)
 
         per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-            keypoints_3d_pred.detach().cpu().numpy(),
+            kps_world_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
@@ -388,7 +388,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     minimon.enter()
     master_i = 0
-    keypoints_3d_pred = _do_dlt(
+    kps_world_pred = _do_dlt(
         cam2cam_preds[master_i],
         keypoints_2d_pred,
         confidences_pred,
@@ -397,13 +397,13 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     )
 
     if config.debug.dump_tensors:
-        _save_stuff(keypoints_3d_pred, 'keypoints_3d_pred')
+        _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')
-        _save_stuff(keypoints_3d_gt, 'keypoints_3d_gt')
+        _save_stuff(kps_world_gt, 'kps_world_gt')
 
     minimon.leave('cam2cam DLT')
 
     if is_train:
         _backprop()
 
-    return keypoints_3d_pred.detach().cpu()
+    return kps_world_pred.detach().cpu()

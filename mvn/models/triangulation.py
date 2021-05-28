@@ -257,7 +257,7 @@ class VolumetricTriangulationNet(nn.Module):
         self.heatmap_multiplier = config.model.heatmap_multiplier
 
         # transfer
-        self.transfer_cmu_to_human36m = config.model.transfer_cmu_to_human36m if hasattr(config.model, "transfer_cmu_to_human36m") else False
+        self.transfer_cmu_to_human36m = config.model.tfer_cmu_to_human36m if hasattr(config.model, "transfer_cmu_to_human36m") else False
 
         # modules
         config.model.backbone.alg_confidences = False

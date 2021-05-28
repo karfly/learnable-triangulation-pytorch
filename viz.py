@@ -10,9 +10,10 @@ from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 
 
+# todo fix legs
 def get_joints_connections():
     return [
-        (6, 1),
+        (6, 1),  # pelvis -> 
         (1, 0),
         (1, 4),
         (4, 5),

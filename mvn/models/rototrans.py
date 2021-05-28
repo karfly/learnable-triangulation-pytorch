@@ -2,7 +2,6 @@ from torch import nn
 import torch
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.unet import MLUNet
 from mvn.models.layers import R6DBlock, RodriguesBlock
 
 
@@ -58,7 +57,7 @@ class RotoTransNet(nn.Module):
         drop_out = config.cam2cam.model.drop_out
         n_features = config.cam2cam.model.n_features
 
-        if config.cam2cam.model.type == 'mlp':
+        if config.cam2cam.model.type == 'mlp':  # what else?
             self.backbone = nn.Sequential(*[
                 nn.Flatten(),  # will be fed into a MLP
                 MLPResNet(
@@ -72,41 +71,21 @@ class RotoTransNet(nn.Module):
                 ),
                 # can be helpful sometimes nn.BatchNorm1d(n_features),
             ])
-        elif config.cam2cam.model.type == 'unet':
-            self.backbone = nn.Sequential(*[
-                nn.Flatten(),  # will be fed into a MLP
-                MLUNet(
-                    in_features=self.n_views_comparing * n_joints * 2,
-                    out_features=n_features,
-                    drop_out=0.0,
-                    activation=nn.LeakyReLU,
-                ),
-                # can be helpful sometimes nn.BatchNorm1d(n_features),
-            ])
 
-        n_params_per_R = 6 if config.cam2cam.model.roto.parametrization == '6d' else 3
+        n_params_per_R = 6 if config.cam2cam.model.R.parametrization == '6d' else 3
         if config.cam2cam.model.type == 'mlp':
             self.R_backbone = nn.Sequential(*[
                 MLPResNet(
                     in_features=n_features,
                     inner_size=n_features,
-                    n_inner_layers=config.cam2cam.model.roto.n_layers,
+                    n_inner_layers=config.cam2cam.model.R.n_layers,
                     out_features=n_params_per_R * self.n_views_comparing,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
                 ),
             ])
-        elif config.cam2cam.model.type == 'unet':
-            self.R_backbone = nn.Sequential(*[
-                MLUNet(
-                    in_features=n_features,
-                    out_features=n_params_per_R * self.n_views_comparing,
-                    drop_out=0.0,
-                    activation=nn.LeakyReLU,
-                ),
-            ])
-        self.r_model = R6DBlock() if config.cam2cam.model.roto.parametrization == '6d' else RodriguesBlock()
+        self.r_model = R6DBlock() if config.cam2cam.model.R.parametrization == '6d' else RodriguesBlock()
 
         self.td = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
         if config.cam2cam.model.type == 'mlp':
@@ -114,23 +93,14 @@ class RotoTransNet(nn.Module):
                 MLPResNet(
                     in_features=n_features,
                     inner_size=n_features,
-                    n_inner_layers=config.cam2cam.model.trans.n_layers,
+                    n_inner_layers=config.cam2cam.model.t.n_layers,
                     out_features=self.td * self.n_views_comparing,
                     batch_norm=batch_norm,
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
                 ),
             ])
-        elif config.cam2cam.model.type == 'unet':
-            self.t_backbone = nn.Sequential(*[
-                MLUNet(
-                    in_features=n_features,
-                    out_features=self.td * self.n_views_comparing,
-                    drop_out=0.0,
-                    activation=nn.LeakyReLU,
-                ),
-            ])
-        # todo self.t_model
+        # todo self.t_model = 
 
         self.combiner = RotoTransCombiner()
 

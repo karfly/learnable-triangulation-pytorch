@@ -23,6 +23,10 @@ class MLPResNet(nn.Module):
             nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
             for i in range(len(sizes) - 1)
         ])
+        self.second_bns = nn.ModuleList([
+            nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
+            for i in range(len(sizes) - 1)
+        ])
 
         # todo dropout
         self.activation = activation()  # inplace=False
@@ -44,14 +48,16 @@ class MLPResNet(nn.Module):
 
         for i in range(len(self.linears)):
             l, b = self.linears[i], self.bns[i]
-            l2 = self.second_linears[i]
+            l2, b2 = self.second_linears[i], self.second_bns[i]
 
             x = l(x)
             if not (b is None):
                 x = b(x)
             x = self.activation(x)
 
-            x = l2(x)  # no second BN !!!
+            x = l2(x)  # trying second BN ...
+            if not (b2 is None):
+                x = b2(x)
 
             x = x + residual
             x = self.activation(x)  # activation AFTER residual

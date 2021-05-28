@@ -51,13 +51,13 @@ cam2cam:
 
   preprocess:
     pelvis_center_kps: true
-    normalize_kps: "maxfro"
+    normalize_kps: "fro"
 
   postprocess:
     scale_t: 1000.0
 
   model:
-    type: "unet"
+    type: "mlp"
     batch_norm: true
 # `Martin` would disapprove
     drop_out: 0
@@ -67,12 +67,12 @@ cam2cam:
       inner_size: 1024
       n_layers: 6
 
-    roto:
-      n_layers: 3
+    R:
+      n_layers: 6
       parametrization: "6d"
 
-    trans:
-      n_layers: 3
+    t:
+      n_layers: 5
 
     init_weights: false
     checkpoint: ".../cam2cam_model.pth"
@@ -83,14 +83,14 @@ cam2cam:
     proj_weight: 0.0
     tred_weight: 5.0
     self_consistency:
-      cam: 100.0
-      proj: 100.0
+      cam: 25.0
+      proj: 25.0
 
   opt:
-    grad_clip: 10.0
+    grad_clip: 0.25
 # https://stats.stackexchange.com/a/352037
     lr: 0.00015
-    weight_decay: 0.1
+    weight_decay: 1.0
 
 model:
   name: "alg"

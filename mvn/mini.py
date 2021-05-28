@@ -40,8 +40,8 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.cam2cam.model.backbone.inner_size = 16
     config.cam2cam.model.backbone.n_layers = 1
     
-    config.cam2cam.model.roto.n_layers = 1
-    config.cam2cam.model.trans.n_layers = 1
+    config.cam2cam.model.R.n_layers = 1
+    config.cam2cam.model.t.n_layers = 1
 
     config.cam2cam.model.n_features = 16
     config.cam2cam.model.n_refine_features = 8

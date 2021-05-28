@@ -68,7 +68,7 @@ cam2cam:
 
     roto:
       n_layers: 2
-      parametrization: "6d"
+      parametrization: "rod"
 
     trans:
       n_layers: 2

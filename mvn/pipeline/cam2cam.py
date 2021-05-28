@@ -307,10 +307,10 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.1f}, TRANS ~ {:.1f}, POSE ~ {:.1f}, 3D ~ {:.1f}, SELF C ~ {:.1f}, SELF P ~ {:.1f}, TOTAL ~ {:.1f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.1f}, 3D ~ {:.0f}, SELF CAM ~ {:.1f}, SELF 2D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
-            geodesic_loss.item(),  # normalize per each sample
+            geodesic_loss.item(),
             trans_loss.item(),
             loss_cam2cam.item(),
             pose_loss.item(),

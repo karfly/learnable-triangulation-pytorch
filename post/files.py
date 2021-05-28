@@ -106,22 +106,24 @@ def parse_job_log(f_path, verbose=False):
 
             # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627
             for loss_name, loss_val in available_losses:
-                if loss_name == 'geo':
-                    key = 'geodesic'
-                elif loss_name == 'trans':
-                    key = 'L2 on T'
-                elif loss_name == 'pose':
-                    key = 'L2 proj'
+                if loss_name == 'geo' or loss_name == 'r':
+                    key = 'R'
+                elif loss_name == 'trans' or loss_name == 't':
+                    key = 't'
+                elif loss_name == 'pose' or loss_name == '2d':
+                    key = '2D'
                 elif loss_name == '3d':
-                    key = 'L2 on 3D'
+                    key = '3D'
                 elif loss_name == 'self r':
-                    key = 'self-consistency R'
+                    key = 'self R'
                 elif loss_name == 'self t':
-                    key = 'self-consistency t'
+                    key = 'self t'
                 elif loss_name == 'self ext':
-                    key = 'self-consistency ext'
-                elif loss_name == 'self p':
-                    key = 'self-consistency P'
+                    key = 'self ext'
+                elif loss_name == 'self c' or loss_name == 'self cam':
+                    key = 'self cam2cam'
+                elif loss_name == 'self p' or loss_name == 'self 2d':
+                    key = 'self P'
                 elif loss_name == 'total':
                     key = 'total'
 

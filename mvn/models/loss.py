@@ -237,8 +237,8 @@ def _self_consistency_cam(cams_preds, scale_t):
             ])
             loss_R += geodesic_distance(compare_i, compare_j)
             
-            mean_t = torch.mean(torch.cat([
-                cams[:, 2, 3][i].unsqueeze(0)
+            sum_t = torch.sum(torch.cat([
+                torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
             ]))
             compare_i = torch.cat([
@@ -249,10 +249,10 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
                 for _, j in comparisons
             ])
-            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j) * mean_t  # favour small distances
+            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j) * sum_t  # favour small distances
 
     normalization = n_cams * batch_size
-    loss_R = loss_R / normalization * 1e2
+    loss_R = loss_R / normalization * (scale_t / 1e1)  # ~ rescale
     loss_t = loss_t / normalization
 
     return loss_R + loss_t

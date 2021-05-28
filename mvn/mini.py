@@ -8,7 +8,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
 
     config.image_shape = [384, 384]
 
-    config.debug.show_models = True
+    config.debug.show_models = False
     config.debug.write_imgs = False
     config.debug.img_out = '/home/stefano/Scuola/tud/_classes/4/thesis/logs/imgs'
     config.debug.dump_checkpoints = False

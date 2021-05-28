@@ -51,7 +51,7 @@ class MLPResNet(nn.Module):
                 x = b(x)
             x = self.activation(x)
 
-            x = l2(x)  # no second BN
+            x = l2(x)  # no second BN !!!
 
             x = x + residual
             x = self.activation(x)  # activation AFTER residual

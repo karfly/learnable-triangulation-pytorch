@@ -248,10 +248,9 @@ def _self_consistency_cam2cam(cams_preds, scale_t):
             loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j)
 
     normalization = n_cams * batch_size
-
-    loss_R = loss_R * 1e3 / normalization  # to compare against t
-    loss_t = loss_t / normalization  # to compare against t
-
+    loss_R = loss_R / normalization
+    loss_t = loss_t / normalization
+    
     return loss_R + loss_t
 
 
@@ -277,6 +276,12 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
             for batch_i in range(batch_size)
         ])
     )
+
+
+def _self_separation():
+    """ see eq 8 in https://papers.nips.cc/paper/2018/file/24146db4eb48c718b84cae0a0799dcfc-Paper.pdf """
+
+    return None  # todo
 
 
 def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, scale_t):

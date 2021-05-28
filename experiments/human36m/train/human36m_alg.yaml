@@ -57,6 +57,7 @@ cam2cam:
     scale_t: 1000.0
 
   model:
+    type: "unet"
     batch_norm: true
 # `Martin` would disapprove
     drop_out: 0
@@ -80,9 +81,9 @@ cam2cam:
     geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
-    tred_weight: 50.0
+    tred_weight: 5.0
     self_consistency:
-      cam2cam: 100.0
+      cam: 100.0
       proj: 100.0
 
   opt:

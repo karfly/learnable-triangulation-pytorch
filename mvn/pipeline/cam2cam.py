@@ -72,18 +72,6 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
             for batch_i in range(batch_size)
         ])
 
-    print('samples from bat #0:')
-    for view_i in range(n_views):
-        points = kps[0, view_i]  # not too many
-
-        # print('KP in view')
-        # print(points)
-
-        print('metric:')
-        print(torch.norm(points, p='fro'))
-
-    1/0
-
     return torch.cat([
         torch.cat([
             (
@@ -245,9 +233,9 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     loss_self_cam, loss_self_2d = self_consistency_loss(
         cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i, config.cam2cam.postprocess.scale_t
     )
-    if config.cam2cam.loss.self_consistency.cam2cam > 0:
+    if config.cam2cam.loss.self_consistency.cam > 0:
         total_loss += get_weighted_loss(
-            loss_self_cam, config.cam2cam.loss.self_consistency.cam2cam, 1e1, 4e4
+            loss_self_cam, config.cam2cam.loss.self_consistency.cam, 1e1, 4e4
         )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += get_weighted_loss(
@@ -361,10 +349,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if config.debug.dump_tensors:
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
-
-    print('cam in 0 batch:')
-    for view_i in range(4):
-        print(batch['cameras'][view_i][0])
 
     cam2cam_gts = _get_cam2cam_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:

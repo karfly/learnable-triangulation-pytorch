@@ -41,6 +41,7 @@ def homogeneous_to_euclidean(points):
         return (points.transpose(1, 0)[:-1] / points.transpose(1, 0)[-1]).transpose(1, 0)
 
 
+# todo refactor using fs like _myproj ...
 class Camera:
     def __init__(self, R, t, K, dist=None, name=""):
         self.R = np.array(R).copy()  # 3 x 3
@@ -183,6 +184,12 @@ class Camera:
             # return x @ m.T
 
         return _f
+
+    def __str__(self):
+        return 'K:\n{}\nR | t:\n{}'.format(
+            str(self.K),
+            str(self.extrinsics)
+        )
 
 
 def build_intrinsics(translation=(0, 0), f=(1, 1), shear=1):

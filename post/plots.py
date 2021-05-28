@@ -78,50 +78,72 @@ def plot_loss(axis, loss_history, label, xrange, color):
 
 def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='# epoch'):
     loss_keys = list(filter(
-        lambda x: 'loss / batch' in x and 'total' not in x,
+        lambda x: 'loss / batch' in x,
         epochs[0].keys()
     ))
-    if len(loss_keys) == 0:  # at least just show the training loss
-        loss_keys = ['training loss / batch']
-        colors = ['red']
-    else:
-        colors = [
-            'darkorange',
-            'forestgreen',
-            'lightskyblue',
-            'royalblue',
-            'darkviolet',
-            'fuchsia',
-            'gray'
-        ]
+    loss_plotters = {  # todo config file
+        'total loss / batch': {
+            'color': 'black',
+            'scaler': 1e-2,
+            'show': False,
+        },
+        'R loss / batch': {
+            'color': 'darkorange',
+            'scaler': 5e0,
+            'show': True,
+        },
+        't loss / batch': {
+            'color': 'forestgreen',
+            'scaler': 2e0,
+            'show': True,
+        },
+        '2D loss / batch': {
+            'color': 'lightskyblue',
+            'scaler': 5e-1,
+            'show': True,
+        },
+        '3D loss / batch': {
+            'color': 'darkviolet',
+            'scaler': 2e-1,
+            'show': True,
+        },
+        'self cam loss / batch': {
+            'color': 'fuchsia',
+            'scaler': 3e-1,
+            'show': True,
+        },
+        'self 2D loss / batch': {
+            'color': 'gray',
+            'scaler': 1e0,
+            'show': True,
+        }
+    }
 
-    #                 R     T   2D   3D    s.C   s.2D
-    loss_scalers = [5e1, 5e-1, 5e-1, 2e-1, 3e-2, 2e0]
-
-    for key, color, multip in zip(loss_keys, colors, loss_scalers):
+    for key in loss_keys:
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
-            loss_history = np.float32([
-                np.mean(epoch[key])
-                for epoch in epochs
-            ])
-            nan = np.mean(drop_na(loss_history))
-            loss_history = np.nan_to_num(loss_history, nan=nan)
+            if key in loss_plotters and loss_plotters[key]['show']:
+                loss_history = np.float32([
+                    np.mean(epoch[key])
+                    for epoch in epochs
+                ])
+                nan = np.mean(drop_na(loss_history))
+                loss_history = np.nan_to_num(loss_history, nan=nan)
 
-            if np.mean(loss_history) > 1e-2:
-                _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
-                _last = loss_history[-1]
-                label = '{} = {:.1f} [{:.1f}, {:.1f}]'.format(
-                    key.replace('loss / batch', '').strip(),
-                    _last, _min, _max
-                )
+                if np.mean(loss_history) > 1e-2:
+                    _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
+                    _last = loss_history[-1]
+                    label = '{} = {:.1f} [{:.1f}, {:.1f}]'.format(
+                        key.replace('loss / batch', '').strip(),
+                        _last, _min, _max
+                    )
 
-                plot_loss(
-                    axis,
-                    loss_history * multip,
-                    label,
-                    xrange,
-                    color
-                )
+                    plot_loss(
+                        axis,
+                        loss_history * loss_plotters[key]['scaler'],
+                        label,
+                        xrange,
+                        loss_plotters[key]['color']
+                    )
 
     axis.set_xlim([xrange[0], xrange[-1]])
     axis.set_xlabel(xlabel)

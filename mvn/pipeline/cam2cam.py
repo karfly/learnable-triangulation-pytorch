@@ -47,7 +47,7 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
         scaling = torch.cat([
             torch.max(
                 torch.cat([
-                    dist2pelvis(kps[batch_i, view_i]) * 1e1
+                    dist2pelvis(kps[batch_i, view_i])
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
             ).unsqueeze(0).repeat(1, n_views)  # same for each view
@@ -71,6 +71,18 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
             ).unsqueeze(0).repeat(1, n_views)  # same for each view
             for batch_i in range(batch_size)
         ])
+
+    print('samples from bat #0:')
+    for view_i in range(n_views):
+        points = kps[0, view_i]  # not too many
+
+        # print('KP in view')
+        # print(points)
+
+        print('metric:')
+        print(torch.norm(points, p='fro'))
+
+    1/0
 
     return torch.cat([
         torch.cat([
@@ -345,10 +357,14 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         minimon.leave('backward pass')
 
     minimon.enter()
-    keypoints_2d_pred, heatmaps_pred, confidences_pred = _forward_kp()
+    keypoints_2d_pred, _, confidences_pred = _forward_kp()
     if config.debug.dump_tensors:
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
+
+    print('cam in 0 batch:')
+    for view_i in range(4):
+        print(batch['cameras'][view_i][0])
 
     cam2cam_gts = _get_cam2cam_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:

@@ -437,3 +437,21 @@ def calc_reprojection_error_matrix(keypoints_3d, keypoints_2d_list, proj_matrici
         reprojection_error_matrix.append(reprojection_error)
 
     return np.vstack(reprojection_error_matrix).T
+
+
+def _2camspace(ext_from, ext_to):
+    return torch.mm(
+        ext_to,
+        torch.inverse(ext_from)
+    ).T
+
+
+def _2proj(ext_from, ext_to, K_to):
+    trans_camspace = _2camspace(ext_from, ext_to)
+
+    def _f(x):
+        to_camspace = euclidean_to_homogeneous(x) @ trans_camspace
+        projected = to_camspace @ K_to.T
+        return homogeneous_to_euclidean(projected)
+
+    return _f

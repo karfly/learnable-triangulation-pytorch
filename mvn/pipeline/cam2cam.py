@@ -118,7 +118,7 @@ def _forward_cam2cam(cam2cam_model, detections, master_i, scale_trans2trans, gt=
 
                 if noisy:  # noisy
                     R = R + 1e-2 * torch.rand_like(R)
-                    t = t + 1e2 * torch.rand_like(t)
+                    t = t + 1e1 * torch.rand_like(t)
 
                 preds[batch_i, view_i, :3, :3] = R
                 preds[batch_i, view_i, :3, 3] = t
@@ -230,9 +230,13 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])
-    loss_proj = self_consistency_loss(
+    loss_cam2cam, loss_proj = self_consistency_loss(
         cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i
     )
+    if config.cam2cam.loss.self_consistency.cam2cam > 0:
+        total_loss += get_weighted_loss(
+            loss_cam2cam, config.cam2cam.loss.self_consistency.cam2cam, 1e1, 4e4
+        )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += get_weighted_loss(
             loss_proj, config.cam2cam.loss.self_consistency.proj, 1e1, 4e4
@@ -251,7 +255,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
 
     return geodesic_loss, trans_loss,\
         pose_loss, loss_3d,\
-        loss_proj,\
+        loss_cam2cam, loss_proj,\
         total_loss
 
 
@@ -292,7 +296,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, pose_loss, loss_3d, loss_proj, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, pose_loss, loss_3d, loss_cam2cam, loss_proj, total_loss = _compute_losses(
             cam2cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -303,11 +307,12 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: GEO ~ {:.3f}, TRANS ~ {:.3f}, POSE ~ {:.3f}, 3D ~ {:.3f}, SELF P ~ {:.3f}, TOTAL ~ {:.3f}'.format(
+        message = '{} batch iter {:d} losses: GEO ~ {:.1f}, TRANS ~ {:.1f}, POSE ~ {:.1f}, 3D ~ {:.1f}, SELF C ~ {:.1f}, SELF P ~ {:.1f}, TOTAL ~ {:.1f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),  # normalize per each sample
             trans_loss.item(),
+            loss_cam2cam.item(),
             pose_loss.item(),
             loss_3d.item(),
             loss_proj.item(),
@@ -320,7 +325,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
-        message = '{} batch iter {:d} MPJPE: ~ {:.3f} mm'.format(
+        message = '{} batch iter {:d} MPJPE: ~ {:.1f} mm'.format(
             'training' if is_train else 'validation',
             iter_i,
             per_pose_error_relative

@@ -142,11 +142,15 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     marker = '+'
 
     metrics = np.float32(list(map(lambda x: x['training metrics (rel)'], epochs)))
-    abs_metrics = np.float32(list(map(lambda x: x['training metrics (abs)'], epochs)))
+    if 'training metrics (abs)' in epochs[-1]:
+        last_abs_metrics = np.float32(epochs[-1]['training metrics (abs)'])
+    else:
+        last_abs_metrics = None
+    
     label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
-    if abs_metrics[-1] != metrics[-1]:
+    if last_abs_metrics and last_abs_metrics != metrics[-1]:
         label += ', abs MPJPE = {:.0f}'.format(
-            abs_metrics[-1]
+            last_abs_metrics[-1]
         )
 
     plot_stuff(
@@ -164,11 +168,15 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     )
 
     metrics = np.float32(list(map(lambda x: x['eval metrics (rel)'], epochs)))
-    abs_metrics = np.float32(list(map(lambda x: x['eval metrics (abs)'], epochs)))
     label = 'eval rel MPJPE = {:.0f}'.format(metrics[-1])
-    if abs_metrics[-1] != metrics[-1]:
+    if 'eval metrics (abs)' in epochs[-1]:
+        last_abs_metrics = np.float32(epochs[-1]['training metrics (abs)'])
+    else:
+        last_abs_metrics = None
+    
+    if last_abs_metrics and last_abs_metrics != metrics[-1]:
         label += ', abs MPJPE = {:.0f}'.format(
-            abs_metrics[-1]
+            last_abs_metrics
         )
 
     plot_stuff(

@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous
-from mvn.utils.misc import get_pairs, get_inverse_i_from_pair
+from mvn.utils.multiview import _2camspace, _2proj
+from mvn.utils.misc import get_pairs, get_inverse_i_from_pair, get_master_pairs
 
 
 class KeypointsMSELoss(nn.Module):
@@ -211,22 +211,6 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
 
-    def _2camspace(ext_from, ext_to):
-        return torch.mm(
-            ext_to,
-            torch.inverse(ext_from)
-        ).T
-
-    def _2proj(ext_from, ext_to, K_to):
-        trans_camspace = _2camspace(ext_from, ext_to)
-
-        def _f(x):
-            to_camspace = euclidean_to_homogeneous(x) @ trans_camspace
-            projected = to_camspace @ K_to.T
-            return homogeneous_to_euclidean(projected)
-
-        return _f
-
     return torch.cat([
         torch.cat([
             _2proj(
@@ -238,6 +222,42 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
         ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2
         for batch_i in range(batch_size)
     ])
+
+
+def _self_consistency_cam2cam(cams_preds):
+    ordered_views = get_master_pairs()
+    n_cams = cams_preds.shape[0]
+    batch_size = cams_preds.shape[1]
+
+    loss_R = torch.tensor(0.0).to(cams_preds.device)
+    loss_t = torch.tensor(0.0).to(cams_preds.device)
+
+    for cam_i in range(n_cams):  # todo tensored
+        index_cam = [
+            master_views.index(cam_i)
+            for master_views in ordered_views
+        ]
+        for batch_i in range(batch_size):  # todo tensored
+            cams = torch.cat([
+                cams_preds[row_i, batch_i, i].unsqueeze(0)
+                for row_i, i in enumerate(index_cam)
+            ])  # same extrinsics cam but predicted from a different master ...
+
+            # ... should be the same
+            Rs = cams[:, :3, :3]
+            mean = torch.mean(Rs, axis=0).unsqueeze(0)
+            loss_R += MSESmoothLoss(threshold=1e2)(Rs, mean)  # todo use geodesic
+
+            ts = cams[:, 2, 3]
+            mean = torch.mean(ts).unsqueeze(0).repeat(n_cams, 1)
+            loss_t += MSESmoothLoss(threshold=1e2)(ts, mean)
+
+    normalization = n_cams * batch_size
+    
+    loss_R = loss_R * 1e3 / normalization  # to compare against t
+    loss_t = loss_t / normalization  # to compare against t
+
+    return loss_R + loss_t
 
 
 def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
@@ -264,10 +284,11 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
 
 
 def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i):
+    loss_cam2cam = _self_consistency_cam2cam(cams_preds)
     loss_proj = _self_consistency_P(
         cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i
     )
-    return loss_proj  # todo and others
+    return loss_cam2cam, loss_proj  # todo and others
 
 
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):

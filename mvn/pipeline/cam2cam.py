@@ -99,7 +99,7 @@ def _get_cam2cam_gt(cameras):
     return cam2cam_gts.cuda()
 
 
-def _forward_cam2cam(cam2cam_model, detections, master_i, scale_trans2trans, gt=None, noisy=False):
+def _forward_cam2cam(cam2cam_model, detections, master_i, scale_t, gt=None, noisy=False):
     batch_size = detections[master_i].shape[0]
     n_views = detections[master_i].shape[1]
 
@@ -110,7 +110,7 @@ def _forward_cam2cam(cam2cam_model, detections, master_i, scale_trans2trans, gt=
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
         # for pair_i in range(n_views - 1):
-            preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_trans2trans
+            preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
             
             if not (gt is None):
                 R = gt[master_i, batch_i, view_i, :3, :3].cuda().detach().clone()
@@ -209,7 +209,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
     trans_loss = t_loss(
         cam2cam_gts[master_cam_i],
         master2other_preds[master_cam_i],
-        config.cam2cam.postprocess.scale_trans2trans
+        config.cam2cam.postprocess.scale_t
     )
     if config.cam2cam.loss.trans_weight > 0:
         total_loss += config.cam2cam.loss.trans_weight * trans_loss
@@ -231,7 +231,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, keypoint
         for batch_i in range(batch_size)
     ])
     loss_self_cam, loss_self_2d = self_consistency_loss(
-        cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i
+        cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i, config.cam2cam.postprocess.scale_t
     )
     if config.cam2cam.loss.self_consistency.cam2cam > 0:
         total_loss += get_weighted_loss(
@@ -375,7 +375,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             cam2cam_model,
             detections,
             master_i,
-            config.cam2cam.postprocess.scale_trans2trans,
+            config.cam2cam.postprocess.scale_t,
             cam2cam_gts if config.debug.gt_cams else None,
             noisy=config.debug.noisy
         ).unsqueeze(0)

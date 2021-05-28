@@ -143,14 +143,13 @@ def geo_loss(gts, preds, criterion=geodesic_distance):
     )
 
 
-def t_loss(gts, preds, scale_trans2trans, criterion=MSESmoothLoss(threshold=4e2)):
+def t_loss(gts, preds, scale_t, criterion=MSESmoothLoss(threshold=4e2)):
     dev = preds.device
     n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
-
     return criterion(
-        preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_trans2trans,  # just t
-        gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_trans2trans
+        preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_t,  # just t
+        gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_t
     )
 
 
@@ -207,7 +206,7 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
     ])
 
 
-def _self_consistency_cam2cam(cams_preds):
+def _self_consistency_cam2cam(cams_preds, scale_t):
     ordered_views = get_master_pairs()
     n_cams = cams_preds.shape[0]
     batch_size = cams_preds.shape[1]
@@ -239,14 +238,14 @@ def _self_consistency_cam2cam(cams_preds):
             loss_R += geodesic_distance(compare_i, compare_j)
             
             compare_i = torch.cat([
-                cams[:, 2, 3][i].unsqueeze(0)  # just t
+                cams[:, 2, 3][i].unsqueeze(0) / scale_t  # just t
                 for i, _ in comparisons
             ])
             compare_j = torch.cat([
-                cams[:, 2, 3][j].unsqueeze(0)  # just t
+                cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
                 for _, j in comparisons
             ])
-            loss_t += MSESmoothLoss(threshold=1e2)(compare_i, compare_j)
+            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j)
 
     normalization = n_cams * batch_size
 
@@ -280,8 +279,8 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     )
 
 
-def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i):
-    loss_cam2cam = _self_consistency_cam2cam(cams_preds)
+def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, scale_t):
+    loss_cam2cam = _self_consistency_cam2cam(cams_preds, scale_t)
     loss_proj = _self_consistency_P(
         cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i
     )

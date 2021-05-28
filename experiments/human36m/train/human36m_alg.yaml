@@ -54,7 +54,7 @@ cam2cam:
     normalize_kps: "fro"
 
   postprocess:
-    scale_trans2trans: 100.0
+    scale_t: 100.0
 
   model:
     batch_norm: true
@@ -83,7 +83,7 @@ cam2cam:
     tred_weight: 10.0
     self_consistency:
       cam2cam: 1.0
-      proj: 100.0
+      proj: 2000.0
 
   opt:
     grad_clip: 10.0

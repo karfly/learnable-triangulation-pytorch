@@ -96,7 +96,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         ]
 
     #                 R     T   2D   3D    s.C   s.2D
-    loss_scalers = [5e1, 5e-1, 5e-1, 2e-1, 2e-1, 3e-3]
+    loss_scalers = [5e1, 5e-1, 5e-1, 2e-1, 3e-2, 2e0]
 
     for key, color, multip in zip(loss_keys, colors, loss_scalers):
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM

@@ -16,7 +16,7 @@ class RotoTransCombiner(nn.Module):
         if translations.shape[-1] == 1:  # predicted just distance
             trans = torch.cat([  # ext.t in each view
                 torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
-                translations.unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
+                torch.abs(translations).unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
             ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
         else:
             trans = translations.unsqueeze(-1)

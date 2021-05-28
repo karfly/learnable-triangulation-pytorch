@@ -89,12 +89,12 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         'R loss / batch': {
             'color': 'darkorange',
-            'scaler': 5e1,
+            'scaler': 2e1,
             'show': True,
         },
         't loss / batch': {
             'color': 'forestgreen',
-            'scaler': 5e0,
+            'scaler': 2e0,
             'show': True,
         },
         '2D loss / batch': {

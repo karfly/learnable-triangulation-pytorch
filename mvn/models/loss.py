@@ -237,6 +237,10 @@ def _self_consistency_cam(cams_preds, scale_t):
             ])
             loss_R += geodesic_distance(compare_i, compare_j)
             
+            mean_t = torch.mean(torch.cat([
+                cams[:, 2, 3][i].unsqueeze(0)
+                for i in range(n_cams)
+            ]))
             compare_i = torch.cat([
                 cams[:, 2, 3][i].unsqueeze(0) / scale_t  # just t
                 for i, _ in comparisons
@@ -245,12 +249,12 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
                 for _, j in comparisons
             ])
-            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j)
+            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j) * mean_t  # favour small distances
 
     normalization = n_cams * batch_size
-    loss_R = loss_R / normalization
+    loss_R = loss_R / normalization * 1e2
     loss_t = loss_t / normalization
-    
+
     return loss_R + loss_t
 
 
@@ -262,6 +266,7 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
+    dev = keypoints_cam_pred.device
 
     norm_criterion = lambda gt, pred: criterion(gt, pred) / torch.norm(pred, p='fro')  # penalize trivial solutions
     return torch.mean(
@@ -270,8 +275,8 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
                 torch.cat([
                     initial_keypoints[batch_i, i].unsqueeze(0)
                     for _, i in pairs
-                ]).to(keypoints_cam_pred.device),
-                projections[batch_i].to(keypoints_cam_pred.device),
+                ]).to(dev),
+                projections[batch_i].to(dev),
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ])

@@ -190,13 +190,13 @@ def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
-
+    dev = keypoints_mastercam_pred.device
     return torch.cat([
         torch.cat([
             _2proj(
                 cams_pred[master_cam_i, batch_i, master_cam_i],
                 cams_pred[master_cam_i, batch_i, target],
-                torch.DoubleTensor(cameras[i][0].intrinsics_padded).to(keypoints_mastercam_pred.device),
+                torch.DoubleTensor(cameras[i][0].intrinsics_padded).to(dev),
             )(keypoints_mastercam_pred[batch_i]).unsqueeze(0)
             for i, (_, target) in enumerate(pairs)
         ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2
@@ -208,9 +208,10 @@ def _self_consistency_cam2cam(cams_preds):
     ordered_views = get_master_pairs()
     n_cams = cams_preds.shape[0]
     batch_size = cams_preds.shape[1]
+    dev = cams_preds.device
 
-    loss_R = torch.tensor(0.0).to(cams_preds.device)
-    loss_t = torch.tensor(0.0).to(cams_preds.device)
+    loss_R = torch.tensor(0.0).to(dev)
+    loss_t = torch.tensor(0.0).to(dev)
 
     for cam_i in range(n_cams):  # todo tensored
         index_cam = [
@@ -233,7 +234,7 @@ def _self_consistency_cam2cam(cams_preds):
             loss_t += MSESmoothLoss(threshold=1e2)(ts, mean)
 
     normalization = n_cams * batch_size
-    
+
     loss_R = loss_R * 1e3 / normalization  # to compare against t
     loss_t = loss_t / normalization  # to compare against t
 
@@ -260,8 +261,9 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
 
-    # print(projections[0])
-    # print(initial_keypoints[0])
+    print(projections[0])
+    print(initial_keypoints[0])
+    1/0
 
     return torch.mean(
         torch.cat([

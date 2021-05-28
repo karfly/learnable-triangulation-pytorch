@@ -263,7 +263,8 @@ class Human36MMultiViewDataset(Dataset):
             # scale the bounding box
             bbox = scale_bbox(bbox, self.scale_bbox)
 
-            image = self._load_image(subject, action, camera_name, frame_idx)
+            # todo using GT ... image = self._load_image(subject, action, camera_name, frame_idx)
+            image = np.zeros((384, 384, 3))
 
             # load camera
             shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
@@ -280,9 +281,9 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_after_crop(bbox)
 
             if self.resample_same_K:  # todo move to __init__
-                square = (0, 0, 1000, 1000)  # get rid of 1K + eps
-                # todo using GT ... image = crop_image(image, square)
-                retval_camera.update_after_crop(square)
+                # todo using GT ... square = (0, 0, 1000, 1000)  # get rid of 1K + eps
+                # image = crop_image(image, square)
+                # retval_camera.update_after_crop(square)
 
                 # have same intrinsics
                 # todo using GT ... image = resample_image(
@@ -307,8 +308,8 @@ class Human36MMultiViewDataset(Dataset):
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]
-                image = resize_image(image, self.image_shape)
-                # todo using GT ... retval_camera.update_after_resize(
+                # todo using GT ... image = resize_image(image, self.image_shape)
+                # retval_camera.update_after_resize(
                 #     image_shape_before_resize, self.image_shape
                 # )
 

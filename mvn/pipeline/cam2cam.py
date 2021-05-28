@@ -117,8 +117,8 @@ def _forward_cam2cam(cam2cam_model, detections, master_i, scale_trans2trans, gt=
                 t = gt[master_i, batch_i, view_i, :3, 3].cuda().detach().clone()
 
                 if noisy:  # noisy
-                    R = R + 1e-2 * torch.rand_like(R)
-                    t = t + 1e1 * torch.rand_like(t)
+                    R = R + 1e-1 * torch.rand_like(R)
+                    t = t + 1e2 * torch.rand_like(t)
 
                 preds[batch_i, view_i, :3, :3] = R
                 preds[batch_i, view_i, :3, 3] = t
@@ -307,7 +307,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.1f}, 3D ~ {:.0f}, SELF CAM ~ {:.1f}, SELF 2D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF CAM ~ {:.1f}, SELF 2D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),

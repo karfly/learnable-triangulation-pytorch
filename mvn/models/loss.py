@@ -261,13 +261,10 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     pairs = get_pairs()[master_cam_i]
     pairs = [(0, 0)] + pairs  # project also to master
 
-    print(projections[0])
-    print(initial_keypoints[0])
-    1/0
-
+    norm_criterion = lambda gt, pred: criterion(gt, pred) / torch.norm(pred, p='fro')
     return torch.mean(
         torch.cat([
-            criterion(
+            norm_criterion(
                 torch.cat([
                     initial_keypoints[batch_i, i].unsqueeze(0)
                     for _, i in pairs

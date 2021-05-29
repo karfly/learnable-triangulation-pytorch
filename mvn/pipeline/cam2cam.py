@@ -230,7 +230,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
 
     loss_proj = twod_proj_loss(
         kps_world_gt,
-        kps_world_pred.mean(axis=0),
+        kps_world_pred,
         cameras,
         master2other_preds[master_cam_i]
     )
@@ -260,7 +260,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
         )
 
     loss_world = tred_loss(
-        kps_world_pred.mean(axis=0),  # all masters are equivalent => mean
+        kps_world_pred,  # all masters are equivalent => mean
         kps_world_gt,
         keypoints_3d_binary_validity_gt,
         config.opt.scale_keypoints_3d
@@ -338,8 +338,8 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         )
         live_debug_log(_ITER_TAG, message)
 
-        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-            kps_world_pred.mean(axis=0).detach().cpu().numpy(),
+        per_pose_error_relative, _, _ = dataloader.dataset.evaluate(
+            kps_world_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
@@ -388,6 +388,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.enter()
 
     n_cameras = len(batch['cameras'])
+    master_i = np.random.randint(0, n_cameras)
     cam_preds = torch.cat([
         _forward_cam2cam(
             cam2cam_model,
@@ -405,16 +406,17 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.leave('cam2cam forward')
 
     minimon.enter()
-    kps_world_pred = torch.cat([
-        _do_dlt(
-            cam_preds[master_i],
-            keypoints_2d_pred[:, ordered],
-            confidences_pred,
-            batch['cameras'],
-            master_i
-        ).unsqueeze(0)
-        for master_i, ordered in enumerate(get_master_pairs())
-    ])  # ~ n_master_cams, batch_size, (17 x 3D points)
+    # kps_world_pred = torch.cat([
+    ordered = get_master_pairs()[master_i]
+    kps_world_pred = _do_dlt(
+        cam_preds[master_i],
+        keypoints_2d_pred[:, ordered],
+        confidences_pred,
+        batch['cameras'],
+        master_i
+    )
+    #     for master_i, ordered in enumerate(get_master_pairs())
+    # ])  # ~ n_master_cams, batch_size, (17 x 3D points)
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
@@ -426,4 +428,4 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if is_train:
         _backprop()
 
-    return kps_world_pred.mean(axis=0).detach().cpu()
+    return kps_world_pred.detach().cpu()

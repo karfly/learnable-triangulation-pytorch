@@ -48,6 +48,14 @@ class KeypointsMSESmoothLoss(nn.Module):
         return loss
 
 
+class KeypointsMAELoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(x):
+        return None  # todo
+
+
 class MSESmoothLoss(nn.Module):
     def __init__(self, threshold, alpha=0.1, beta=0.9):
         super().__init__()
@@ -59,27 +67,6 @@ class MSESmoothLoss(nn.Module):
 
         diff[diff > self.threshold] = torch.pow(diff[diff > self.threshold], 0.1) * (self.threshold ** 0.9)  # soft version
         return torch.mean(diff)
-
-
-class KeypointsMAELoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity):
-        dimension = keypoints_pred.shape[-1]
-        loss = torch.sum(torch.abs(keypoints_gt - keypoints_pred) * keypoints_binary_validity)
-        loss = loss / (dimension * max(1, torch.sum(keypoints_binary_validity).item()))
-        return loss
-
-
-class KeypointsL2Loss(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity):
-        loss = torch.sum(torch.sqrt(torch.sum((keypoints_gt - keypoints_pred) ** 2 * keypoints_binary_validity, dim=2)))
-        loss = loss / max(1, torch.sum(keypoints_binary_validity).item())
-        return loss
 
 
 class VolumetricCELoss(nn.Module):
@@ -154,45 +141,6 @@ class HuberLoss(nn.Module):
         return self._criterion(diff)
 
 
-class KeypointsRotoLoss(nn.Module):
-    def __init__(self, threshold=20*20, w_R=1e1, w_t=1e-1):
-        super().__init__()
-
-        self.threshold = threshold  # todo use it
-        self.w_R = w_R
-        self.w_t = w_t
-
-    def forward(self, pred, gt, valids=None):
-        batch_size = pred.shape[0]
-        n_joints = pred.shape[1]
-        dev = 'cuda'
-        
-        loss_R = torch.tensor(0.0).to(dev)
-        loss_t = torch.tensor(0.0).to(dev)
-
-        ref_axis = torch.tensor([0, 0, 1], requires_grad=False).double()
-        for batch_i in range(batch_size):  # todo tensored
-            for joint_i in range(n_joints):
-                is_origin = torch.norm(pred[batch_i, joint_i] - torch.zeros(3)) < 1e-3 or torch.norm(gt[batch_i, joint_i] - torch.zeros(3)) < 1e-3
-                if not is_origin:
-                    loss_t += torch.norm(pred[batch_i, joint_i] - gt[batch_i, joint_i])
-
-                    loss_R += geodesic_distance(
-                        rotation_matrix_from_vectors_torch(
-                            pred[batch_i, joint_i],
-                            ref_axis,
-                        ).unsqueeze(0).to(dev),
-                        rotation_matrix_from_vectors_torch(
-                            gt[batch_i, joint_i],
-                            ref_axis,
-                        ).unsqueeze(0).to(dev)
-                    )
-        
-        total_loss = self.w_R * loss_R + self.w_t * loss_t
-        normalization = batch_size  # * n_joints
-        return total_loss / normalization
-
-
 def geo_loss(gts, preds, criterion=geodesic_distance):
     n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
@@ -214,7 +162,7 @@ def t_loss(gts, preds, scale_t, criterion=MSESmoothLoss(threshold=4e2)):
     )
 
 
-def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsRotoLoss(threshold=20*20)):
+def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     dev = preds.device
     return criterion(
         preds.to(dev) * scale_keypoints_3d,
@@ -369,10 +317,10 @@ def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints,
     loss_proj = _self_consistency_2D(
         torch.DoubleTensor(cameras[0][0].intrinsics_padded),
         cam_preds,
-        kps_world_pred.mean(axis=0),
+        kps_world_pred,
         initial_keypoints
     )
-    loss_world = _self_consistency_world(kps_world_pred, scale_keypoints_3d)
+    loss_world = torch.tensor(0.0)  # todo _self_consistency_world(kps_world_pred, scale_keypoints_3d)
     # todo loss_sep = _self_separation(keypoints_cam_pred)
     return loss_cam2cam, loss_proj, loss_world  # todo and others
 

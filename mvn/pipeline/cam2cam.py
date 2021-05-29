@@ -129,14 +129,9 @@ def _forward_cam2cam(cam2cam_model, detections, master_i, scale_t, gt=None, nois
 def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
     batch_size = keypoints_2d_pred.shape[0]
     full_cams = torch.empty((batch_size, 4, 3, 4))
-    target_cams_i = get_others()[master_cam_i]
 
     for batch_i in range(batch_size):
         master_cam = cameras[master_cam_i][batch_i]
-        target_cams = [
-            cameras[cam_i][batch_i]
-            for cam_i in target_cams_i
-        ]
 
         # full_cams[batch_i] = torch.cat([
         #     torch.cuda.DoubleTensor(master_cam.intrinsics_padded).unsqueeze(0),
@@ -163,21 +158,22 @@ def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
         #     ).unsqueeze(0),
         # ])  # ~ 4, 3, 4
 
+        same_K_for_all = torch.cuda.DoubleTensor(master_cam.intrinsics_padded)
         full_cams[batch_i] = torch.cat([
             torch.mm(
-                torch.cuda.DoubleTensor(master_cam.intrinsics_padded),
-                cams[batch_i, 0]
+                same_K_for_all,
+                cams[batch_i, 0]  # the master is the first
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.DoubleTensor(target_cams[0].intrinsics_padded),
+                same_K_for_all,
                 cams[batch_i, 1]
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.DoubleTensor(target_cams[1].intrinsics_padded),
+                same_K_for_all,
                 cams[batch_i, 2],
             ).unsqueeze(0),
             torch.mm(
-                torch.cuda.DoubleTensor(target_cams[2].intrinsics_padded),
+                same_K_for_all,
                 cams[batch_i, 3],
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4

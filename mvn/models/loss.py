@@ -237,14 +237,12 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, :3, :3][j].unsqueeze(0)
                 for _, j in comparisons
             ])  # todo batched
-            loss_R += HuberLoss(threshold=1)._criterion(
-                geodesic_distance(compare_i, compare_j).unsqueeze(0)
-            ).squeeze(0)
+            loss_R += geodesic_distance(compare_i, compare_j)
             
-            norm_t = torch.mean(torch.cat([
+            norm_t = torch.sqrt(torch.mean(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
-            ]))
+            ])))
             compare_i = torch.cat([
                 cams[:, 2, 3][i].unsqueeze(0) / scale_t  # just t
                 for i, _ in comparisons
@@ -277,42 +275,48 @@ def _self_consistency_world(kps_world_pred, scale_keypoints_3d):
             if other_master_i != master_i
         ]).mean(axis=0)
         loss += KeypointsMSESmoothLoss(threshold=20*20)(
-            kps_world_predicted_as_master.unsqueeze(0) * scale_keypoints_3d,
-            kps_predicted_by_the_others.unsqueeze(0) * scale_keypoints_3d,
-        )
+            kps_world_predicted_as_master.unsqueeze(0),
+            kps_predicted_by_the_others.unsqueeze(0),
+        ) / torch.sqrt(torch.norm(kps_world_predicted_as_master, p='fro'))  # penalize trivials
 
     normalization = n_cams
     return loss / normalization
 
 
-def _self_consistency_2D(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
-    n_views = len(cameras)
-    batch_size = len(cameras[0])
-    pairs = get_pairs()[master_cam_i]
+def _self_consistency_2D(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
+    n_views = cam_preds.shape[0]
+    batch_size = cam_preds.shape[1]
     dev = cam_preds.device
-    projections = torch.cat([
-        torch.cat([
-            _my_proj(
-                cam_preds[master_cam_i, batch_i, view_i],
-                torch.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded).to(dev)
-            )(kps_world_pred[batch_i]).unsqueeze(0)
-            for view_i in range(1, n_views)  # not considering master (0)
-        ]).unsqueeze(0).to(dev)  # pred
-        for batch_i in range(batch_size)
-    ])
+    pairs = get_pairs()
+    loss = torch.tensor(0.0).to(dev)
 
-    return torch.mean(
-        torch.cat([
-            criterion(
-                torch.cat([
-                    initial_keypoints[batch_i, i].unsqueeze(0) * scale_kps
-                    for _, i in pairs
-                ]).to(dev),  # gt
-                projections[batch_i] * scale_kps
-            ).unsqueeze(0) / torch.norm(projections[batch_i], p='fro')  # penalize trivials
+    for master_cam_i in range(n_views):
+        projections = torch.cat([
+            torch.cat([
+                _my_proj(
+                    cam_preds[master_cam_i, batch_i, view_i],
+                    same_K_for_all.to(dev)
+                )(kps_world_pred[batch_i]).unsqueeze(0)
+                for view_i in range(1, n_views)  # not considering master (0)
+            ]).unsqueeze(0).to(dev)  # pred
             for batch_i in range(batch_size)
         ])
-    )
+
+        loss += torch.mean(
+            torch.cat([
+                criterion(
+                    torch.cat([
+                        initial_keypoints[batch_i, i].unsqueeze(0) * scale_kps
+                        for _, i in pairs[master_cam_i]
+                    ]).to(dev),  # gt
+                    projections[batch_i] * scale_kps
+                ).unsqueeze(0) / torch.sqrt(torch.norm(projections[batch_i], p='fro'))  # penalize trivials
+                for batch_i in range(batch_size)
+            ])
+        )
+
+    normalization = n_views
+    return loss / normalization
 
 
 def _self_separation(keypoints_cam_pred):
@@ -324,11 +328,10 @@ def _self_separation(keypoints_cam_pred):
 def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t, scale_keypoints_3d):
     loss_cam2cam = _self_consistency_cam(cam_preds, scale_t)
     loss_proj = _self_consistency_2D(
-        cameras,
+        torch.DoubleTensor(cameras[0][0].intrinsics_padded),
         cam_preds,
         kps_world_pred.mean(axis=0),
-        initial_keypoints,
-        master_cam_i
+        initial_keypoints
     )
     loss_world = _self_consistency_world(kps_world_pred, scale_keypoints_3d)
     # todo loss_sep = _self_separation(keypoints_cam_pred)

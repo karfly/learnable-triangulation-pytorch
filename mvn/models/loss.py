@@ -264,6 +264,27 @@ def _self_consistency_cam(cams_preds, scale_t):
     return loss_R + loss_t
 
 
+def _self_consistency_world(kps_world_pred, scale_keypoints_3d):
+    n_cams = kps_world_pred.shape[0]
+    dev = kps_world_pred.device
+    loss = torch.tensor(0.0).to(dev)
+
+    for master_i in range(n_cams):  # todo tensored
+        kps_world_predicted_as_master = kps_world_pred[master_i]
+        kps_predicted_by_the_others = torch.cat([
+            kps_world_pred[other_master_i].unsqueeze(0)
+            for other_master_i in range(n_cams)
+            if other_master_i != master_i
+        ]).mean(axis=0)
+        loss += KeypointsMSESmoothLoss(threshold=20*20)(
+            kps_world_predicted_as_master.unsqueeze(0) * scale_keypoints_3d,
+            kps_predicted_by_the_others.unsqueeze(0) * scale_keypoints_3d,
+        )
+
+    normalization = n_cams
+    return loss / normalization
+
+
 def _self_consistency_2D(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
     n_views = len(cameras)
     batch_size = len(cameras[0])
@@ -300,13 +321,18 @@ def _self_separation(keypoints_cam_pred):
     return None
 
 
-def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t):
+def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t, scale_keypoints_3d):
     loss_cam2cam = _self_consistency_cam(cam_preds, scale_t)
     loss_proj = _self_consistency_2D(
-        cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i
+        cameras,
+        cam_preds,
+        kps_world_pred.mean(axis=0),
+        initial_keypoints,
+        master_cam_i
     )
+    loss_world = _self_consistency_world(kps_world_pred, scale_keypoints_3d)
     # todo loss_sep = _self_separation(keypoints_cam_pred)
-    return loss_cam2cam, loss_proj  # todo and others
+    return loss_cam2cam, loss_proj, loss_world  # todo and others
 
 
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):

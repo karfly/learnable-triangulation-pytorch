@@ -233,13 +233,22 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
         total_loss += config.cam2cam.loss.t * trans_loss
 
     loss_proj = twod_proj_loss(
-        kps_world_gt, kps_world_pred, cameras, master2other_preds[master_cam_i]
+        kps_world_gt,
+        kps_world_pred.mean(axis=0),
+        cameras,
+        master2other_preds[master_cam_i]
     )
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_cam, loss_self_proj = self_consistency_loss(
-        cameras, master2other_preds, kps_world_pred, keypoints_2d_pred, master_cam_i, config.cam2cam.postprocess.scale_t
+    loss_self_cam, loss_self_proj, loss_self_world = self_consistency_loss(
+        cameras,
+        master2other_preds,
+        kps_world_pred,
+        keypoints_2d_pred,
+        master_cam_i,
+        config.cam2cam.postprocess.scale_t,
+        config.opt.scale_keypoints_3d
     )
     if config.cam2cam.loss.self_consistency.cam > 0:
         total_loss += get_weighted_loss(
@@ -249,9 +258,13 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
         total_loss += get_weighted_loss(
             loss_self_proj, config.cam2cam.loss.self_consistency.proj, 1e1, 4e4
         )
+    if config.cam2cam.loss.self_consistency.world > 0:
+        total_loss += get_weighted_loss(
+            loss_self_world, config.cam2cam.loss.self_consistency.world, 1e1, 4e4
+        )
 
     loss_world = tred_loss(
-        kps_world_pred,
+        kps_world_pred.mean(axis=0),  # all masters are equivalent => mean
         kps_world_gt,
         keypoints_3d_binary_validity_gt,
         config.opt.scale_keypoints_3d
@@ -263,7 +276,7 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
 
     return geodesic_loss, trans_loss,\
         loss_proj, loss_world,\
-        loss_self_cam, loss_self_proj,\
+        loss_self_cam, loss_self_proj, loss_self_world,\
         total_loss
 
 
@@ -304,7 +317,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, loss_self_world, total_loss = _compute_losses(
             cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
@@ -315,7 +328,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF CAM ~ {:.0f}, SELF 2D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF CAM ~ {:.0f}, SELF 2D ~ {:.0f}, SELF 3D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),
@@ -324,12 +337,13 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             loss_3d.item(),
             loss_self_cam.item(),
             loss_self_2d.item(),
+            loss_self_world.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
 
         per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-            kps_world_pred.detach().cpu().numpy(),
+            kps_world_pred.mean(axis=0).detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
@@ -406,9 +420,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         for master_i, ordered in enumerate(get_master_pairs())
     ])  # ~ n_master_cams, batch_size, (17 x 3D points)
 
-    # all master are equivalent => mean of predictions
-    kps_world_pred = kps_world_pred.mean(axis=0)
-
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')
@@ -419,4 +430,4 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if is_train:
         _backprop()
 
-    return kps_world_pred.detach().cpu()
+    return kps_world_pred.mean(axis=0).detach().cpu()

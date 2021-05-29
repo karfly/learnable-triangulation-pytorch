@@ -328,22 +328,19 @@ def _self_separation(keypoints_cam_pred):
 
 
 def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t, scale_keypoints_3d):
-    loss_cam2cam = torch.tensor(0.0)  # _self_consistency_cam(cam_preds, scale_t)
     loss_proj = _self_consistency_2D(
         torch.DoubleTensor(cameras[0][0].intrinsics_padded),
         cam_preds,
         kps_world_pred,
         initial_keypoints
     )
-    loss_world = torch.tensor(0.0)  # todo _self_consistency_world(kps_world_pred, scale_keypoints_3d)
-    # todo loss_sep = _self_separation(keypoints_cam_pred)
-    return loss_cam2cam, loss_proj, loss_world  # todo and others
+    return loss_proj
 
 
 def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
     """ heuristic: if loss is low, do not overoptimize, and viceversa """
 
-    # https://www.healthline.com/health/unexplained-weight-loss
+    # todo https://www.healthline.com/health/unexplained-weight-loss
     # if loss <= min_thres:
     #     w /= multi  # UNDER-optimize (don't care)
 

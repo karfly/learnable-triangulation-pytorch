@@ -382,30 +382,22 @@ def triangulate_points_in_camspace(points_batch, matrices_batch, confidences_bat
     return point_3d_batch
 
 
-def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, triangulator=triangulate_point_from_multiple_views_linear_torch, confidences_batch=None):
-    batch_size, _, n_joints = points_batch.shape[0: 2 + 1]
-
-    point_3d_batch = torch.zeros(
-        batch_size,
-        n_joints,
-        3,
-        dtype=torch.double
-    )  # ~ (batch_size=8, n_joints=17, 3D)
-
-    for batch_i in range(batch_size):
-        point_3d_batch[batch_i] = triangulate_points_in_camspace(
+def triangulate_batch_of_points_in_cam_space(matrices_batch, points_batch, triangulator=triangulate_points_in_camspace, confidences_batch=None):
+    batch_size = points_batch.shape[0]
+    return torch.cat([
+        triangulator(
             points_batch[batch_i],
             matrices_batch[batch_i],
             confidences_batch[batch_i] if not (confidences_batch is None) else None
-        )
-
-    return point_3d_batch
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
 
 def triangulate_batch_of_points(proj_matricies_batch, points_batch, triangulator, confidences_batch=None):
     """ proj matrices, keypoints 2D (pred), confidences """
 
-    batch_size, n_views, n_joints = points_batch.shape[:3]
+    batch_size, _, n_joints = points_batch.shape[:3]
     point_3d_batch = torch.zeros(
         batch_size,
         n_joints,

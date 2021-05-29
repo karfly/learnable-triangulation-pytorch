@@ -81,8 +81,8 @@ def load_data(config, dumps_folder):
         f_path = dumps_folder / file_name
         return torch.load(f_path).cpu().numpy()
 
-    keypoints_3d_gt = _load('keypoints_3d_gt.trc')  # see `cam2cam:_save_stuff`
-    keypoints_3d_pred = _load('keypoints_3d_pred.trc')
+    keypoints_3d_gt = _load('kps_world_gt.trc')  # see `cam2cam:_save_stuff`
+    keypoints_3d_pred = _load('kps_world_pred.trc')
 
     indices = None  # _load('batch_indexes.trc')
     _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
@@ -117,22 +117,24 @@ def main(config, milestone, experiment_name):
     max_plots = 6
     n_samples = gts.shape[0]
     n_plots = min(max_plots, n_samples)
+    samples_to_show = np.random.permutation(np.arange(n_samples))[:n_plots]
 
     print('found {} samples but plotting {}'.format(n_samples, n_plots))
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     fig.set_facecolor('white')
-    for i in range(n_plots):
+    for i, sample_i in enumerate(samples_to_show):
         axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
-        draw_kp_in_3d(axis, gts[i], 'GT (resampled)', 'o', 'blue')
-        draw_kp_in_3d(axis, pred[i], 'prediction', '^', 'red')
+        draw_kp_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
+        draw_kp_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
         print(
-            'sample #{}: pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
+            'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
                 i,
-                pred[i, 6, 0],
-                pred[i, 6, 1],
-                pred[i, 6, 2],
+                sample_i,
+                pred[sample_i, 6, 0],
+                pred[sample_i, 6, 1],
+                pred[sample_i, 6, 2],
             )
         )
 

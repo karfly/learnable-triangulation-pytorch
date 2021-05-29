@@ -126,39 +126,11 @@ def _forward_cam2cam(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     return preds.cuda()
 
 
-def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
+def _prepare_cams_for_dlt(cams, keypoints_2d_pred, same_K_for_all):
     batch_size = keypoints_2d_pred.shape[0]
     full_cams = torch.empty((batch_size, 4, 3, 4))
 
     for batch_i in range(batch_size):
-        master_cam = cameras[master_cam_i][batch_i]
-
-        # full_cams[batch_i] = torch.cat([
-        #     torch.cuda.DoubleTensor(master_cam.intrinsics_padded).unsqueeze(0),
-        #     torch.mm(
-        #         torch.cuda.DoubleTensor(target_cams[0].intrinsics_padded),
-        #         torch.mm(
-        #             cams[batch_i, 1],
-        #             torch.inverse(cams[batch_i, master_cam_i])
-        #         )
-        #     ).unsqueeze(0),
-        #     torch.mm(
-        #         torch.cuda.DoubleTensor(target_cams[1].intrinsics_padded),
-        #         torch.mm(
-        #             cams[batch_i, 2],
-        #             torch.inverse(cams[batch_i, master_cam_i])
-        #         )
-        #     ).unsqueeze(0),
-        #     torch.mm(
-        #         torch.cuda.DoubleTensor(target_cams[2].intrinsics_padded),
-        #         torch.mm(
-        #             cams[batch_i, 3],
-        #             torch.inverse(cams[batch_i, master_cam_i])
-        #         )
-        #     ).unsqueeze(0),
-        # ])  # ~ 4, 3, 4
-
-        same_K_for_all = torch.cuda.DoubleTensor(master_cam.intrinsics_padded)
         from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
         full_cams[batch_i] = torch.cat([
             same_K_for_all.unsqueeze(0),  # doing DLT  in camspace
@@ -188,28 +160,30 @@ def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
     return full_cams  # ~ batch_size, 4, 3, 4
 
 
-def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i):
-    full_cam2cams = _prepare_cams_for_dlt(
-        cam2cams, keypoints_2d_pred, cameras, master_cam_i
+def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_cam_i):
+    full_cams = _prepare_cams_for_dlt(
+        cams,
+        keypoints_2d_pred,
+        same_K_for_all
     )
 
     # ... perform DLT in master cam space, but since ...
     kps_cam_pred = triangulate_batch_of_points_in_cam_space(
-        full_cam2cams.cpu(),
+        full_cams.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
     )
 
     # ... they're in master cam space => cam2world
-    batch_size = cam2cams.shape[0]
+    batch_size = cams.shape[0]
     return torch.cat([
         homogeneous_to_euclidean(
             euclidean_to_homogeneous(
                 kps_cam_pred[batch_i]
-            ).to(cam2cams.device)
+            ).to(cams.device)
             @
             torch.inverse(
-                cam2cams[batch_i, master_cam_i].T
+                cams[batch_i, master_cam_i].T
             )
         ).unsqueeze(0)
         for batch_i in range(batch_size)
@@ -244,7 +218,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_cam, loss_self_proj, loss_self_world = self_consistency_loss(
+    loss_self_proj = self_consistency_loss(
         cameras,
         cam_preds,
         kps_world_pred,
@@ -253,17 +227,9 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         config.cam2cam.postprocess.scale_t,
         config.opt.scale_keypoints_3d
     )
-    if config.cam2cam.loss.self_consistency.cam > 0:
-        total_loss += get_weighted_loss(
-            loss_self_cam, config.cam2cam.loss.self_consistency.cam, 1e1, 4e4
-        )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += get_weighted_loss(
             loss_self_proj, config.cam2cam.loss.self_consistency.proj, 1e1, 4e4
-        )
-    if config.cam2cam.loss.self_consistency.world > 0:
-        total_loss += get_weighted_loss(
-            loss_self_world, config.cam2cam.loss.self_consistency.world, 1e1, 4e4
         )
 
     loss_world = tred_loss(
@@ -279,7 +245,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
 
     return geodesic_loss, trans_loss,\
         loss_proj, loss_world,\
-        loss_self_cam, loss_self_proj, loss_self_world,\
+        loss_self_proj,\
         total_loss
 
 
@@ -320,7 +286,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, loss_self_world, total_loss = _compute_losses(
+        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_2d, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -331,16 +297,14 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF CAM ~ {:.0f}, SELF 2D ~ {:.0f}, SELF 3D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             geodesic_loss.item(),
             trans_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_self_cam.item(),
             loss_self_2d.item(),
-            loss_self_world.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
@@ -395,9 +359,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     minimon.enter()
 
-    n_cameras = len(batch['cameras'])
-    master_i = 0  # np.random.randint(0, n_cameras)
-    # cam_preds = torch.cat([
+    master_i = 0  # views are randomly sorted => no need for a random master within batch
     cam_preds = _forward_cam2cam(
         cam2cam_model,
         detections[master_i],
@@ -405,25 +367,20 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         cam_gts if config.debug.gt_cams else None,
         noisy=config.debug.noisy
     )
-    #     for master_i in range(n_cameras)  # forward all cam2cam for self.losses
-    # ])
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')
 
     minimon.leave('cam2cam forward')
 
     minimon.enter()
-    # kps_world_pred = torch.cat([
     ordered = get_master_pairs()[master_i]
     kps_world_pred = _do_dlt(
         cam_preds,
         keypoints_2d_pred[:, ordered],
         confidences_pred,
-        batch['cameras'],
+        torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
-    #     for master_i, ordered in enumerate(get_master_pairs())
-    # ])  # ~ n_master_cams, batch_size, (17 x 3D points)
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

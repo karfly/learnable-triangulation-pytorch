@@ -1,3 +1,6 @@
+SCRIPT_DIR=$(dirname "$0")
+source ${SCRIPT_DIR}/common.sh
+
 # usage: backupJobViaSSH "hackme" "15719703"
 function backupJobViaSSH () {
     password=$1

@@ -1,4 +1,5 @@
-source ./common.sh
+SCRIPT_DIR=$(dirname "$0")
+source ${SCRIPT_DIR}/common.sh
 
 function getErrorAbsolute() {
     f=$1

@@ -159,22 +159,29 @@ def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
         # ])  # ~ 4, 3, 4
 
         same_K_for_all = torch.cuda.DoubleTensor(master_cam.intrinsics_padded)
+        from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
         full_cams[batch_i] = torch.cat([
+            same_K_for_all.unsqueeze(0),  # doing DLT  in camspace
             torch.mm(
                 same_K_for_all,
-                cams[batch_i, 0]  # the master is the first
+                torch.mm(
+                    cams[batch_i, 1],
+                    from_master_cam
+                )
             ).unsqueeze(0),
             torch.mm(
                 same_K_for_all,
-                cams[batch_i, 1]
+                torch.mm(
+                    cams[batch_i, 2],
+                    from_master_cam
+                )
             ).unsqueeze(0),
             torch.mm(
                 same_K_for_all,
-                cams[batch_i, 2],
-            ).unsqueeze(0),
-            torch.mm(
-                same_K_for_all,
-                cams[batch_i, 3],
+                torch.mm(
+                    cams[batch_i, 3],
+                    from_master_cam
+                )
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
 
@@ -192,21 +199,21 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
     )
-    return kps_cam_pred
 
     # ... they're in master cam space => cam2world
-    # return torch.cat([
-    #     homogeneous_to_euclidean(
-    #         euclidean_to_homogeneous(
-    #             kps_cam_pred[batch_i]
-    #         ).to(cam2cams.device)
-    #         @
-    #         torch.inverse(
-    #             cam2cams[batch_i, master_cam_i].T
-    #         )
-    #     ).unsqueeze(0)
-    #     for batch_i in range(batch_size)
-    # ])
+    batch_size = cam2cams.shape[0]
+    return torch.cat([
+        homogeneous_to_euclidean(
+            euclidean_to_homogeneous(
+                kps_cam_pred[batch_i]
+            ).to(cam2cams.device)
+            @
+            torch.inverse(
+                cam2cams[batch_i, master_cam_i].T
+            )
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):

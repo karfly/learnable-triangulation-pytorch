@@ -1,3 +1,5 @@
+source ./common.sh
+
 function getErrorAbsolute() {
     f=$1
     head -n4 ${f} | tail -n1 | awk '{print $2}' | sed 's/,//';
@@ -87,25 +89,6 @@ function slurmShowUsageInMonth () {
     echo "${predicted_by_end} ${resource}-hours will be used (by EOM, at this rate, ${predicted_as_perc} % of max)"
 }
 alias showClusterUsageInMonth='slurmShowUsageInMonth p_humanpose cpu 3500 && echo && slurmShowUsageInMonth p_humanpose gres/gpu 250'
-
-# usage: showJobFolder "15901850"
-function showJobFolder () {
-    job_id=$1
-    root_folder="/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/logs"
-
-    job_folder=$(cat ${job_id}.out| grep Experiment | awk '{print $3}')
-
-    echo ${root_folder}/${job_folder}
-}
-
-# usage: showJobConfig "15901850"
-function showJobConfig () {
-    job_id=$1
-    job_folder=$(showJobFolder ${job_id})
-    config_file=${job_folder}/config.yaml
-    
-    cat ${config_file}
-}
 
 #usage monatorCam2cam "16583749"
 function monatorCam2cam () {

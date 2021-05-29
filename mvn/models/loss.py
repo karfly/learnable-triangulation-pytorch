@@ -262,7 +262,7 @@ def _self_consistency_cam(cams_preds, scale_t):
     return loss_R + loss_t
 
 
-def _self_consistency_P(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=20), scale_kps=1e2):
+def _self_consistency_2D(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=20), scale_kps=1e2):
     n_views = len(cameras)
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
@@ -300,7 +300,7 @@ def _self_separation(keypoints_cam_pred):
 
 def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t):
     loss_cam2cam = _self_consistency_cam(cam_preds, scale_t)
-    loss_proj = _self_consistency_P(
+    loss_proj = _self_consistency_2D(
         cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i
     )
     # todo loss_sep = _self_separation(keypoints_cam_pred)

@@ -139,15 +139,17 @@ class HuberLoss(nn.Module):
 
         self.c = np.float64(threshold)
 
-    def forward(self, pred, gt):
-        diff = pred - gt
-
+    def _criterion(self, diff):
         diff[torch.abs(diff) <= self.c] = torch.abs(diff[torch.abs(diff) <= self.c])  # L1 norm within threshold
         
         diff[torch.abs(diff) > self.c] =\
             (torch.square(diff[torch.abs(diff) > self.c]) + np.square(self.c)) / (2 * self.c)
 
         return diff.mean()
+
+    def forward(self, pred, gt):
+        diff = pred - gt
+        return self._criterion(diff)
 
 
 def geo_loss(gts, preds, criterion=geodesic_distance):
@@ -253,7 +255,9 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, :3, :3][j].unsqueeze(0)  # just R
                 for _, j in comparisons
             ])
-            loss_R += geodesic_distance(compare_i, compare_j)
+            loss_R += HuberLoss(threshold=1)._criterion(
+                geodesic_distance(compare_i, compare_j).unsqueeze(0)
+            ).squeeze(0)
             
             sum_t = torch.sqrt(torch.sum(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
@@ -267,11 +271,14 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
                 for _, j in comparisons
             ])
-            loss_t += MSESmoothLoss(threshold=4e2)(compare_i, compare_j) * sum_t  # favour small distances
+            loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * sum_t  # favour small distances
+
+    print(loss_R, loss_t)
 
     normalization = n_cams * batch_size
     loss_R = loss_R / normalization * (scale_t / 1e1)  # ~ rescale
     loss_t = loss_t / normalization
+    print(loss_R, loss_t)
 
     return loss_R + loss_t
 

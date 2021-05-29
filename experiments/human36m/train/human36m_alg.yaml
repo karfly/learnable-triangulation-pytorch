@@ -68,7 +68,7 @@ cam2cam:
       n_layers: 6
 
     R:
-      n_layers: 2
+      n_layers: 3
       parametrization: "6d"
 
     t:
@@ -78,7 +78,7 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 200.0
+    geo_weight: 0.0
     trans_weight: 0.0
     proj_weight: 0.0
     tred_weight: 10.0

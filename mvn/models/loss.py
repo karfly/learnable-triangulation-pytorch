@@ -274,36 +274,51 @@ def _self_consistency_2D(same_K_for_all, cam_preds, kps_world_pred, initial_keyp
     batch_size = cam_preds.shape[0]
     n_views = cam_preds.shape[1]
     dev = cam_preds.device
-    pairs = get_pairs()
     loss = torch.tensor(0.0).to(dev)
 
-    for master_cam_i in range(n_views):
-        projections = torch.cat([
-            torch.cat([
-                _my_proj(
-                    cam_preds[batch_i, view_i],
-                    same_K_for_all.to(dev)
-                )(kps_world_pred[batch_i]).unsqueeze(0)
-                for view_i in range(1, n_views)  # not considering master (0)
-            ]).unsqueeze(0).to(dev)  # pred
-            for batch_i in range(batch_size)
-        ])
+    projections = torch.cat([
+        torch.cat([
+            _my_proj(
+                cam_preds[batch_i, view_i],
+                same_K_for_all.to(dev)
+            )(kps_world_pred[batch_i]).unsqueeze(0) * scale_kps
+            for view_i in range(n_views)
+        ]).unsqueeze(0).to(dev)  # pred
+        for batch_i in range(batch_size)
+    ])  # project DLT-ed points in all views
 
-        loss += torch.mean(
+    starters = torch.cat([
+        torch.cat([
+            initial_keypoints[batch_i, view_i].unsqueeze(0) * scale_kps
+            for view_i in range(n_views)
+        ]).unsqueeze(0).to(dev)  # pred
+        for batch_i in range(batch_size)
+    ])  # initial 2D points from all views
+
+    penalizations = torch.cat([
+        torch.cat([
+            torch.sqrt(torch.square(
+                torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(starters[batch_i, view_i], p='fro') - 1
+            )).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0).to(dev)  # pred
+        for batch_i in range(batch_size)
+    ])  # penalize ratio of area => I want it not too little, nor not too big
+
+    loss = torch.mean(
+        torch.cat([
             torch.cat([
                 criterion(
-                    torch.cat([
-                        initial_keypoints[batch_i, i].unsqueeze(0) * scale_kps
-                        for _, i in pairs[master_cam_i]
-                    ]).to(dev),  # gt
-                    projections[batch_i] * scale_kps
-                ).unsqueeze(0) / torch.sqrt(torch.norm(projections[batch_i], p='fro'))  # penalize trivials
-                for batch_i in range(batch_size)
+                    starters[batch_i, view_i],  # gt
+                    projections[batch_i, view_i]
+                ).unsqueeze(0) * penalizations[batch_i, view_i]
+                for view_i in range(n_views)
             ])
-        )
+            for batch_i in range(batch_size)
+        ])
+    )
 
-    normalization = n_views
-    return loss / normalization
+    return loss
 
 
 def _self_separation(keypoints_cam_pred):

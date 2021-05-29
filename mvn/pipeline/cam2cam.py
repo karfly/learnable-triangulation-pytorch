@@ -338,15 +338,16 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         )
         live_debug_log(_ITER_TAG, message)
 
-        per_pose_error_relative, _, _ = dataloader.dataset.evaluate(
+        per_pose_error_relative, per_pose_error_abs, _ = dataloader.dataset.evaluate(
             kps_world_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
-        message = '{} batch iter {:d} MPJPE: ~ {:.1f} mm'.format(
+        message = '{} batch iter {:d} MPJPE relative 2 pelvis: ~ {:.1f} mm, absolute: ~ {:.1f}'.format(
             'training' if is_train else 'validation',
             iter_i,
-            per_pose_error_relative
+            per_pose_error_relative,
+            per_pose_error_abs
         )
         live_debug_log(_ITER_TAG, message)
 

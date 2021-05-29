@@ -6,9 +6,9 @@ import torch
 import numpy as np
 
 from mvn.pipeline.utils import get_kp_gt, backprop
-from mvn.utils.misc import live_debug_log, get_others, get_pairs, get_master_pairs
+from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import geo_loss, t_loss, tred_loss, twod_proj_loss, self_consistency_loss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, twod_proj_loss, SeparationLoss, self_consistency_proj_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -191,20 +191,22 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
-    total_loss = 0.0  # real loss, the one grad is applied to
-
+    dev = cam_preds.device
+    total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     master_cam_i = 0
-    geodesic_loss = geo_loss(
-        cam_gts,
-        cam_preds
+    batch_size = cam_preds.shape[0]
+    n_cameras = cam_preds.shape[1]
+
+    loss_R = GeodesicLoss()(
+        cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3],  # just R
+        cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3]
     )
     if config.cam2cam.loss.R > 0:
-        total_loss += config.cam2cam.loss.R * geodesic_loss
+        total_loss += config.cam2cam.loss.R * loss_R
 
-    trans_loss = t_loss(
-        cam_gts,
-        cam_preds,
-        config.cam2cam.postprocess.scale_t
+    trans_loss = MSESmoothLoss(threshold=4e2)(
+        cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,  # just t
+        cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,
     )
     if config.cam2cam.loss.t > 0:
         total_loss += config.cam2cam.loss.t * trans_loss
@@ -218,30 +220,33 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj, loss_self_separation = self_consistency_loss(
-        cameras,
+    loss_self_proj = self_consistency_proj_loss(
+        torch.DoubleTensor(cameras[0][0].intrinsics_padded),
         cam_preds,
         kps_world_pred,
-        keypoints_2d_pred,
-        master_cam_i,
-        config.cam2cam.postprocess.scale_t,
-        config.opt.scale_keypoints_3d
+        keypoints_2d_pred
     )
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += loss_self_proj * config.cam2cam.loss.self_consistency.proj
+
+    loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
     if config.cam2cam.loss.self_consistency.separation > 0:
         total_loss += loss_self_separation * config.cam2cam.loss.self_consistency.separation
 
-    loss_world = tred_loss(
-        kps_world_pred,  # all masters are equivalent => mean
-        kps_world_gt,
+    __batch_i = 0  # todo debug only
+    print('pred batch {:.0f}'.format(__batch_i))
+    print(kps_world_pred[__batch_i])
+    print('gt batch {:.0f}'.format(__batch_i))
+    print(kps_world_gt[__batch_i])
+    loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
+        kps_world_pred * config.opt.scale_keypoints_3d,
+        kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,
         keypoints_3d_binary_validity_gt,
-        config.opt.scale_keypoints_3d
     )
     if config.cam2cam.loss.world > 0:
         total_loss += loss_world * config.cam2cam.loss.world
 
-    return geodesic_loss, trans_loss,\
+    return loss_R, trans_loss,\
         loss_proj, loss_world,\
         loss_self_proj, loss_self_separation,\
         total_loss
@@ -284,7 +289,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_2d, loss_self_separation, total_loss = _compute_losses(
+        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -298,11 +303,11 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
-            geodesic_loss.item(),
+            loss_R.item(),
             trans_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_self_2d.item(),
+            loss_self_proj.item(),
             loss_self_separation.item(),
             total_loss.item(),
         )

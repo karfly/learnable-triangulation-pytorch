@@ -65,14 +65,14 @@ cam2cam:
 
     backbone:
       inner_size: 1024
-      n_layers: 6
+      n_layers: 4
 
     R:
-      n_layers: 1
+      n_layers: 3
       parametrization: "6d"
 
     t:
-      n_layers: 1
+      n_layers: 3
 
     init_weights: false
     checkpoint: ".../cam2cam_model.pth"

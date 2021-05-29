@@ -78,19 +78,19 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 20.0
+    geo_weight: 200.0
     trans_weight: 0.0
     proj_weight: 0.0
     tred_weight: 10.0
     self_consistency:
-      cam: 10.0
-      proj: 20.0
+      cam: 5.0
+      proj: 0.2
 
   opt:
-    grad_clip: 1.0
+    grad_clip: 10.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.00015
-    weight_decay: 0.1
+    weight_decay: 0.01
 
 model:
   name: "alg"

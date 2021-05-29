@@ -111,6 +111,7 @@ class VolumetricCELoss(nn.Module):
         return loss / n_losses
 
 
+# todo as module
 def geodesic_distance(m1, m2):
     batch_size = m1.shape[0]
     m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
@@ -130,6 +131,23 @@ def geodesic_distance(m1, m2):
     theta = torch.acos(cos)
 
     return theta.mean()  # ~ (batch_size,)
+
+
+class HuberLoss(nn.Module):
+    def __init__(self, threshold):
+        super().__init__()
+
+        self.c = np.float64(threshold)
+
+    def forward(self, pred, gt):
+        diff = pred - gt
+
+        diff[torch.abs(diff) <= self.c] = torch.abs(diff[torch.abs(diff) <= self.c])  # L1 norm within threshold
+        
+        diff[torch.abs(diff) > self.c] =\
+            (torch.square(diff[torch.abs(diff) > self.c]) + np.square(self.c)) / (2 * self.c)
+
+        return diff.mean()
 
 
 def geo_loss(gts, preds, criterion=geodesic_distance):
@@ -258,7 +276,7 @@ def _self_consistency_cam(cams_preds, scale_t):
     return loss_R + loss_t
 
 
-def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=2*20), scale_kps=1e2):
     projections = _project_in_other_views(
         cameras, keypoints_cam_pred, cams_preds, master_cam_i
     )  # ~ 8, 3, 17, 2
@@ -268,16 +286,15 @@ def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoin
     pairs = [(0, 0)] + pairs  # project also to master
     dev = keypoints_cam_pred.device
 
-    norm_criterion = lambda gt, pred: criterion(gt, pred) / torch.norm(pred, p='fro')  # penalize trivial solutions
     return torch.mean(
         torch.cat([
-            norm_criterion(
+            criterion(
                 torch.cat([
                     initial_keypoints[batch_i, i].unsqueeze(0)
                     for _, i in pairs
-                ]).to(dev),
-                projections[batch_i].to(dev),
-            ).unsqueeze(0)
+                ]).to(dev) * scale_kps,
+                projections[batch_i].to(dev) * scale_kps,
+            ).unsqueeze(0) / torch.norm(projections[batch_i].to(dev), p='fro')  # penalize trivials
             for batch_i in range(batch_size)
         ])
     )

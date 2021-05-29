@@ -141,6 +141,36 @@ class HuberLoss(nn.Module):
         return self._criterion(diff)
 
 
+class SeparationLoss(nn.Module):
+    """ see eq 8 in https://papers.nips.cc/paper/2018/file/24146db4eb48c718b84cae0a0799dcfc-Paper.pdf """
+
+    def __init__(self, threshold):
+        super().__init__()
+
+        self.threshold = np.square(threshold)  # compare with square
+
+    def forward(self, batched_kps):
+        batch_size = batched_kps.shape[0]
+        n_joints = batched_kps.shape[1]
+        return torch.mean(torch.cat([
+            torch.sum(torch.cat([
+                torch.cat([
+                    torch.max(
+                        torch.tensor(0.0),
+                        self.threshold -\
+                        torch.square(
+                            torch.norm(batched_kps[batch_i, joint_i] - batched_kps[batch_i, other_joint])
+                        )
+                    ).unsqueeze(0)
+                    for other_joint in range(n_joints)
+                    if other_joint != joint_i
+                ]).unsqueeze(0)
+                for joint_i in range(n_joints)
+            ])).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ]))
+
+
 def geo_loss(gts, preds, criterion=geodesic_distance):
     batch_size = gts.shape[0]
     n_cameras = gts.shape[1]
@@ -164,6 +194,15 @@ def t_loss(gts, preds, scale_t, criterion=MSESmoothLoss(threshold=4e2)):
 
 def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     dev = preds.device
+
+    print('tred_loss')  # todo debug
+
+    batch_i = 0
+    print('pred batch {:.0f}'.format(batch_i))
+    print(preds[batch_i])
+    print('gt batch {:.0f}'.format(batch_i))
+    print(gts[batch_i])
+
     return criterion(
         preds.to(dev) * scale_keypoints_3d,
         gts.to(dev) * scale_keypoints_3d,
@@ -321,12 +360,6 @@ def _self_consistency_2D(same_K_for_all, cam_preds, kps_world_pred, initial_keyp
     return loss
 
 
-def _self_separation(keypoints_cam_pred):
-    """ see eq 8 in https://papers.nips.cc/paper/2018/file/24146db4eb48c718b84cae0a0799dcfc-Paper.pdf """
-
-    return None
-
-
 def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t, scale_keypoints_3d):
     loss_proj = _self_consistency_2D(
         torch.DoubleTensor(cameras[0][0].intrinsics_padded),
@@ -334,17 +367,6 @@ def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints,
         kps_world_pred,
         initial_keypoints
     )
-    return loss_proj
+    loss_separation = SeparationLoss(3e1)(kps_world_pred)
 
-
-def get_weighted_loss(loss, w, min_thres, max_thres, multi=10.0):
-    """ heuristic: if loss is low, do not overoptimize, and viceversa """
-
-    # todo https://www.healthline.com/health/unexplained-weight-loss
-    # if loss <= min_thres:
-    #     w /= multi  # UNDER-optimize (don't care)
-
-    # if loss >= max_thres:
-    #     w *= multi  # OVER-optimize
-
-    return w * loss
+    return loss_proj, loss_separation

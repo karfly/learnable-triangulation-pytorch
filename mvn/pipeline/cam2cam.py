@@ -83,28 +83,28 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     ])
 
 
-def _get_cam2cam_gt(cameras):
+def _get_cam2cam_gt(cameras, master_i=0):
     n_cameras = len(cameras)
     batch_size = len(cameras[0])
     cameras_i = get_master_pairs()
 
-    cam2cam_gts = torch.zeros(n_cameras, batch_size, n_cameras, 4, 4)
-    for master_i in range(n_cameras):
-        for batch_i in range(batch_size):
-            cam2cam_gts[master_i, batch_i] = torch.cat([
-                torch.DoubleTensor(cameras[camera_i][batch_i].extrinsics_padded).unsqueeze(0)
-                for camera_i in cameras_i[master_i]
-            ])  # ~ (| pairs |, 4, 4)
+    cam_gts = torch.zeros(batch_size, n_cameras, 4, 4)
+    # for master_i in range(n_cameras):
+    for batch_i in range(batch_size):
+        cam_gts[batch_i] = torch.cat([
+            torch.DoubleTensor(cameras[camera_i][batch_i].extrinsics_padded).unsqueeze(0)
+            for camera_i in cameras_i[master_i]
+        ])  # ~ (| pairs |, 4, 4)
 
-    return cam2cam_gts.cuda()
+    return cam_gts.cuda()
 
 
-def _forward_cam2cam(cam2cam_model, detections, master_i, scale_t, gt=None, noisy=False):
-    batch_size = detections[master_i].shape[0]
-    n_views = detections[master_i].shape[1]
+def _forward_cam2cam(cam2cam_model, detections, scale_t, gt=None, noisy=False):
+    batch_size = detections.shape[0]
+    n_views = detections.shape[1]
 
     preds = cam2cam_model(
-        detections[master_i]  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
+        detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
     )  # (batch_size, | pairs |, 3, 3)
 
     for batch_i in range(batch_size):  # todo batched
@@ -113,8 +113,8 @@ def _forward_cam2cam(cam2cam_model, detections, master_i, scale_t, gt=None, nois
             preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
 
             if not (gt is None):
-                R = gt[master_i, batch_i, view_i, :3, :3].cuda().detach().clone()
-                t = gt[master_i, batch_i, view_i, :3, 3].cuda().detach().clone()
+                R = gt[batch_i, view_i, :3, :3].cuda().detach().clone()
+                t = gt[batch_i, view_i, :3, 3].cuda().detach().clone()
 
                 if noisy:  # noisy
                     R = R + 1e-1 * torch.rand_like(R)
@@ -209,20 +209,20 @@ def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i
     # ])
 
 
-def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     total_loss = 0.0  # real loss, the one grad is applied to
 
     master_cam_i = 0
     geodesic_loss = geo_loss(
-        cam2cam_gts[master_cam_i],
-        master2other_preds[master_cam_i]
+        cam_gts,
+        cam_preds
     )
     if config.cam2cam.loss.R > 0:
         total_loss += config.cam2cam.loss.R * geodesic_loss
 
     trans_loss = t_loss(
-        cam2cam_gts[master_cam_i],
-        master2other_preds[master_cam_i],
+        cam_gts,
+        cam_preds,
         config.cam2cam.postprocess.scale_t
     )
     if config.cam2cam.loss.t > 0:
@@ -232,14 +232,14 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
         kps_world_gt,
         kps_world_pred,
         cameras,
-        master2other_preds[master_cam_i]
+        cam_preds
     )
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
     loss_self_cam, loss_self_proj, loss_self_world = self_consistency_loss(
         cameras,
-        master2other_preds,
+        cam_preds,
         kps_world_pred,
         keypoints_2d_pred,
         master_cam_i,
@@ -315,7 +315,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     def _backprop():
         geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, loss_self_world, total_loss = _compute_losses(
             cam_preds,
-            cam2cam_gts,
+            cam_gts,
             keypoints_2d_pred,
             kps_world_pred,
             kps_world_gt,
@@ -368,7 +368,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
 
-    cam2cam_gts = _get_cam2cam_gt(batch['cameras'])
+    cam_gts = _get_cam2cam_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
@@ -388,18 +388,17 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.enter()
 
     n_cameras = len(batch['cameras'])
-    master_i = np.random.randint(0, n_cameras)
-    cam_preds = torch.cat([
-        _forward_cam2cam(
-            cam2cam_model,
-            detections,
-            master_i,
-            config.cam2cam.postprocess.scale_t,
-            cam2cam_gts if config.debug.gt_cams else None,
-            noisy=config.debug.noisy
-        ).unsqueeze(0)
-        for master_i in range(n_cameras)  # forward all cam2cam for self.losses
-    ])
+    master_i = 0  # np.random.randint(0, n_cameras)
+    # cam_preds = torch.cat([
+    cam_preds = _forward_cam2cam(
+        cam2cam_model,
+        detections[master_i],
+        config.cam2cam.postprocess.scale_t,
+        cam_gts if config.debug.gt_cams else None,
+        noisy=config.debug.noisy
+    )
+    #     for master_i in range(n_cameras)  # forward all cam2cam for self.losses
+    # ])
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')
 
@@ -409,7 +408,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     # kps_world_pred = torch.cat([
     ordered = get_master_pairs()[master_i]
     kps_world_pred = _do_dlt(
-        cam_preds[master_i],
+        cam_preds,
         keypoints_2d_pred[:, ordered],
         confidences_pred,
         batch['cameras'],

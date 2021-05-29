@@ -142,8 +142,8 @@ class HuberLoss(nn.Module):
 
 
 def geo_loss(gts, preds, criterion=geodesic_distance):
-    n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
+    n_cameras = gts.shape[1]
     dev = preds.device
 
     return criterion(
@@ -154,8 +154,8 @@ def geo_loss(gts, preds, criterion=geodesic_distance):
 
 def t_loss(gts, preds, scale_t, criterion=MSESmoothLoss(threshold=4e2)):
     dev = preds.device
-    n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
+    n_cameras = gts.shape[1]
     return criterion(
         preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_t,  # just t
         gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3].to(dev) / scale_t
@@ -271,8 +271,8 @@ def _self_consistency_world(kps_world_pred, scale_keypoints_3d):
 
 
 def _self_consistency_2D(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
-    n_views = cam_preds.shape[0]
-    batch_size = cam_preds.shape[1]
+    batch_size = cam_preds.shape[0]
+    n_views = cam_preds.shape[1]
     dev = cam_preds.device
     pairs = get_pairs()
     loss = torch.tensor(0.0).to(dev)
@@ -281,7 +281,7 @@ def _self_consistency_2D(same_K_for_all, cam_preds, kps_world_pred, initial_keyp
         projections = torch.cat([
             torch.cat([
                 _my_proj(
-                    cam_preds[master_cam_i, batch_i, view_i],
+                    cam_preds[batch_i, view_i],
                     same_K_for_all.to(dev)
                 )(kps_world_pred[batch_i]).unsqueeze(0)
                 for view_i in range(1, n_views)  # not considering master (0)
@@ -313,7 +313,7 @@ def _self_separation(keypoints_cam_pred):
 
 
 def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t, scale_keypoints_3d):
-    loss_cam2cam = _self_consistency_cam(cam_preds, scale_t)
+    loss_cam2cam = torch.tensor(0.0)  # _self_consistency_cam(cam_preds, scale_t)
     loss_proj = _self_consistency_2D(
         torch.DoubleTensor(cameras[0][0].intrinsics_padded),
         cam_preds,

@@ -84,7 +84,7 @@ cam2cam:
     tred_weight: 10.0
     self_consistency:
       cam: 5.0
-      proj: 0.2
+      proj: 1.0
 
   opt:
     grad_clip: 10.0

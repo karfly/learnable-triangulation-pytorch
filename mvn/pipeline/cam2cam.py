@@ -220,18 +220,8 @@ def _compute_losses(master2other_preds, cam2cam_gts, keypoints_2d_pred, kps_worl
     if config.cam2cam.loss.proj_weight > 0:
         total_loss += config.cam2cam.loss.proj_weight * loss_2d
 
-    batch_size = kps_world_pred.shape[0]
-    keypoints_master_cam_pred = torch.cat([
-        torch.mm(
-            euclidean_to_homogeneous(
-                kps_world_pred[batch_i]  # [x y z] -> [x y z 1]
-            ),
-            torch.DoubleTensor(cameras[master_cam_i][batch_i].extrinsics.T).to(kps_world_pred.device)
-        ).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
     loss_self_cam, loss_self_2d = self_consistency_loss(
-        cameras, master2other_preds, keypoints_master_cam_pred, keypoints_2d_pred, master_cam_i, config.cam2cam.postprocess.scale_t
+        cameras, master2other_preds, kps_world_pred, keypoints_2d_pred, master_cam_i, config.cam2cam.postprocess.scale_t
     )
     if config.cam2cam.loss.self_consistency.cam > 0:
         total_loss += get_weighted_loss(

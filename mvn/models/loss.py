@@ -201,29 +201,11 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, cam_preds, crite
                 cameras[view_i][batch_i].world2proj()(
                     keypoints_3d_gt[batch_i]
                 ).unsqueeze(0)
-                for view_i in range(1, n_views)  # 0 is "master" cam
+                for view_i in range(1, n_views)
             ]).to(dev),  # gt
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ]))
-
-
-def _project_in_other_views(cameras, keypoints_mastercam_pred, cams_pred, master_cam_i):
-    batch_size = len(cameras[0])
-    pairs = get_pairs()[master_cam_i]
-    pairs = [(0, 0)] + pairs  # project also to master
-    dev = keypoints_mastercam_pred.device
-    return torch.cat([
-        torch.cat([
-            _2proj(
-                cams_pred[master_cam_i, batch_i, master_cam_i],
-                cams_pred[master_cam_i, batch_i, target],
-                torch.DoubleTensor(cameras[i][0].intrinsics_padded).to(dev),
-            )(keypoints_mastercam_pred[batch_i]).unsqueeze(0)
-            for i, (_, target) in enumerate(pairs)
-        ]).unsqueeze(0)  # ~ n_views 1, 3, 17, 2
-        for batch_i in range(batch_size)
-    ])
 
 
 def _self_consistency_cam(cams_preds, scale_t):
@@ -273,35 +255,38 @@ def _self_consistency_cam(cams_preds, scale_t):
             ])
             loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * sum_t  # favour small distances
 
-    print(loss_R, loss_t)
-
     normalization = n_cams * batch_size
     loss_R = loss_R / normalization * (scale_t / 1e1)  # ~ rescale
     loss_t = loss_t / normalization
-    print(loss_R, loss_t)
 
     return loss_R + loss_t
 
 
-def _self_consistency_P(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=2*20), scale_kps=1e2):
-    projections = _project_in_other_views(
-        cameras, keypoints_cam_pred, cams_preds, master_cam_i
-    )  # ~ 8, 3, 17, 2
-
+def _self_consistency_P(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=20), scale_kps=1e2):
+    n_views = len(cameras)
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]
-    pairs = [(0, 0)] + pairs  # project also to master
-    dev = keypoints_cam_pred.device
+    dev = cam_preds.device
+    projections = torch.cat([
+        torch.cat([
+            _my_proj(
+                cam_preds[master_cam_i, batch_i, view_i],
+                torch.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded).to(dev)
+            )(kps_world_pred[batch_i]).unsqueeze(0)
+            for view_i in range(1, n_views)  # not considering master (0)
+        ]).unsqueeze(0).to(dev)  # pred
+        for batch_i in range(batch_size)
+    ])
 
     return torch.mean(
         torch.cat([
             criterion(
                 torch.cat([
-                    initial_keypoints[batch_i, i].unsqueeze(0)
+                    initial_keypoints[batch_i, i].unsqueeze(0) * scale_kps
                     for _, i in pairs
-                ]).to(dev) * scale_kps,
-                projections[batch_i].to(dev) * scale_kps,
-            ).unsqueeze(0) / torch.norm(projections[batch_i].to(dev), p='fro')  # penalize trivials
+                ]).to(dev),  # gt
+                projections[batch_i] * scale_kps
+            ).unsqueeze(0) / torch.norm(projections[batch_i], p='fro')  # penalize trivials
             for batch_i in range(batch_size)
         ])
     )
@@ -313,10 +298,10 @@ def _self_separation(keypoints_cam_pred):
     return None
 
 
-def self_consistency_loss(cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i, scale_t):
-    loss_cam2cam = _self_consistency_cam(cams_preds, scale_t)
+def self_consistency_loss(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, scale_t):
+    loss_cam2cam = _self_consistency_cam(cam_preds, scale_t)
     loss_proj = _self_consistency_P(
-        cameras, cams_preds, keypoints_cam_pred, initial_keypoints, master_cam_i
+        cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i
     )
     # todo loss_sep = _self_separation(keypoints_cam_pred)
     return loss_cam2cam, loss_proj  # todo and others

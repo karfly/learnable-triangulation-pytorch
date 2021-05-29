@@ -254,7 +254,7 @@ def _self_consistency_cam(cams_preds, scale_t):
             loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * norm_t  # favour small distances
 
     normalization = n_cams * batch_size
-    loss_R = loss_R / normalization  # ~ rescale
+    loss_R = loss_R / normalization * 1e2  # ~ rescale
     loss_t = loss_t / normalization
 
     return loss_R + loss_t

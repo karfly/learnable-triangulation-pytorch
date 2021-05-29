@@ -14,7 +14,7 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  noisy: true
+  noisy: false
   gt_cams: false
 
 opt:
@@ -78,13 +78,13 @@ cam2cam:
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    geo_weight: 0.0
-    trans_weight: 0.0
-    proj_weight: 0.0
-    tred_weight: 10.0
+    R: 0.0
+    t: 0.0
+    proj: 0.0
+    world: 10.0
     self_consistency:
       cam: 200.0
-      proj: 5.0
+      proj: 20.0
 
   opt:
     grad_clip: 10.0

@@ -237,10 +237,10 @@ def _self_consistency_cam(cams_preds, scale_t):
             ])
             loss_R += geodesic_distance(compare_i, compare_j)
             
-            sum_t = torch.sum(torch.cat([
+            sum_t = torch.sqrt(torch.sum(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
-            ]))
+            ])))
             compare_i = torch.cat([
                 cams[:, 2, 3][i].unsqueeze(0) / scale_t  # just t
                 for i, _ in comparisons

@@ -69,7 +69,7 @@ class RotoTransNet(nn.Module):
                     drop_out=drop_out,
                     activation=nn.LeakyReLU,
                 ),
-                nn.BatchNorm1d(n_features),
+                # nn.BatchNorm1d(n_features),
             ])
 
         n_params_per_R = 6 if config.cam2cam.model.R.parametrization == '6d' else 3

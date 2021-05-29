@@ -4,9 +4,11 @@ import numpy as np
 
 import torch
 from torch import nn
+from torch import tensor
 
 from mvn.utils.multiview import _2proj, _my_proj
 from mvn.utils.misc import get_pairs, get_master_pairs
+from mvn.utils.img import rotation_matrix_from_vectors_torch
 
 
 class KeypointsMSELoss(nn.Module):
@@ -152,6 +154,42 @@ class HuberLoss(nn.Module):
         return self._criterion(diff)
 
 
+class KeypointsRotoLoss(nn.Module):
+    def __init__(self, threshold=20*20, w_R=1e1, w_t=1e-1):
+        super().__init__()
+
+        self.threshold = threshold  # todo use it
+        self.w_R = w_R
+        self.w_t = w_t
+
+    def forward(self, pred, gt, valids=None):
+        batch_size = pred.shape[0]
+        n_joints = pred.shape[1]
+        dev = 'cuda'
+        
+        loss_R = torch.tensor(0.0).to(dev)
+        loss_t = torch.tensor(0.0).to(dev)
+
+        for batch_i in range(batch_size):  # todo tensored
+            for joint_i in range(n_joints):
+                is_origin = torch.norm(pred[batch_i, joint_i] - torch.zeros(3)) < 1e-3 or torch.norm(gt[batch_i, joint_i] - torch.zeros(3)) < 1e-3
+                if not is_origin:
+                    loss_t += torch.norm(pred[batch_i, joint_i] - gt[batch_i, joint_i])
+
+                    Rt = rotation_matrix_from_vectors_torch(
+                        pred[batch_i, joint_i],
+                        gt[batch_i, joint_i]
+                    )
+                    loss_R += geodesic_distance(
+                        Rt.unsqueeze(0).to(dev),
+                        torch.eye(3).unsqueeze(0).to(dev)
+                    )
+        
+        total_loss = self.w_R * loss_R + self.w_t * loss_t
+        normalization = batch_size  # * n_joints
+        return total_loss / normalization
+
+
 def geo_loss(gts, preds, criterion=geodesic_distance):
     n_cameras = gts.shape[1]
     batch_size = gts.shape[0]
@@ -173,7 +211,7 @@ def t_loss(gts, preds, scale_t, criterion=MSESmoothLoss(threshold=4e2)):
     )
 
 
-def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def tred_loss(preds, gts, keypoints_3d_binary_validity_gt, scale_keypoints_3d, criterion=KeypointsRotoLoss(threshold=20*20)):
     dev = preds.device
     return criterion(
         preds.to(dev) * scale_keypoints_3d,
@@ -239,7 +277,7 @@ def _self_consistency_cam(cams_preds, scale_t):
             ])  # todo batched
             loss_R += geodesic_distance(compare_i, compare_j)
             
-            norm_t = torch.sqrt(torch.mean(torch.cat([
+            norm_t = torch.square(torch.mean(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
             ])))
@@ -256,8 +294,6 @@ def _self_consistency_cam(cams_preds, scale_t):
     normalization = n_cams * batch_size
     loss_R = loss_R / normalization * 1e1
     loss_t = loss_t / normalization
-
-    # print(loss_R, loss_t)
 
     return loss_R + loss_t
 

@@ -68,30 +68,30 @@ cam2cam:
       n_layers: 6
 
     R:
-      n_layers: 3
+      n_layers: 2
       parametrization: "6d"
 
     t:
-      n_layers: 3
+      n_layers: 2
 
     init_weights: false
     checkpoint: ".../cam2cam_model.pth"
 
   loss:
-    R: 0.0
-    t: 0.0
+    R: 20.0
+    t: 20.0
     proj: 0.0
     world: 10.0
     self_consistency:
       cam: 0.0
-      proj: 1.0
-      world: 1.0
+      proj: 0.0
+      world: 0.0
 
   opt:
-    grad_clip: 5.0
+    grad_clip: 10.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.00015
-    weight_decay: 0.1
+    weight_decay: 0.01
 
 model:
   name: "alg"

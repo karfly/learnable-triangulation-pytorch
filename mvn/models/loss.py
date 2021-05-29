@@ -237,11 +237,9 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, :3, :3][j].unsqueeze(0)  # just R
                 for _, j in comparisons
             ])
-            loss_R += HuberLoss(threshold=1)._criterion(
-                geodesic_distance(compare_i, compare_j).unsqueeze(0)
-            ).squeeze(0)
+            loss_R += geodesic_distance(compare_i, compare_j)
             
-            sum_t = torch.sqrt(torch.sum(torch.cat([
+            norm_t = torch.sqrt(torch.mean(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
             ])))
@@ -253,16 +251,16 @@ def _self_consistency_cam(cams_preds, scale_t):
                 cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
                 for _, j in comparisons
             ])
-            loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * sum_t  # favour small distances
+            loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * norm_t  # favour small distances
 
     normalization = n_cams * batch_size
-    loss_R = loss_R / normalization * (scale_t / 1e1)  # ~ rescale
+    loss_R = loss_R / normalization  # ~ rescale
     loss_t = loss_t / normalization
 
     return loss_R + loss_t
 
 
-def _self_consistency_2D(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=HuberLoss(threshold=20), scale_kps=1e2):
+def _self_consistency_2D(cameras, cam_preds, kps_world_pred, initial_keypoints, master_cam_i, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
     n_views = len(cameras)
     batch_size = len(cameras[0])
     pairs = get_pairs()[master_cam_i]

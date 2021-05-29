@@ -119,7 +119,7 @@ def parse_job_log(f_path, verbose=False):
                 elif loss_name == 'self t':
                     key = 'self t'
                 elif loss_name == 'self ext':
-                    key = 'self ext'
+                    key = 'self cam'
                 elif loss_name == 'self c' or loss_name == 'self cam':
                     key = 'self cam'
                 elif loss_name == 'self p' or loss_name == 'self 2d':

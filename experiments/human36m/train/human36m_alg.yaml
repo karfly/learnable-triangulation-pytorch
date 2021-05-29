@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: true
-  gt_cams: true
+  gt_cams: false
 
 opt:
   criterion: "MSESmooth"
@@ -54,7 +54,7 @@ cam2cam:
     normalize_kps: "fro"
 
   postprocess:
-    scale_t: 1000.0
+    scale_t: 100.0
 
   model:
     type: "mlp"
@@ -83,8 +83,8 @@ cam2cam:
     proj_weight: 0.0
     tred_weight: 10.0
     self_consistency:
-      cam: 5.0
-      proj: 1.0
+      cam: 200.0
+      proj: 5.0
 
   opt:
     grad_clip: 10.0

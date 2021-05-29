@@ -94,7 +94,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         't loss / batch': {
             'color': 'forestgreen',
-            'scaler': 2e-1,
+            'scaler': 1e1,
             'show': True,
         },
         '2D loss / batch': {
@@ -109,7 +109,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         'self cam loss / batch': {
             'color': 'fuchsia',
-            'scaler': 1e1,
+            'scaler': 1e-2,
             'show': True,
         },
         'self 2D loss / batch': {

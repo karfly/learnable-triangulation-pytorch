@@ -186,8 +186,6 @@ def _prepare_cams_for_dlt(cams, keypoints_2d_pred, cameras, master_cam_i):
 
 
 def _do_dlt(cam2cams, keypoints_2d_pred, confidences_pred, cameras, master_cam_i):
-    batch_size = keypoints_2d_pred.shape[0]
-
     full_cam2cams = _prepare_cams_for_dlt(
         cam2cams, keypoints_2d_pred, cameras, master_cam_i
     )
@@ -307,7 +305,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     def _backprop():
         geodesic_loss, trans_loss, loss_2d, loss_3d, loss_self_cam, loss_self_2d, total_loss = _compute_losses(
-            cam2cam_preds,
+            cam_preds,
             cam2cam_gts,
             keypoints_2d_pred,
             kps_world_pred,
@@ -380,7 +378,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.enter()
 
     n_cameras = len(batch['cameras'])
-    cam2cam_preds = torch.cat([
+    cam_preds = torch.cat([
         _forward_cam2cam(
             cam2cam_model,
             detections,
@@ -392,19 +390,24 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         for master_i in range(n_cameras)  # forward all cam2cam for self.losses
     ])
     if config.debug.dump_tensors:
-        _save_stuff(cam2cam_preds, 'cam2cam_preds')
+        _save_stuff(cam_preds, 'cam_preds')
 
     minimon.leave('cam2cam forward')
 
     minimon.enter()
-    master_i = 0
-    kps_world_pred = _do_dlt(
-        cam2cam_preds[master_i],
-        keypoints_2d_pred,
-        confidences_pred,
-        batch['cameras'],
-        master_i
-    )
+    kps_world_pred = torch.cat([
+        _do_dlt(
+            cam_preds[master_i],
+            keypoints_2d_pred[:, ordered],
+            confidences_pred,
+            batch['cameras'],
+            master_i
+        ).unsqueeze(0)
+        for master_i, ordered in enumerate(get_master_pairs())
+    ])  # ~ n_master_cams, batch_size, (17 x 3D points)
+
+    # all master are equivalent => mean of predictions
+    kps_world_pred = kps_world_pred.mean(axis=0)
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

@@ -218,7 +218,7 @@ def _self_consistency_cam(cams_preds, scale_t):
     loss_t = torch.tensor(0.0).to(dev)
 
     comparisons = list(combinations(range(n_cams), 2))  # pair comparison
-    for cam_i in range(n_cams):  # todo tensored
+    for cam_i in range(1):  # todo tensored
         index_cam = [
             master_views.index(cam_i)
             for master_views in ordered_views
@@ -234,28 +234,32 @@ def _self_consistency_cam(cams_preds, scale_t):
                 for i, _ in comparisons
             ])
             compare_j = torch.cat([
-                cams[:, :3, :3][j].unsqueeze(0)  # just R
+                cams[:, :3, :3][j].unsqueeze(0)
                 for _, j in comparisons
-            ])
-            loss_R += geodesic_distance(compare_i, compare_j)
+            ])  # todo batched
+            loss_R += HuberLoss(threshold=1)._criterion(
+                geodesic_distance(compare_i, compare_j).unsqueeze(0)
+            ).squeeze(0)
             
-            norm_t = torch.sqrt(torch.mean(torch.cat([
+            norm_t = torch.mean(torch.cat([
                 torch.norm(cams[:, 2, 3][i]).unsqueeze(0)
                 for i in range(n_cams)
-            ])))
+            ]))
             compare_i = torch.cat([
                 cams[:, 2, 3][i].unsqueeze(0) / scale_t  # just t
                 for i, _ in comparisons
             ])
             compare_j = torch.cat([
-                cams[:, 2, 3][j].unsqueeze(0) / scale_t  # just t
+                cams[:, 2, 3][j].unsqueeze(0) / scale_t
                 for _, j in comparisons
             ])
-            loss_t += HuberLoss(threshold=5e2)(compare_i, compare_j) * norm_t  # favour small distances
+            loss_t += MSESmoothLoss(threshold=1e1)(compare_i, compare_j) * norm_t  # penalize large vectors
 
     normalization = n_cams * batch_size
-    loss_R = loss_R / normalization * 1e2  # ~ rescale
+    loss_R = loss_R / normalization * 1e1
     loss_t = loss_t / normalization
+
+    # print(loss_R, loss_t)
 
     return loss_R + loss_t
 

@@ -227,21 +227,21 @@ def rotation_matrix_from_vectors(vec1, vec2):
 
 
 def rotation_matrix_from_vectors_torch(vec1, vec2):
-    """ https://stackoverflow.com/a/59204638/7643222 based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula"""
+    """ see `rotation_matrix_from_vectors` """
 
     a, b = (
-        torch.divide(vec1, torch.norm(vec1)).double(),
-        torch.divide(vec2, torch.norm(vec2)).double()
+        (vec1 / torch.norm(vec1)).double(),
+        (vec2 / torch.norm(vec2)).double()
     )
 
     v = torch.cross(a, b)
     c = torch.dot(a, b)
     s = torch.norm(v)
-    kmat = torch.DoubleTensor([
+    kmat = torch.tensor([
         [0, -v[2], v[1]],
         [v[2], 0, -v[0]],
         [-v[1], v[0], 0]
-    ])
+    ], requires_grad=True).double()
 
     return torch.eye(3) + kmat + torch.mm(kmat, kmat) * ((1 - c) / (torch.square(s)))  # 3 x 3
 

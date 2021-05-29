@@ -170,19 +170,22 @@ class KeypointsRotoLoss(nn.Module):
         loss_R = torch.tensor(0.0).to(dev)
         loss_t = torch.tensor(0.0).to(dev)
 
+        ref_axis = torch.tensor([0, 0, 1], requires_grad=False).double()
         for batch_i in range(batch_size):  # todo tensored
             for joint_i in range(n_joints):
                 is_origin = torch.norm(pred[batch_i, joint_i] - torch.zeros(3)) < 1e-3 or torch.norm(gt[batch_i, joint_i] - torch.zeros(3)) < 1e-3
                 if not is_origin:
                     loss_t += torch.norm(pred[batch_i, joint_i] - gt[batch_i, joint_i])
 
-                    Rt = rotation_matrix_from_vectors_torch(
-                        pred[batch_i, joint_i],
-                        gt[batch_i, joint_i]
-                    )
                     loss_R += geodesic_distance(
-                        Rt.unsqueeze(0).to(dev),
-                        torch.eye(3).unsqueeze(0).to(dev)
+                        rotation_matrix_from_vectors_torch(
+                            pred[batch_i, joint_i],
+                            ref_axis,
+                        ).unsqueeze(0).to(dev),
+                        rotation_matrix_from_vectors_torch(
+                            gt[batch_i, joint_i],
+                            ref_axis,
+                        ).unsqueeze(0).to(dev)
                     )
         
         total_loss = self.w_R * loss_R + self.w_t * loss_t

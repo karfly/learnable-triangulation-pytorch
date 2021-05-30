@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import argparse
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 
@@ -10,12 +11,11 @@ from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 
 
-# todo fix legs
 def get_joints_connections():
     return [
-        (6, 1),  # pelvis -> 
-        (1, 0),
-        (1, 4),
+        (6, 1),  # pelvis -> right knee
+        (1, 0),  # right knee -> right foot
+        (6, 4),  # pelvis -> left knee
         (4, 5),
         (6, 3),
         (6, 2),
@@ -58,22 +58,40 @@ def draw_kp_in_2d(axis, keypoints_2d_in_view, label, color):
             )
 
 
-def draw_kp_in_3d(axis, keypoints_3d, label, marker='o', color='blue'):
-    for joint_pair in get_joints_connections():
-        joints = [
-            keypoints_3d[joint_pair[0]],
-            keypoints_3d[joint_pair[1]]
-        ]
-        xs = joints[0][0], joints[1][0]
-        ys = joints[0][1], joints[1][1]
-        zs = joints[0][2], joints[1][2]
-        axis.plot(
-            xs, ys, zs,
-            marker=marker,
-            markersize=10,
-            color=color,
-            # todo too many label=label,
-        )
+def draw_kp_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
+    # for joint_pair in get_joints_connections():
+    #     joints = [
+    #         keypoints_3d[joint_pair[0]],
+    #         keypoints_3d[joint_pair[1]]
+    #     ]
+    #     xs = joints[0][0], joints[1][0]
+    #     ys = joints[0][1], joints[1][1]
+    #     zs = joints[0][2], joints[1][2]
+
+    xs = keypoints_3d[:, 0]
+    ys = keypoints_3d[:, 1]
+    zs = keypoints_3d[:, 2]
+
+    if label:
+        n_points = keypoints_3d.shape[0]
+        cmap = plt.get_cmap('jet')
+        colors = cmap(np.linspace(0, 1, n_points))
+        for point_i in range(n_points):
+            axis.scatter(
+                [ xs[point_i] ], [ ys[point_i] ], [ zs[point_i] ],
+                marker='o',
+                color=colors[point_i],
+                label=label + ' {:.0f}'.format(point_i)
+                # todo too many label=label,
+            )
+
+    axis.plot(
+        xs, ys, zs,
+        marker=marker,
+        markersize=0 if label else 5,
+        color=color,
+        # todo too many label=label,
+    )
 
 
 def load_data(config, dumps_folder):
@@ -160,45 +178,46 @@ def parse_args():
 
 
 def debug():
-    pred = torch.tensor([[-7.2219e+02,  9.5125e+02,  1.7432e+02],
-        [-2.8474e+02,  5.2597e+02,  1.3553e+02],
-        [ 1.5094e+02,  1.1203e+02, -9.6932e+00],
-        [-1.4966e+02, -1.1084e+02,  1.4246e+01],
-        [-4.6978e+02,  3.8987e+02,  2.4835e+02],
-        [-8.7906e+02,  8.4280e+02,  2.6199e+02],
-        [ 0.0000e+00,  1.8190e-12,  1.8190e-12],
-        [ 1.6403e+02, -5.6716e+01,  4.0144e+02],
-        [ 2.6596e+02, -8.0615e+01,  8.8229e+02],
-        [ 4.2130e+02, -1.2298e+02,  1.0317e+03],
-        [ 3.6629e+02,  2.8448e+02,  1.5357e+03],
-        [ 4.0293e+02,  3.9061e+02,  1.1218e+03],
-        [ 3.8480e+02,  6.7776e+01,  7.8066e+02],
-        [ 9.3483e+01, -2.1252e+02,  8.1100e+02],
-        [-2.7844e+02, -1.0885e+02,  6.7267e+02],
-        [-3.2237e+02,  1.8415e+02,  4.4313e+02],
-        [ 3.1608e+02, -1.1876e+01,  1.0948e+03]])
-    gt = torch.tensor([[ -31.6247, -100.3399, -871.4619],
-        [ -68.8613,  -88.2665, -418.9454],
-        [-130.5779,  -20.4618,   14.3550],
-        [ 130.5781,   20.4619,  -14.3550],
-        [ 112.0524, -112.4079, -436.4425],
-        [ 118.4395, -118.9372, -890.5573],
-        [   0.0000,    0.0000,    0.0000],
-        [  20.1498, -202.9053,  113.7092],
-        [  72.8428, -445.9834,  178.7122],
-        [  42.3387, -530.1173,  276.0580],
-        [ -16.5688, -832.9115,   36.2845],
-        [-165.1364, -633.3756,   -2.1917],
-        [ -75.0140, -423.4212,  157.7408],
-        [ 206.9062, -377.9351,  164.2977],
-        [ 324.1460, -285.8358,  -71.3889],
-        [ 168.2460, -202.8033, -250.7503],
-        [  57.6037, -565.6554,  167.7551]])
+    pred = torch.tensor([[ 5.7474e+02, -6.0941e+02, -4.4499e+02],
+        [ 2.2752e+02, -2.7802e+02, -1.7834e+02],
+        [-6.3767e+01,  1.4216e+00,  2.9491e+01],
+        [ 7.8955e+01, -1.5531e+01, -4.8524e+01],
+        [ 3.0102e+02, -2.1495e+02, -1.4573e+02],
+        [ 5.8171e+02, -5.1567e+02, -3.7614e+02],
+        [ 5.1159e-13,  4.5475e-13,  6.8212e-13],
+        [-8.3141e+01,  7.8967e+01,  2.5867e+01],
+        [-1.3131e+02,  1.1014e+02, -2.5499e+01],
+        [-1.5985e+02,  9.0292e+01, -1.1300e+02],
+        [-2.9785e+02,  1.8234e+02,  1.2720e+02],
+        [-3.2246e+02,  1.5128e+02,  1.7606e+02],
+        [-2.1052e+02,  1.2548e+02,  5.1625e+01],
+        [-3.3569e+01,  8.6227e+01, -7.3297e+01],
+        [ 2.6379e+01,  8.5374e+01, -7.8202e+01],
+        [-1.2984e+02,  1.2679e+02, -3.9831e+01],
+        [-1.6108e+02,  1.2545e+02, -1.8298e+01]])
+    gt = torch.tensor([[  11.5845,  -27.6364,  -66.5652],
+        [ -65.4557,   39.7026,  -23.2532],
+        [-142.4960,  107.0416,   20.0588],
+        [-219.5363,  174.3807,   63.3708],
+        [-296.5766,  241.7197,  106.6828],
+        [-373.6168,  309.0588,  149.9948],
+        [-450.6571,  376.3978,  193.3068],
+        [-527.6974,  443.7368,  236.6188],
+        [-604.7377,  511.0759,  279.9308],
+        [-681.7779,  578.4149,  323.2428],
+        [ 629.0713, -567.3667, -413.7159]])
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
-    draw_kp_in_3d(axis, gt.cpu().numpy(), 'GT (resampled)', 'o', 'blue')
-    draw_kp_in_3d(axis, pred.cpu().numpy(), 'prediction', '^', 'red')
+    draw_kp_in_3d(
+        axis, gt.cpu().numpy(),
+        marker='o', color='blue'
+    )
+    draw_kp_in_3d(
+        axis, pred.cpu().numpy(), label='pred',
+        marker='^', color='red'
+    )
+    axis.legend(loc='lower left')
     plt.tight_layout()
     plt.show()
 

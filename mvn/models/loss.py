@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import _my_proj
-from mvn.utils.tred import find_plane_minimizing_normal
+from mvn.utils.tred import find_line_minimizing_normal
 
 
 class KeypointsMSELoss(nn.Module):
@@ -251,6 +251,7 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
 def self_squash_loss(kps_world_pred):  # todo or centroid-point distance ??
     """ penalize empty volumes """
 
+    dev = kps_world_pred.device
     batch_size = kps_world_pred.shape[0]
     normalizations = torch.cat([
         torch.pow(
@@ -258,13 +259,14 @@ def self_squash_loss(kps_world_pred):  # todo or centroid-point distance ??
         ).unsqueeze(0)
         for batch_i in range(batch_size)
     ])  # penalize large world reconstructions
-    return torch.mean(
-        torch.cat([
-            (
-                torch.min(
-                    find_plane_minimizing_normal(kps_world_pred[batch_i])[1]
-                ) / normalizations[batch_i]
-            ).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])
-    )
+
+    loss = torch.tensor(0.0).to(dev)
+    for batch_i in range(batch_size):
+        _, errors, _ = find_line_minimizing_normal(kps_world_pred[batch_i])
+        most_distant = torch.max(errors)
+        most_near = torch.min(errors)
+        metric = most_near / most_distant  # I want the nearest point to be distant !
+        loss += metric * 1e3 / normalizations[batch_i]
+
+    normalization = batch_size
+    return loss / normalization

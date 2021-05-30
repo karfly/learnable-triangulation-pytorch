@@ -69,3 +69,45 @@ def find_plane_minimizing_normal(points):
 
     fit = (normal[0], normal[1], normal[2], d)
     return fit, errors, residual
+
+
+def project_point_on_line(a, b, p):
+    """ a: a point of the line
+        b: the other point of the line
+        p: the point you want to project
+    """
+
+    ap = p - a
+    ab = b - a
+    return a + torch.dot(ap, ab) / torch.dot(ab, ab) * ab
+
+
+def distance_point_2_line(a, b, p):  # todo faster
+    projected = project_point_on_line(a, b, p)
+    return torch.norm(
+        p - projected,
+        p='fro'
+    )
+
+
+def find_line_minimizing_normal(points):
+    """ https://scikit-spatial.readthedocs.io/en/stable/api_reference/Line/methods/skspatial.objects.Line.best_fit.html#skspatial.objects.Line.best_fit """
+
+    n_points = points.shape[0]
+    dev = points.device
+
+    centroid = points.mean(axis=0)
+    points_centered = points - centroid
+    _, _, vh = torch.svd(points_centered)
+    direction = vh[0, :]  # line is parametrized as `centroid + t * direction`
+    
+    a = centroid
+    b = centroid + direction
+    errors = torch.cat([
+        distance_point_2_line(a, b, points[point_i]).unsqueeze(0).to(dev)
+        for point_i in range(n_points)
+    ])
+    residual = torch.norm(errors)
+
+    fit = (centroid, direction)
+    return fit, errors, residual

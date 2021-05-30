@@ -203,14 +203,13 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
     batch_size = cam_preds.shape[0]
     n_views = cam_preds.shape[1]
     dev = cam_preds.device
-    loss = torch.tensor(0.0).to(dev)
 
     projections = torch.cat([
         torch.cat([
             _my_proj(
                 cam_preds[batch_i, view_i],
                 same_K_for_all.to(dev)
-            )(kps_world_pred[batch_i]).unsqueeze(0) * scale_kps
+            )(kps_world_pred[batch_i]).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
@@ -218,34 +217,49 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
 
     starters = torch.cat([
         torch.cat([
-            initial_keypoints[batch_i, view_i].unsqueeze(0) * scale_kps
+            initial_keypoints[batch_i, view_i].unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
     ])  # initial 2D points from all views
 
-    penalizations = torch.cat([
-        torch.cat([
-            torch.sqrt(torch.square(
-                torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(starters[batch_i, view_i], p='fro') - 1
-            )).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0).to(dev)  # pred
-        for batch_i in range(batch_size)
-    ])  # penalize ratio of area => I want it not too little, nor not too big
-
-    return HuberLoss(threshold=1e3)._criterion(
+    return torch.mean(
         torch.cat([
             torch.cat([
-                criterion(
-                    starters[batch_i, view_i],  # gt
-                    projections[batch_i, view_i]
-                ).unsqueeze(0) * penalizations[batch_i, view_i]
+                HuberLoss(threshold=1e-2)(
+                    projections[batch_i, view_i] /
+                        torch.norm(projections[batch_i, view_i], p='fro'),
+                    starters[batch_i, view_i] /
+                        torch.norm(starters[batch_i, view_i], p='fro')
+                ).unsqueeze(0)
                 for view_i in range(n_views)
-            ])
+            ]).unsqueeze(0)
             for batch_i in range(batch_size)
         ])
-    )
+    ) * 1e3
+
+    # penalizations = torch.cat([
+    #     torch.cat([
+    #         torch.sqrt(torch.square(
+    #             torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(starters[batch_i, view_i], p='fro') - 1
+    #         )).unsqueeze(0)
+    #         for view_i in range(n_views)
+    #     ]).unsqueeze(0).to(dev)  # pred
+    #     for batch_i in range(batch_size)
+    # ])  # penalize ratio of area => I want it not too little, nor not too big
+
+    # return torch.mean(
+    #     torch.cat([
+    #         torch.cat([
+    #             criterion(
+    #                 starters[batch_i, view_i],  # gt
+    #                 projections[batch_i, view_i]
+    #             ).unsqueeze(0) * penalizations[batch_i, view_i]
+    #             for view_i in range(n_views)
+    #         ])
+    #         for batch_i in range(batch_size)
+    #     ])
+    # )
 
 
 def self_squash_loss(kps_world_pred):

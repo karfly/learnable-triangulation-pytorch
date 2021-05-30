@@ -65,10 +65,10 @@ cam2cam:
 
     backbone:
       inner_size: 1024
-      n_layers: 6
+      n_layers: 4
 
     R:
-      n_layers: 2
+      n_layers: 3
       parametrization: "rod"
 
     t:

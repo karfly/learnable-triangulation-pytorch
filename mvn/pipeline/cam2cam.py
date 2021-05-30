@@ -103,7 +103,7 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     batch_size = detections.shape[0]
     n_views = detections.shape[1]
 
-    preds, pose_rots = cam2cam_model(
+    preds = cam2cam_model(
         detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
     )  # (batch_size, | pairs |, 3, 3)
     dev = preds.device
@@ -124,7 +124,7 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
                 preds[batch_i, view_i, :3, :3] = R
                 preds[batch_i, view_i, :3, 3] = t
 
-    return preds.to(dev), pose_rots
+    return preds.to(dev)
 
 
 def _prepare_cams_for_dlt(cams, keypoints_2d_pred, same_K_for_all):
@@ -352,10 +352,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             batch['cameras'],
             config
         )
-        total_loss += GeodesicLoss()(
-            torch.eye(3).repeat((batch_size, 1, 1)).to(pose_rots.device),
-            pose_rots,
-        )  # todo very hacky
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, SELF SQUASH ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
@@ -415,7 +411,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.enter()
 
     master_i = 0  # views are randomly sorted => no need for a random master within batch
-    cam_preds, pose_rots = _forward_cams(
+    cam_preds = _forward_cams(
         cam2cam_model,
         detections[master_i],
         config.cam2cam.postprocess.scale_t,
@@ -436,12 +432,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
-    kps_world_pred = torch.cat([
-        torch.mm(
-            kps_world_pred[batch_i], pose_rots[batch_i].T
-        ).unsqueeze(0)  # = R * points
-        for batch_i in range(batch_size)
-    ])
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

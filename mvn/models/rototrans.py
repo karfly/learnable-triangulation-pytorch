@@ -102,19 +102,6 @@ class RotoTransNet(nn.Module):
 
         self.combiner = RotoTransCombiner()
 
-        self.pose_model = nn.Sequential(*[
-            MLPResNet(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=2,
-                out_features=3,  # using Rodrigues
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
-        self.pose_param = RodriguesBlock()
-
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
@@ -134,10 +121,4 @@ class RotoTransNet(nn.Module):
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
         trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
-        pose_feats = self.pose_model(features).view(batch_size, 1, 3)
-        pose_rots = torch.cat([
-            self.pose_param(pose_feats[batch_i]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ]).view(batch_size, 3, 3)
-
-        return self.combiner(rots, trans), pose_rots
+        return self.combiner(rots, trans)

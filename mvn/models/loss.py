@@ -252,9 +252,17 @@ def self_squash_loss(kps_world_pred):
     """ penalize empty volumes """
 
     batch_size = kps_world_pred.shape[0]
+    normalizations = torch.cat([
+        torch.pow(
+            torch.norm(kps_world_pred[batch_i], p='fro'), 0.1
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])  # penalize large world reconstructions
     return torch.mean(
         torch.cat([
-            find_plane_between(kps_world_pred[batch_i])[-1].unsqueeze(0)
+            (
+                find_plane_between(kps_world_pred[batch_i])[-1] / normalizations[batch_i]
+            ).unsqueeze(0)
             for batch_i in range(batch_size)
         ])
     )

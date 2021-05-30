@@ -83,7 +83,7 @@ cam2cam:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 0.6
+      proj: 0.8
       separation: 0.1
       squash: 10.0
 

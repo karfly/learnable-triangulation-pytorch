@@ -121,6 +121,11 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'color': 'black',
             'scaler': 1e-1,
             'show': True,
+        },
+        'self squash loss / batch': {
+            'color': 'tomato',
+            'scaler': 1e-1,
+            'show': True,
         }
     }
 

@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import _my_proj
-from mvn.utils.tred import find_line_minimizing_normal
+from mvn.utils.tred import find_line_minimizing_normal, matrix_to_euler_angles
 
 
 class KeypointsMSELoss(nn.Module):
@@ -251,8 +251,9 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
 def self_squash_loss(kps_world_pred):  # todo or centroid-point distance ??
     """ penalize empty volumes """
 
-    dev = kps_world_pred.device
     batch_size = kps_world_pred.shape[0]
+    dev = kps_world_pred.device
+
     normalizations = torch.cat([
         torch.pow(
             torch.norm(kps_world_pred[batch_i], p='fro'), 0.1
@@ -265,8 +266,46 @@ def self_squash_loss(kps_world_pred):  # todo or centroid-point distance ??
         _, errors, _ = find_line_minimizing_normal(kps_world_pred[batch_i])
         most_distant = torch.max(errors)
         most_near = torch.min(errors)
-        metric = most_near / most_distant  # I want the nearest point to be distant !
+        metric = most_near / most_distant  # promote circumferences
         loss += metric * 1e3 / normalizations[batch_i]
+
+    normalization = batch_size
+    return loss / normalization
+
+
+# todo as module
+def discrepancy(stuff):
+    """ ~ variance """
+
+    n_items = stuff.shape[0]  # todo multiple batches
+    mean = torch.mean(stuff)
+    return torch.mean(
+        torch.cat([
+            torch.square(stuff[i] - mean).unsqueeze(0)
+            for i in range(n_items)
+        ])
+    )
+
+
+def self_rot_loss(cam_preds):
+    batch_size = cam_preds.shape[0]
+    n_cameras = cam_preds.shape[1]
+    dev = cam_preds.device
+
+    loss = torch.tensor(0.0).to(dev)
+    for batch_i in range(batch_size):
+        euler_angles = torch.cat([
+            matrix_to_euler_angles(
+                cam_preds[batch_i, cam_i, :3, :3], 'ZYX'
+            ).unsqueeze(0)
+            for cam_i in range(n_cameras)
+        ])
+
+        # minimize X's discrepancy ...
+        loss += discrepancy(torch.abs(euler_angles[:, 2]))
+
+        # ... and Y's
+        loss += discrepancy(torch.abs(euler_angles[:, 1]))
 
     normalization = batch_size
     return loss / normalization

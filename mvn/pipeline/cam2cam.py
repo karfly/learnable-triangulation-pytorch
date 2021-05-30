@@ -8,7 +8,7 @@ import numpy as np
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss, self_rot_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -238,11 +238,24 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.self_consistency.squash > 0:
         total_loss -= loss_self_squash * config.cam2cam.loss.self_consistency.squash
 
+    loss_self_rot = self_rot_loss(cam_preds)
+    total_loss += loss_self_rot * config.cam2cam.loss.self_consistency.rot  # todo cheating
+
     __batch_i = 0  # todo debug only
+
+    print('pred exts {:.0f}'.format(__batch_i))
+    print(cam_preds[__batch_i])
+    print('gt exts {:.0f}'.format(__batch_i))
+    print(cam_gts[__batch_i])
+
     print('pred batch {:.0f}'.format(__batch_i))
     print(kps_world_pred[__batch_i])
     print('gt batch {:.0f}'.format(__batch_i))
     print(kps_world_gt[__batch_i])
+
+    print('loss_self_rot')
+    print(loss_self_rot)
+
     loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
         kps_world_pred * config.opt.scale_keypoints_3d,
         kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,

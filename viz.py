@@ -59,21 +59,29 @@ def draw_kp_in_2d(axis, keypoints_2d_in_view, label, color):
 
 
 def draw_kp_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
-    # for joint_pair in get_joints_connections():
-    #     joints = [
-    #         keypoints_3d[joint_pair[0]],
-    #         keypoints_3d[joint_pair[1]]
-    #     ]
-    #     xs = joints[0][0], joints[1][0]
-    #     ys = joints[0][1], joints[1][1]
-    #     zs = joints[0][2], joints[1][2]
+    for joint_pair in get_joints_connections():
+        joints = [
+            keypoints_3d[joint_pair[0]],
+            keypoints_3d[joint_pair[1]]
+        ]
+        xs = joints[0][0], joints[1][0]
+        ys = joints[0][1], joints[1][1]
+        zs = joints[0][2], joints[1][2]
 
-    xs = keypoints_3d[:, 0]
-    ys = keypoints_3d[:, 1]
-    zs = keypoints_3d[:, 2]
+        axis.plot(
+            xs, ys, zs,
+            marker=marker,
+            markersize=0 if label else 5,
+            color=color,
+            # todo too many label=label,
+        )
 
     if label:
+        xs = keypoints_3d[:, 0]
+        ys = keypoints_3d[:, 1]
+        zs = keypoints_3d[:, 2]
         n_points = keypoints_3d.shape[0]
+
         cmap = plt.get_cmap('jet')
         colors = cmap(np.linspace(0, 1, n_points))
         for point_i in range(n_points):
@@ -85,13 +93,6 @@ def draw_kp_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
                 # todo too many label=label,
             )
 
-    axis.plot(
-        xs, ys, zs,
-        marker=marker,
-        markersize=0 if label else 5,
-        color=color,
-        # todo too many label=label,
-    )
 
 
 def load_data(config, dumps_folder):
@@ -178,46 +179,52 @@ def parse_args():
 
 
 def debug():
-    pred = torch.tensor([[ 5.7474e+02, -6.0941e+02, -4.4499e+02],
-        [ 2.2752e+02, -2.7802e+02, -1.7834e+02],
-        [-6.3767e+01,  1.4216e+00,  2.9491e+01],
-        [ 7.8955e+01, -1.5531e+01, -4.8524e+01],
-        [ 3.0102e+02, -2.1495e+02, -1.4573e+02],
-        [ 5.8171e+02, -5.1567e+02, -3.7614e+02],
-        [ 5.1159e-13,  4.5475e-13,  6.8212e-13],
-        [-8.3141e+01,  7.8967e+01,  2.5867e+01],
-        [-1.3131e+02,  1.1014e+02, -2.5499e+01],
-        [-1.5985e+02,  9.0292e+01, -1.1300e+02],
-        [-2.9785e+02,  1.8234e+02,  1.2720e+02],
-        [-3.2246e+02,  1.5128e+02,  1.7606e+02],
-        [-2.1052e+02,  1.2548e+02,  5.1625e+01],
-        [-3.3569e+01,  8.6227e+01, -7.3297e+01],
-        [ 2.6379e+01,  8.5374e+01, -7.8202e+01],
-        [-1.2984e+02,  1.2679e+02, -3.9831e+01],
-        [-1.6108e+02,  1.2545e+02, -1.8298e+01]])
-    gt = torch.tensor([[  11.5845,  -27.6364,  -66.5652],
-        [ -65.4557,   39.7026,  -23.2532],
-        [-142.4960,  107.0416,   20.0588],
-        [-219.5363,  174.3807,   63.3708],
-        [-296.5766,  241.7197,  106.6828],
-        [-373.6168,  309.0588,  149.9948],
-        [-450.6571,  376.3978,  193.3068],
-        [-527.6974,  443.7368,  236.6188],
-        [-604.7377,  511.0759,  279.9308],
-        [-681.7779,  578.4149,  323.2428],
-        [ 629.0713, -567.3667, -413.7159]])
+    pred = torch.tensor([[ 4.7978e+02, -4.4164e+02, -3.8788e+02],
+        [ 2.9600e+02, -2.0384e+02, -2.3515e+02],
+        [ 5.8534e+01,  7.7366e+01, -6.5027e+01],
+        [-5.9911e+01, -7.8681e+01,  6.4558e+01],
+        [ 2.4255e+02, -3.3462e+02, -6.2346e+01],
+        [ 4.8151e+02, -5.6101e+02, -1.8774e+02],
+        [-3.6380e-12,  3.4106e-12,  2.8422e-12],
+        [-1.8263e+02,  1.4113e+02,  8.3566e+01],
+        [-3.6722e+02,  2.8819e+02,  2.1823e+02],
+        [-4.1866e+02,  4.5055e+02,  2.8077e+02],
+        [ 9.0806e+01,  5.9240e+02,  4.5678e+01],
+        [-4.9422e+01,  4.9387e+02,  1.8071e+01],
+        [-2.6782e+02,  3.3694e+02,  1.2622e+02],
+        [-3.9127e+02,  1.6201e+02,  2.3836e+02],
+        [-3.0843e+02, -8.5862e+01,  1.5757e+02],
+        [-1.7055e+02, -2.5311e+02,  9.9787e+01],
+        [-3.5324e+02,  3.6498e+02,  2.5681e+02]])
+    gt = torch.tensor([[ 1.7703e+01,  1.7006e+02, -9.2785e+02],
+        [-6.0124e+01,  9.2687e+01, -4.7959e+02],
+        [-1.3127e+02,  5.5741e+01,  3.2727e-01],
+        [ 1.3127e+02, -5.5740e+01, -3.2727e-01],
+        [ 1.7603e+02, -1.5665e+02, -4.7420e+02],
+        [ 2.3222e+02, -1.7232e+02, -9.3200e+02],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00],
+        [-5.3660e+00,  6.2792e+01,  2.5453e+02],
+        [ 8.9624e+00,  4.3324e+01,  5.1341e+02],
+        [-7.9511e+01, -2.2318e+00,  6.7360e+02],
+        [-5.5594e+02, -1.7050e+02,  4.4094e+02],
+        [-4.1403e+02,  4.4287e+01,  4.2517e+02],
+        [-1.2069e+02,  9.9120e+01,  4.6452e+02],
+        [ 1.3914e+02,  2.4199e+01,  4.4269e+02],
+        [ 2.9129e+02,  5.7373e+01,  1.8510e+02],
+        [ 3.6268e+02, -7.7911e+00, -5.4019e+01],
+        [-4.6473e+01, -4.4729e+01,  5.7198e+02]])
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
     draw_kp_in_3d(
-        axis, gt.cpu().numpy(),
+        axis, gt.cpu().numpy(), label='gt',
         marker='o', color='blue'
     )
     draw_kp_in_3d(
         axis, pred.cpu().numpy(), label='pred',
         marker='^', color='red'
     )
-    axis.legend(loc='lower left')
+    # axis.legend(loc='lower left')
     plt.tight_layout()
     plt.show()
 

@@ -111,3 +111,53 @@ def find_line_minimizing_normal(points):
 
     fit = (centroid, direction)
     return fit, errors, residual
+
+
+def _angle_from_tan(
+    axis: str, other_axis: str, data, horizontal: bool, tait_bryan: bool
+):
+    """ https://github.com/facebookresearch/pytorch3d/blob/master/pytorch3d/transforms/rotation_conversions.py """
+
+    i1, i2 = {"X": (2, 1), "Y": (0, 2), "Z": (1, 0)}[axis]
+    if horizontal:
+        i2, i1 = i1, i2
+    even = (axis + other_axis) in ["XY", "YZ", "ZX"]
+    if horizontal == even:
+        return torch.atan2(data[..., i1], data[..., i2])
+    if tait_bryan:
+        return torch.atan2(-data[..., i2], data[..., i1])
+    return torch.atan2(data[..., i2], -data[..., i1])
+
+
+def matrix_to_euler_angles(matrix, convention: str):
+    """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.matrix_to_euler_angles """
+
+
+    def _index_from_letter(letter: str):
+        if letter == "X":
+            return 0
+        if letter == "Y":
+            return 1
+        if letter == "Z":
+            return 2
+
+    i0 = _index_from_letter(convention[0])
+    i2 = _index_from_letter(convention[2])
+    tait_bryan = i0 != i2
+    if tait_bryan:
+        central_angle = torch.asin(
+            matrix[..., i0, i2] * (-1.0 if i0 - i2 in [-1, 2] else 1.0)
+        )
+    else:
+        central_angle = torch.acos(matrix[..., i0, i0])
+
+    o = (
+        _angle_from_tan(
+            convention[0], convention[1], matrix[..., i2], False, tait_bryan
+        ),
+        central_angle,
+        _angle_from_tan(
+            convention[2], convention[1], matrix[..., i0, :], True, tait_bryan
+        ),
+    )
+    return torch.stack(o, -1)

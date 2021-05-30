@@ -73,8 +73,9 @@ class RotoTransNet(nn.Module):
             ])
 
         n_params_per_R = 6 if config.cam2cam.model.R.parametrization == '6d' else 3
+        self.roto_model = R6DBlock() if config.cam2cam.model.R.parametrization == '6d' else RodriguesBlock()
         if config.cam2cam.model.type == 'mlp':
-            self.R_backbone = nn.Sequential(*[
+            self.R_model = nn.Sequential(*[
                 MLPResNet(
                     in_features=n_features,
                     inner_size=n_features,
@@ -85,11 +86,10 @@ class RotoTransNet(nn.Module):
                     activation=nn.LeakyReLU,
                 ),
             ])
-        self.r_model = R6DBlock() if config.cam2cam.model.R.parametrization == '6d' else RodriguesBlock()
 
         self.td = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
         if config.cam2cam.model.type == 'mlp':
-            self.t_backbone = nn.Sequential(*[
+            self.t_model = nn.Sequential(*[
                 MLPResNet(
                     in_features=n_features,
                     inner_size=n_features,
@@ -110,17 +110,17 @@ class RotoTransNet(nn.Module):
         batch_size = x.shape[0]
         features = self.backbone(x)  # batch_size, ...
 
-        R_feats = self.R_backbone(features)
+        R_feats = self.R_model(features)
         features_per_pair = R_feats.shape[-1] // self.n_views_comparing
         R_feats = R_feats.view(
             batch_size, self.n_views_comparing, features_per_pair
         )
         rots = torch.cat([  # ext.R in each view
-            self.r_model(R_feats[batch_i]).unsqueeze(0)
+            self.roto_model(R_feats[batch_i]).unsqueeze(0)
             for batch_i in range(batch_size)
         ])  # ~ batch_size, | comparisons |, (3 x 3)
 
-        t_feats = self.t_backbone(features)  # ~ (batch_size, 3)
+        t_feats = self.t_model(features)  # ~ (batch_size, 3)
         trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
 
         return self.combiner(rots, trans)

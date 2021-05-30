@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: false
-  gt_cams: true
+  gt_cams: false
 
 opt:
   criterion: "MSESmooth"

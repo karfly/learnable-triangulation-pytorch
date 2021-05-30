@@ -197,6 +197,7 @@ def rotate2gt(pred, gt):
 
     dev = pred.device
     batch_size = pred.shape[0]
+    new_pred = torch.empty_like(pred)
     for batch_i in range(batch_size):
         (_, dir_pred), _, _ = find_line_minimizing_normal(pred[batch_i])
         (_, dir_gt), _, _ = find_line_minimizing_normal(gt[batch_i])
@@ -204,7 +205,9 @@ def rotate2gt(pred, gt):
             dir_pred.to(dev),
             dir_gt.to(dev)
         )
-        pred[batch_i] = torch.mm(pred[batch_i], R)
+        new_pred[batch_i] = torch.mm(pred[batch_i], R)
+
+    return new_pred
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -415,7 +418,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
-    rotate2gt(kps_world_pred, kps_world_gt)
+    kps_world_pred = rotate2gt(kps_world_pred, kps_world_gt)
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

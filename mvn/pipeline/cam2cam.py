@@ -8,7 +8,7 @@ import numpy as np
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, twod_proj_loss, SeparationLoss, self_consistency_proj_loss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -193,7 +193,6 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     dev = cam_preds.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
-    master_cam_i = 0
     batch_size = cam_preds.shape[0]
     n_cameras = cam_preds.shape[1]
 
@@ -211,17 +210,19 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.t > 0:
         total_loss += config.cam2cam.loss.t * trans_loss
 
-    loss_proj = twod_proj_loss(
+    same_K_for_all = torch.DoubleTensor(cameras[0][0].intrinsics_padded)
+    loss_proj = proj_loss(
         kps_world_gt,
         kps_world_pred,
         cameras,
+        same_K_for_all,
         cam_preds
     )
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj = self_consistency_proj_loss(
-        torch.DoubleTensor(cameras[0][0].intrinsics_padded),
+    loss_self_proj = self_proj_loss(
+        same_K_for_all,
         cam_preds,
         kps_world_pred,
         keypoints_2d_pred
@@ -232,6 +233,10 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
     if config.cam2cam.loss.self_consistency.separation > 0:
         total_loss += loss_self_separation * config.cam2cam.loss.self_consistency.separation
+
+    loss_self_squash = self_squash_loss(kps_world_pred)
+    if config.cam2cam.loss.self_consistency.squash > 0:
+        total_loss -= loss_self_squash * config.cam2cam.loss.self_consistency.squash
 
     __batch_i = 0  # todo debug only
     print('pred batch {:.0f}'.format(__batch_i))
@@ -248,7 +253,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
 
     return loss_R, trans_loss,\
         loss_proj, loss_world,\
-        loss_self_proj, loss_self_separation,\
+        loss_self_proj, loss_self_separation, loss_self_squash, \
         total_loss
 
 
@@ -289,7 +294,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
+        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, loss_self_squash, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -300,7 +305,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, SELF SQUASH ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
@@ -309,6 +314,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             loss_3d.item(),
             loss_self_proj.item(),
             loss_self_separation.item(),
+            loss_self_squash.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)

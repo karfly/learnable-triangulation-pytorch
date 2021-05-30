@@ -126,6 +126,8 @@ def parse_job_log(f_path, verbose=False):
                     key = 'self 2D'
                 elif loss_name == 'self 3d':
                     key = 'self 3D'
+                elif loss_name == 'self squash':
+                    key = 'self squash'
                 elif loss_name == 'total':
                     key = 'total'
 

@@ -14,7 +14,7 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  noisy: false
+  noisy: true
   gt_cams: false
 
 opt:
@@ -85,6 +85,7 @@ cam2cam:
     self_consistency:
       proj: 0.6
       separation: 0.1
+      squash: 10.0
 
   opt:
     grad_clip: 1.0

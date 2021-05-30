@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import _my_proj
+from mvn.utils.tred import find_plane_between
 
 
 class KeypointsMSELoss(nn.Module):
@@ -170,7 +171,7 @@ class SeparationLoss(nn.Module):
         ]))
 
 
-def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+def proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, same_K_for_all, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
     """ project GT VS pred points to all views """
 
     n_views = len(cameras)
@@ -181,7 +182,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, cam_preds, crite
             torch.cat([
                 _my_proj(
                     cam_preds[batch_i, view_i],
-                    torch.DoubleTensor(cameras[view_i][batch_i].intrinsics_padded).to(dev)
+                    same_K_for_all.to(dev)
                 )(keypoints_3d_pred[batch_i]).unsqueeze(0)
                 for view_i in range(1, n_views)  # not considering master (0)
             ]).to(dev),  # pred
@@ -196,7 +197,7 @@ def twod_proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, cam_preds, crite
     ]))
 
 
-def self_consistency_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
+def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
     batch_size = cam_preds.shape[0]
     n_views = cam_preds.shape[1]
     dev = cam_preds.device
@@ -245,3 +246,15 @@ def self_consistency_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initia
     )
 
     return loss
+
+
+def self_squash_loss(kps_world_pred):
+    """ penalize empty volumes """
+
+    batch_size = kps_world_pred.shape[0]
+    return torch.mean(
+        torch.cat([
+            find_plane_between(kps_world_pred[batch_i])[-1].unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])
+    )

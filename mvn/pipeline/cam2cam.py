@@ -190,6 +190,7 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
+# todo necessary? I dont think so
 def rotate2gt(pred, gt, validity, scale_keypoints_3d):
     """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
 
@@ -429,12 +430,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         confidences_pred,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
-    )
-    rotate2gt(
-        kps_world_pred,
-        kps_world_gt,
-        keypoints_3d_binary_validity_gt,
-        config.opt.scale_keypoints_3d
     )
 
     if config.debug.dump_tensors:

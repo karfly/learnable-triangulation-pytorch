@@ -2,9 +2,10 @@ import numpy as np
 
 import torch
 from torch import nn
+from torch.functional import norm
 
 from mvn.utils.multiview import _my_proj
-from mvn.utils.tred import find_plane_minimizing_normal
+from mvn.utils.tred import find_plane_minimizing_normal, find_line_minimizing_normal
 
 
 class KeypointsMSELoss(nn.Module):
@@ -251,16 +252,23 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
 def self_squash_loss(kps_world_pred):
     """ penalize empty volumes """
 
+    dev = kps_world_pred.device
+    loss = torch.tensor(0.0).to(dev)
     batch_size = kps_world_pred.shape[0]
-    return torch.mean(
-        torch.cat([
-            (
-                torch.min(
-                    find_plane_minimizing_normal(kps_world_pred[batch_i])[1]
-                ) / torch.pow(
-                    torch.norm(kps_world_pred[batch_i], p='fro'), 0.2
-                )  # penalize large world reconstructions
-            ).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])
-    )
+    for batch_i in range(batch_size):
+        batch_loss = torch.tensor(0.0).to(dev)
+        _, errors, _ = find_plane_minimizing_normal(kps_world_pred[batch_i])
+        batch_loss += torch.min(errors)  # promote NOT being on a plane
+
+        _, errors, _ = find_line_minimizing_normal(kps_world_pred[batch_i])
+        most_distant = torch.max(errors)
+        most_near = torch.min(errors)
+        metric = most_near / most_distant  # promote circumferences
+        batch_loss += metric * 1e3
+
+        loss += batch_loss / torch.pow(
+            torch.norm(kps_world_pred[batch_i], p='fro'), 0.1
+        )  # penalize large world reconstructions
+
+    normalization = batch_size
+    return loss / normalization

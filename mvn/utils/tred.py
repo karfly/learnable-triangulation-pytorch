@@ -53,8 +53,8 @@ def find_plane_minimizing_normal(points):
     xyzR = points - centroid  # points relative to centroid
 
     # 2. calculate the singular value decomposition ...
-    u, _, v = torch.svd(xyzR)
-    normal = u[-1]  # ... and get the normal as the last column of v matrix
+    _, _, v = torch.svd(xyzR)
+    normal = v[-1]  # ... and get the normal as the last column of v matrix
     normal = normal / torch.norm(normal)  # normalized
 
     # get d coefficient to plane

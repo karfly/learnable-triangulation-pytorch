@@ -287,25 +287,25 @@ def discrepancy(stuff):
     )
 
 
-def self_rot_loss(cam_preds):
-    batch_size = cam_preds.shape[0]
-    n_cameras = cam_preds.shape[1]
-    dev = cam_preds.device
+# todo remove def self_rot_loss(cam_preds):
+#     batch_size = cam_preds.shape[0]
+#     n_cameras = cam_preds.shape[1]
+#     dev = cam_preds.device
 
-    loss = torch.tensor(0.0).to(dev)
-    for batch_i in range(batch_size):
-        euler_angles = torch.cat([
-            matrix_to_euler_angles(
-                cam_preds[batch_i, cam_i, :3, :3], 'ZYX'
-            ).unsqueeze(0)
-            for cam_i in range(n_cameras)
-        ])
+#     loss = torch.tensor(0.0).to(dev)
+#     for batch_i in range(batch_size):
+#         euler_angles = torch.cat([
+#             matrix_to_euler_angles(
+#                 cam_preds[batch_i, cam_i, :3, :3], 'ZYX'
+#             ).unsqueeze(0)
+#             for cam_i in range(n_cameras)
+#         ])
 
-        # minimize X's discrepancy ...
-        loss += discrepancy(torch.abs(euler_angles[:, 2]))
+#         # minimize X's discrepancy ...
+#         loss += discrepancy(torch.abs(euler_angles[:, 2]))
 
-        # ... and Y's
-        loss += discrepancy(torch.abs(euler_angles[:, 1]))
+#         # ... and Y's
+#         loss += discrepancy(torch.abs(euler_angles[:, 1]))
 
-    normalization = batch_size
-    return loss / normalization
+#     normalization = batch_size
+#     return loss / normalization

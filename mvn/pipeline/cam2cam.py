@@ -8,7 +8,7 @@ import numpy as np
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss, self_rot_loss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss
 
 _ITER_TAG = 'cam2cam'
 
@@ -190,6 +190,23 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
+from mvn.utils.tred import find_line_minimizing_normal
+from mvn.utils.img import rotation_matrix_from_vectors_torch
+def rotate2gt(pred, gt):
+    """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
+
+    dev = pred.device
+    batch_size = pred.shape[0]
+    for batch_i in range(batch_size):
+        (_, dir_pred), _, _ = find_line_minimizing_normal(pred[batch_i])
+        (_, dir_gt), _, _ = find_line_minimizing_normal(gt[batch_i])
+        R = rotation_matrix_from_vectors_torch(
+            dir_pred.to(dev),
+            dir_gt.to(dev)
+        )
+        pred[batch_i] = torch.mm(pred[batch_i], R)
+
+
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     dev = cam_preds.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
@@ -238,9 +255,6 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.self_consistency.squash > 0:
         total_loss -= loss_self_squash * config.cam2cam.loss.self_consistency.squash
 
-    loss_self_rot = self_rot_loss(cam_preds)
-    total_loss += loss_self_rot * config.cam2cam.loss.self_consistency.rot  # todo cheating
-
     __batch_i = 0  # todo debug only
 
     print('pred exts {:.0f}'.format(__batch_i))
@@ -252,9 +266,6 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     print(kps_world_pred[__batch_i])
     print('gt batch {:.0f}'.format(__batch_i))
     print(kps_world_gt[__batch_i])
-
-    print('loss_self_rot')
-    print(loss_self_rot)
 
     loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
         kps_world_pred * config.opt.scale_keypoints_3d,
@@ -404,6 +415,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
+    rotate2gt(kps_world_pred, kps_world_gt)
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

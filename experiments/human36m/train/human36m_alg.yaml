@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: false
-  gt_cams: false
+  gt_cams: true
 
 opt:
   criterion: "MSESmooth"
@@ -86,7 +86,6 @@ cam2cam:
       proj: 0.8
       separation: 0.1
       squash: 5.0
-      rot: 100.0
 
   opt:
     grad_clip: 1.0

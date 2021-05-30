@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import _my_proj
-from mvn.utils.tred import find_plane_between
+from mvn.utils.tred import find_plane_minimizing_normal
 
 
 class KeypointsMSELoss(nn.Module):
@@ -248,7 +248,7 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
     return loss
 
 
-def self_squash_loss(kps_world_pred):
+def self_squash_loss(kps_world_pred):  # todo or centroid-point distance ??
     """ penalize empty volumes """
 
     batch_size = kps_world_pred.shape[0]
@@ -261,7 +261,9 @@ def self_squash_loss(kps_world_pred):
     return torch.mean(
         torch.cat([
             (
-                find_plane_between(kps_world_pred[batch_i])[-1] / normalizations[batch_i]
+                torch.min(
+                    find_plane_minimizing_normal(kps_world_pred[batch_i])[1]
+                ) / normalizations[batch_i]
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ])

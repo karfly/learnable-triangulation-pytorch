@@ -234,7 +234,7 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
         for batch_i in range(batch_size)
     ])  # penalize ratio of area => I want it not too little, nor not too big
 
-    loss = torch.mean(
+    return HuberLoss(threshold=1e3)._criterion(
         torch.cat([
             torch.cat([
                 criterion(
@@ -246,8 +246,6 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
             for batch_i in range(batch_size)
         ])
     )
-
-    return loss
 
 
 def self_squash_loss(kps_world_pred):

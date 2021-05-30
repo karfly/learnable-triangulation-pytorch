@@ -69,7 +69,7 @@ cam2cam:
 
     R:
       n_layers: 2
-      parametrization: "6d"
+      parametrization: "rod"
 
     t:
       n_layers: 2

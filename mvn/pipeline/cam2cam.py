@@ -190,7 +190,6 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
-from mvn.utils.tred import find_line_minimizing_normal
 from mvn.utils.img import rotation_matrix_from_vectors_torch
 def rotate2gt(pred, gt):
     """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
@@ -198,14 +197,16 @@ def rotate2gt(pred, gt):
     dev = pred.device
     batch_size = pred.shape[0]
     new_pred = torch.empty_like(pred)
+
+    joint_i = 0  # or any other joint (apart from pelvis)
     for batch_i in range(batch_size):
-        (_, dir_pred), _, _ = find_line_minimizing_normal(pred[batch_i])
-        (_, dir_gt), _, _ = find_line_minimizing_normal(gt[batch_i])
+        dir_pred = pred[batch_i, joint_i]
+        dir_gt = gt[batch_i, joint_i]
         R = rotation_matrix_from_vectors_torch(
             dir_pred.to(dev),
-            dir_gt.to(dev)
+            dir_gt.to(dev),
         )
-        new_pred[batch_i] = torch.mm(pred[batch_i], R)
+        new_pred[batch_i] = torch.mm(pred[batch_i], R.T)  # R * points ...
 
     return new_pred
 

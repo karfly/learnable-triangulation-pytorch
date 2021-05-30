@@ -5,7 +5,7 @@ from torch import nn
 from torch.functional import norm
 
 from mvn.utils.multiview import _my_proj
-from mvn.utils.tred import find_plane_minimizing_normal, find_line_minimizing_normal
+from mvn.utils.tred import find_plane_minimizing_z, find_line_minimizing_normal
 
 
 class KeypointsMSELoss(nn.Module):
@@ -257,8 +257,9 @@ def self_squash_loss(kps_world_pred):
     batch_size = kps_world_pred.shape[0]
     for batch_i in range(batch_size):
         batch_loss = torch.tensor(0.0).to(dev)
-        _, errors, _ = find_plane_minimizing_normal(kps_world_pred[batch_i])
-        batch_loss += torch.min(errors)  # promote NOT being on a plane
+        _, errors, _ = find_plane_minimizing_z(kps_world_pred[batch_i])
+        metric = torch.min(torch.abs(errors)) * 1e2  # promote NOT being on a plane
+        batch_loss += metric
 
         _, errors, _ = find_line_minimizing_normal(kps_world_pred[batch_i])
         most_distant = torch.max(errors)
@@ -267,7 +268,7 @@ def self_squash_loss(kps_world_pred):
         batch_loss += metric * 1e3
 
         loss += batch_loss / torch.pow(
-            torch.norm(kps_world_pred[batch_i], p='fro'), 0.1
+            torch.norm(kps_world_pred[batch_i], p='fro'), 0.15
         )  # penalize large world reconstructions
 
     normalization = batch_size

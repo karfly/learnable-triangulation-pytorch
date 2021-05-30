@@ -85,7 +85,7 @@ cam2cam:
     self_consistency:
       proj: 0.8
       separation: 0.1
-      squash: 1.0
+      squash: 0.2
 
   opt:
     grad_clip: 1.0

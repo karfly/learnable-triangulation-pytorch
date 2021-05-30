@@ -83,7 +83,7 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     ])
 
 
-def _get_cam2cam_gt(cameras, master_i=0):
+def _get_cams_gt(cameras, master_i=0):
     n_cameras = len(cameras)
     batch_size = len(cameras[0])
     cameras_i = get_master_pairs()
@@ -99,13 +99,14 @@ def _get_cam2cam_gt(cameras, master_i=0):
     return cam_gts.cuda()
 
 
-def _forward_cam2cam(cam2cam_model, detections, scale_t, gt=None, noisy=False):
+def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     batch_size = detections.shape[0]
     n_views = detections.shape[1]
 
-    preds = cam2cam_model(
+    preds, pose_rots = cam2cam_model(
         detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
     )  # (batch_size, | pairs |, 3, 3)
+    dev = preds.device
 
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
@@ -113,8 +114,8 @@ def _forward_cam2cam(cam2cam_model, detections, scale_t, gt=None, noisy=False):
             preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
 
             if not (gt is None):
-                R = gt[batch_i, view_i, :3, :3].cuda().detach().clone()
-                t = gt[batch_i, view_i, :3, 3].cuda().detach().clone()
+                R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
+                t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
 
                 if noisy:  # noisy
                     R = R + 1e-1 * torch.rand_like(R)
@@ -123,7 +124,7 @@ def _forward_cam2cam(cam2cam_model, detections, scale_t, gt=None, noisy=False):
                 preds[batch_i, view_i, :3, :3] = R
                 preds[batch_i, view_i, :3, 3] = t
 
-    return preds.cuda()
+    return preds.to(dev), pose_rots
 
 
 def _prepare_cams_for_dlt(cams, keypoints_2d_pred, same_K_for_all):
@@ -351,6 +352,10 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             batch['cameras'],
             config
         )
+        total_loss += GeodesicLoss()(
+            torch.eye(3).repeat((batch_size, 1, 1)).to(pose_rots.device),
+            pose_rots,
+        )  # todo very hacky
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, SELF SQUASH ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
@@ -390,7 +395,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
 
-    cam_gts = _get_cam2cam_gt(batch['cameras'])
+    cam_gts = _get_cams_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
@@ -410,7 +415,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.enter()
 
     master_i = 0  # views are randomly sorted => no need for a random master within batch
-    cam_preds = _forward_cam2cam(
+    cam_preds, pose_rots = _forward_cams(
         cam2cam_model,
         detections[master_i],
         config.cam2cam.postprocess.scale_t,
@@ -424,13 +429,19 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     minimon.enter()
     ordered = get_master_pairs()[master_i]
-    kps_world_pred = _do_dlt(
+    kps_world_pred = _do_dlt(  # todo as triangulation bottleneck
         cam_preds,
         keypoints_2d_pred[:, ordered],
         confidences_pred,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
+    kps_world_pred = torch.cat([
+        torch.mm(
+            kps_world_pred[batch_i], pose_rots[batch_i].T
+        ).unsqueeze(0)  # = R * points
+        for batch_i in range(batch_size)
+    ])
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

@@ -107,7 +107,7 @@ class Camera:
             np.expand_dims(np.zeros(3), axis=0).T
         ])  # 3 x 4
 
-    def cam2world(self):
+    def cam2world(self):  # todo faster by .T
         """ 3D camera space (3D, x y z 1) -> 3D world (euclidean) """
 
         def _f(x):
@@ -173,7 +173,7 @@ class Camera:
         """ 3D camera space (4D, x y z 1) -> 3D world (homo) -> 3D other camera space (4D, x y z 1) """
         
         def _f(x):
-            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))
+            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))  # todo faster by .T
             back2world = x @ inv  # N x 4
             return back2world @ torch.DoubleTensor(other.extrinsics_padded.T)  # N x 4
 
@@ -441,7 +441,7 @@ def calc_reprojection_error_matrix(keypoints_3d, keypoints_2d_list, proj_matrici
 def _2camspace(ext_from, ext_to):
     return torch.mm(
         ext_to,
-        torch.inverse(ext_from)
+        torch.inverse(ext_from)  # todo faster by .T
     ).T
 
 

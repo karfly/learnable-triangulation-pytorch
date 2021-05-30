@@ -148,6 +148,7 @@ class SeparationLoss(nn.Module):
         super().__init__()
 
         self.threshold = torch.tensor(np.square(threshold))
+        # todo max thresh ?
 
     def forward(self, batched_kps):
         batch_size = batched_kps.shape[0]
@@ -268,7 +269,7 @@ def self_squash_loss(kps_world_pred):
         batch_loss += metric * 1e3
 
         loss += batch_loss / torch.pow(
-            torch.norm(kps_world_pred[batch_i], p='fro'), 0.15
+            torch.norm(kps_world_pred[batch_i], p='fro'), 0.25
         )  # penalize large world reconstructions
 
     normalization = batch_size

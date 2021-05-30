@@ -3,12 +3,12 @@ import os
 from mvn.models.utils import get_grad_params
 import torch
 
-import numpy as np
-
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss
+from mvn.utils.img import rotation_matrix_from_vectors_torch
+from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
 _ITER_TAG = 'cam2cam'
 
@@ -190,25 +190,43 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
-from mvn.utils.img import rotation_matrix_from_vectors_torch
-def rotate2gt(pred, gt):
+def rotate2gt(pred, gt, validity, scale_keypoints_3d):
     """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
 
     dev = pred.device
     batch_size = pred.shape[0]
+    n_joints = pred.shape[1]
     new_pred = torch.empty_like(pred)
 
-    joint_i = 0  # or any other joint (apart from pelvis)
     for batch_i in range(batch_size):
-        dir_pred = pred[batch_i, joint_i]
-        dir_gt = gt[batch_i, joint_i]
-        R = rotation_matrix_from_vectors_torch(
-            dir_pred.to(dev),
-            dir_gt.to(dev),
-        )
+        eulers = torch.cat([
+            matrix_to_euler_angles(
+                rotation_matrix_from_vectors_torch(
+                    pred[batch_i, joint_i].to(dev),
+                    gt[batch_i, joint_i].to(dev),
+                ), 'ZYX'
+            ).unsqueeze(0)
+            for joint_i in range(n_joints)
+            if torch.norm(pred[batch_i, joint_i] - gt[batch_i, joint_i]) > 1e-2
+        ])
+        mean_euler = torch.mean(eulers, axis=0)
+        R = euler_angles_to_matrix(mean_euler, 'ZYX')
         new_pred[batch_i] = torch.mm(pred[batch_i], R.T)  # R * points ...
 
-    return new_pred
+        if batch_i == 0:  # debug just this
+            print('it would take euler ~ {} to transform to GT ...'.format(
+                mean_euler.detach().cpu().numpy()
+            ))
+
+    print('transformed 3D loss = {:.1f}'.format(
+        KeypointsMSESmoothLoss(threshold=20*20)(
+            pred * scale_keypoints_3d,
+            gt.to(dev) * scale_keypoints_3d,
+            validity
+        )
+    ))
+
+    # return new_pred
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -347,18 +365,11 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         )
         live_debug_log(_ITER_TAG, message)
 
-        per_pose_error_relative, per_pose_error_abs, _ = dataloader.dataset.evaluate(
+        per_pose_error_relative, _, _ = dataloader.dataset.evaluate(
             kps_world_pred.detach().cpu().numpy(),
             batch['indexes'],
             split_by_subject=True
         )  # MPJPE
-        message = '{} batch iter {:d} MPJPE relative 2 pelvis: ~ {:.1f} mm, absolute: ~ {:.1f}'.format(
-            'training' if is_train else 'validation',
-            iter_i,
-            per_pose_error_relative,
-            per_pose_error_abs
-        )
-        live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
 
@@ -419,7 +430,12 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
-    kps_world_pred = rotate2gt(kps_world_pred, kps_world_gt)
+    rotate2gt(
+        kps_world_pred,
+        kps_world_gt,
+        keypoints_3d_binary_validity_gt,
+        config.opt.scale_keypoints_3d
+    )
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

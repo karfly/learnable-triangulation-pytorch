@@ -1,5 +1,7 @@
 import torch
 
+from functools import reduce
+
 
 def find_plane_minimizing_z(points):
     """ https://math.stackexchange.com/a/2306029/83083 """
@@ -132,7 +134,6 @@ def _angle_from_tan(
 def matrix_to_euler_angles(matrix, convention: str):
     """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.matrix_to_euler_angles """
 
-
     def _index_from_letter(letter: str):
         if letter == "X":
             return 0
@@ -161,3 +162,28 @@ def matrix_to_euler_angles(matrix, convention: str):
         ),
     )
     return torch.stack(o, -1)
+
+
+def _axis_angle_rotation(axis: str, angle):
+    """ https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html """
+
+    cos = torch.cos(angle)
+    sin = torch.sin(angle)
+    one = torch.ones_like(angle)
+    zero = torch.zeros_like(angle)
+
+    if axis == "X":
+        R_flat = (one, zero, zero, zero, cos, -sin, zero, sin, cos)
+    if axis == "Y":
+        R_flat = (cos, zero, sin, zero, one, zero, -sin, zero, cos)
+    if axis == "Z":
+        R_flat = (cos, -sin, zero, sin, cos, zero, zero, zero, one)
+
+    return torch.stack(R_flat, -1).reshape(angle.shape + (3, 3))
+
+
+def euler_angles_to_matrix(euler_angles, convention: str):
+    """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.euler_angles_to_matrix """
+
+    matrices = map(_axis_angle_rotation, convention, torch.unbind(euler_angles, -1))
+    return reduce(torch.matmul, matrices)

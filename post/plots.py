@@ -1,6 +1,5 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib.colors as mcolors
 
 from mvn.utils.misc import find_min, drop_na
 
@@ -21,7 +20,7 @@ def plot_SOTA(axis, _xrange):
     # )
 
 
-def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=1.0, legend_loc=None, show_min=False, marker=',', verbose=True):
+def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=1.0, legend_loc=None, show_min=False, marker=',', linestyle='solid', verbose=True):
     if xrange is None:
         done = len(stuff)
         xrange = list(range(done))
@@ -31,7 +30,7 @@ def plot_stuff(axis, stuff, label, xrange=None, ylim=None, color='black', alpha=
 
     axis.plot(
         xrange, stuff, label=label, color=color,
-        marker=marker, markersize=5,
+        marker=marker, markersize=5, linestyle=linestyle,
         alpha=alpha
     )
 
@@ -72,6 +71,7 @@ def plot_loss(axis, loss_history, label, xrange, color):
         legend_loc=legend_loc,
         show_min=False,
         marker='o',
+        linestyle='dashed',
         verbose=False
     )
 
@@ -81,50 +81,53 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         lambda x: 'loss / batch' in x,
         epochs[0].keys()
     ))
+
+    n_max_losses = 10
+    colors = plt.get_cmap('jet')(np.linspace(0, 1, n_max_losses))
     loss_plotters = {  # todo config file
         'total loss / batch': {
-            'color': 'black',
+            'color': colors[0],
             'scaler': 1e-2,
             'show': False,
         },
         'R loss / batch': {
-            'color': 'darkorange',
+            'color': colors[1],
             'scaler': 2e1,
             'show': True,
         },
         't loss / batch': {
-            'color': 'forestgreen',
+            'color': colors[2],
             'scaler': 1e1,
             'show': True,
         },
         '2D loss / batch': {
-            'color': 'lightskyblue',
+            'color': colors[3],
             'scaler': 5e-2,
             'show': True,
         },
         '3D loss / batch': {
-            'color': 'darkviolet',
+            'color': colors[4],
             'scaler': 2e-1,
             'show': True,
         },
         'self cam loss / batch': {
-            'color': 'fuchsia',
+            'color': colors[5],
             'scaler': 5e-1,
             'show': False,
         },
         'self 2D loss / batch': {
-            'color': 'gray',
+            'color': colors[7],  # colors[6] is yellow ...
             'scaler': 1e-2,
             'show': True,
         },
         'self 3D loss / batch': {
-            'color': 'black',
+            'color': colors[8],
             'scaler': 1e-1,
             'show': True,
         },
         'self squash loss / batch': {
-            'color': 'tomato',
-            'scaler': 2e0,
+            'color': colors[9],
+            'scaler': 1e0,
             'show': True,
         }
     }
@@ -152,7 +155,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
                         loss_history * loss_plotters[key]['scaler'],
                         label,
                         xrange,
-                        loss_plotters[key]['color']
+                        loss_plotters[key]['color'],
                     )
 
     axis.set_xlim([xrange[0], xrange[-1]])
@@ -171,7 +174,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
 
 def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_ylim=[0, 1], metric_ylabel=None, with_SOTA=False):
     legend_loc = 'upper right'
-    marker = '+'
+    marker = ','
 
     metrics = np.float32(list(map(lambda x: x['training metrics (rel)'], epochs)))
     label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
@@ -248,7 +251,7 @@ def plot_lr(axis, lr_reductions, batch_amount_per_epoch=8):
             label='new lr: {:.3E}'.format(new_lr),
             color='magenta',
             linestyle=':',
-            alpha=0.3
+            alpha=0.5
         )
 
 

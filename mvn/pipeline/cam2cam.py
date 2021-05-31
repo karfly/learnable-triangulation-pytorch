@@ -7,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss, HuberLoss
 from mvn.utils.img import rotation_matrix_from_vectors_torch
 from mvn.utils.tred import rotz
 
@@ -267,13 +267,16 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
-    #loss_self_proj = QuadraticProjectionLoss(1e2)(
+    # loss_self_proj = QuadraticProjectionLoss(1e2)(
+    loss_self_proj = ScaleIndependentProjectionLoss(
+        # KeypointsMSESmoothLoss(threshold=1.0*np.sqrt(2))
+        HuberLoss(threshold=1e-1)
+    )(
         K,
         cam_preds,
         kps_world_pred,
         keypoints_2d_pred
-    )
+    ) * 1e3  # final scaling
     if config.cam2cam.loss.self_consistency.proj > 0:
         total_loss += loss_self_proj * config.cam2cam.loss.self_consistency.proj
 
@@ -360,7 +363,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             keypoints_3d_binary_validity_gt[:, :2],
         )
         print(loss_pose_ref)
-        total_loss += loss_pose_ref
+        total_loss += 5.0 * loss_pose_ref
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',

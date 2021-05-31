@@ -202,10 +202,9 @@ class ProjectionLoss(nn.Module):
 class ScaleIndependentProjectionLoss(nn.Module):
     """ see eq 2 in https://arxiv.org/abs/2011.14679 """
 
-    def __init__(self, final_scaling=1.0, criterion=nn.L1Loss()):
+    def __init__(self, criterion=nn.L1Loss()):
         super().__init__()
 
-        self.final_scaling = final_scaling
         self.criterion = criterion
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
@@ -230,19 +229,17 @@ class ScaleIndependentProjectionLoss(nn.Module):
         return torch.mean(
             torch.cat([
                 torch.cat([
-                    KeypointsMSESmoothLoss(threshold=1*np.sqrt(2))(
-                    # self.criterion(
-                    # HuberLoss(threshold=1e-2)(
+                    self.criterion(
                         projections[batch_i, view_i].to(dev) /
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                    ).unsqueeze(0) # * penalizations[batch_i, view_i]
+                    ).unsqueeze(0)  # * penalizations[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)
             ])
-        ) * self.final_scaling
+        )
 
 
 class QuadraticProjectionLoss(nn.Module):

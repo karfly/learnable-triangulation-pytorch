@@ -159,11 +159,11 @@ def _prepare_cams_for_dlt(cams, keypoints_2d_pred, same_K_for_all):
     return full_cams  # ~ batch_size, 4, 3, 4
 
 
-def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_cam_i):
+def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i):
     full_cams = _prepare_cams_for_dlt(
         cams,
         keypoints_2d_pred,
-        same_K_for_all
+        K
     )
 
     # ... perform DLT in master cam space, but since ...
@@ -261,7 +261,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         total_loss
 
 
-def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
+def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
     n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
@@ -275,11 +275,23 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
     def _forward_kp():
         if config.cam2cam.data.using_gt:
-            return get_kp_gt(kps_world_gt, batch['cameras'])
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, batch['cameras'])
         else:
-            return model(
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                 images_batch, None, minimon
             )
+
+        if config.cam2cam.data.using_noise:
+            batch_size, n_views, n_joints = keypoints_2d_pred.shape[:3]
+            for batch_i in range(batch_size):
+                var = 0.2  # to be scaled with K
+                for view_i in range(n_views):
+                    for joint_i in range(n_joints):
+                        keypoints_2d_pred[batch_i, view_i, joint_i] += torch.randn_like(
+                            keypoints_2d_pred[batch_i, view_i, joint_i]
+                        ) * var
+
+        return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
     def _prepare_cam2cam_keypoints_batch(keypoints):
         """ master-cam KPs will be first, then the others """
@@ -379,15 +391,15 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     minimon.leave('cam2cam forward')
 
     minimon.enter()
+
     ordered = get_master_pairs()[master_i]
-    kps_world_pred = _do_dlt(  # todo as triangulation bottleneck
+    kps_world_pred = triangulate(
         cam_preds,
         keypoints_2d_pred[:, ordered],
         confidences_pred,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
         master_i
     )
-
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')
@@ -398,4 +410,4 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
     if is_train:
         _backprop()
 
-    return kps_world_pred.detach().cpu()
+    return kps_world_pred.detach().cpu()  # no need for grad no more

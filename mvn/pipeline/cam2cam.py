@@ -375,7 +375,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
         backprop(
             opt, total_loss, scheduler,
-            trans_loss * 1.1,  # give some slack
+            loss_self_proj * 1.1,  # give some slack
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')

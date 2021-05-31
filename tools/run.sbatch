@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH --partition=ml
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=2048
-#SBATCH --time=00:30:00
+#SBATCH --time=00:20:00
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err

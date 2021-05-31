@@ -65,11 +65,11 @@ cam2cam:
 
     backbone:
       inner_size: 1024
-      n_layers: 4
+      n_layers: 6
 
     R:
-      n_layers: 3
-      parametrization: "rod"
+      n_layers: 2
+      parametrization: "6d"
 
     t:
       n_layers: 2
@@ -84,8 +84,8 @@ cam2cam:
     world: 0.0
     self_consistency:
       proj: 10.0
-      separation: 0.01
-      squash: 0.1
+      separation: 0.1
+      squash: 0.0
 
   opt:
     grad_clip: 1.0

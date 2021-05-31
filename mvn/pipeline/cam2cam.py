@@ -6,9 +6,8 @@ import torch
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, proj_loss, SeparationLoss, self_squash_loss, self_proj_loss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, self_squash_loss, ScaleIndependentProjectionLoss
 from mvn.utils.img import rotation_matrix_from_vectors_torch
-from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
 _ITER_TAG = 'cam2cam'
 
@@ -191,44 +190,36 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
-# todo necessary? I dont think so
-def rotate2gt(pred, gt, validity, scale_keypoints_3d):
+def rotate2gt(pred, gt):
     """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
+
+    # todo separate f
+    def _rotate_points(points, R):
+        return torch.mm(points, R.T)  # R * points ...
+
+    # todo separate f
+    def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
+        return _rotate_points(
+            points,
+            rotation_matrix_from_vectors_torch(
+                points[joint_i],
+                ref_points[joint_i]
+            )
+        )
 
     dev = pred.device
     batch_size = pred.shape[0]
-    n_joints = pred.shape[1]
-    new_pred = torch.empty_like(pred)
+    new_pred = torch.empty_like(pred).to(dev)
 
     for batch_i in range(batch_size):
-        eulers = torch.cat([
-            matrix_to_euler_angles(
-                rotation_matrix_from_vectors_torch(
-                    pred[batch_i, joint_i].to(dev),
-                    gt[batch_i, joint_i].to(dev),
-                ), 'ZYX'
-            ).unsqueeze(0)
-            for joint_i in range(n_joints)
-            if torch.norm(pred[batch_i, joint_i] - gt[batch_i, joint_i]) > 1e-2
-        ])
-        mean_euler = torch.mean(eulers, axis=0)
-        R = euler_angles_to_matrix(mean_euler, 'ZYX')
-        new_pred[batch_i] = torch.mm(pred[batch_i], R.T)  # R * points ...
-
-        if batch_i == 0:  # debug just this
-            print('it would take euler ~ {} to transform to GT ...'.format(
-                mean_euler.detach().cpu().numpy()
-            ))
-
-    print('transformed 3D loss = {:.1f}'.format(
-        KeypointsMSESmoothLoss(threshold=20*20)(
-            pred * scale_keypoints_3d,
-            gt.to(dev) * scale_keypoints_3d,
-            validity
+        new_pred[batch_i] = _rotate_points_based_on_joint_align(
+            pred[batch_i], gt[batch_i], 2  # right leg
         )
-    ))
+        new_pred[batch_i] = _rotate_points_based_on_joint_align(
+            new_pred[batch_i], gt[batch_i], 8  # head
+        )
 
-    # return new_pred
+    return new_pred
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -251,19 +242,19 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.t > 0:
         total_loss += config.cam2cam.loss.t * trans_loss
 
-    same_K_for_all = torch.DoubleTensor(cameras[0][0].intrinsics_padded)
-    loss_proj = proj_loss(
+    K = torch.DoubleTensor(cameras[0][0].intrinsics_padded)  # same for all
+    loss_proj = ProjectionLoss()(
         kps_world_gt,
         kps_world_pred,
         cameras,
-        same_K_for_all,
+        K,
         cam_preds
     )
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj = self_proj_loss(
-        same_K_for_all,
+    loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
+        K,
         cam_preds,
         kps_world_pred,
         keypoints_2d_pred
@@ -367,6 +358,21 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         )
         live_debug_log(_ITER_TAG, message)
 
+        # todo debug only
+        per_pose_error_relative, per_pose_error_relative, _ = dataloader.dataset.evaluate(
+            rotate2gt(kps_world_pred.detach(), kps_world_gt).detach().cpu().numpy(),
+            batch['indexes'],
+            split_by_subject=True
+        )
+        message = '{} batch iter {:d} MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm (after rotating to GT reference)'.format(
+            'training' if is_train else 'validation',
+            iter_i,
+            per_pose_error_relative,
+            per_pose_error_relative,
+        )
+        live_debug_log(_ITER_TAG, message)
+
+        # todo this is used to lr decay: use something else
         per_pose_error_relative, _, _ = dataloader.dataset.evaluate(
             kps_world_pred.detach().cpu().numpy(),
             batch['indexes'],

@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.functional import norm
 
-from mvn.utils.multiview import _my_proj
+from mvn.utils.multiview import _my_proj, project_to_weak_views
 from mvn.utils.tred import find_plane_minimizing_z, find_line_minimizing_normal
 
 
@@ -137,7 +137,9 @@ class HuberLoss(nn.Module):
         return diff.mean()
 
     def forward(self, pred, gt):
-        diff = pred - gt
+        dev = pred.device
+
+        diff = pred.to(dev) - gt.to(dev)
         return self._criterion(diff)
 
 
@@ -173,30 +175,59 @@ class SeparationLoss(nn.Module):
         ]))
 
 
-def proj_loss(keypoints_3d_gt, keypoints_3d_pred, cameras, same_K_for_all, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+class ProjectionLoss(nn.Module):
     """ project GT VS pred points to all views """
 
-    n_views = len(cameras)
-    batch_size = keypoints_3d_gt.shape[0]
-    dev = cam_preds.device
-    return torch.mean(torch.cat([
-        criterion(
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, kps_world_gt, kps_world_pred, cameras, K, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
+        n_views = len(cameras)
+        batch_size = kps_world_gt.shape[0]
+        dev = cam_preds.device
+        return torch.mean(torch.cat([
+            criterion(
+                project_to_weak_views(K, cam_preds, kps_world_pred),  # pred
+                torch.cat([
+                    cameras[view_i][batch_i].world2proj()(
+                        kps_world_gt[batch_i]
+                    ).unsqueeze(0)
+                    for view_i in range(n_views)
+                ]).to(dev),  # gt
+            ).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ]))
+
+
+class ScaleIndependentProjectionLoss(nn.Module):
+    """ see eq 2 in https://arxiv.org/abs/2011.14679 """
+
+    def __init__(self, final_scaling=1.0):
+        super().__init__()
+
+        self.final_scaling = final_scaling
+
+    def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
+        batch_size = cam_preds.shape[0]
+        n_views = cam_preds.shape[1]
+
+        projections = project_to_weak_views(
+            K, cam_preds, kps_world_pred
+        )
+        return torch.mean(
             torch.cat([
-                _my_proj(
-                    cam_preds[batch_i, view_i],
-                    same_K_for_all.to(dev)
-                )(keypoints_3d_pred[batch_i]).unsqueeze(0)
-                for view_i in range(1, n_views)  # not considering master (0)
-            ]).to(dev),  # pred
-            torch.cat([
-                cameras[view_i][batch_i].world2proj()(
-                    keypoints_3d_gt[batch_i]
-                ).unsqueeze(0)
-                for view_i in range(1, n_views)
-            ]).to(dev),  # gt
-        ).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ]))
+                torch.cat([
+                    HuberLoss(threshold=1e-2)(  # todo avoid Huber
+                        projections[batch_i, view_i] /
+                            torch.norm(projections[batch_i, view_i], p='fro'),
+                        initial_keypoints[batch_i, view_i] /
+                            torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                    ).unsqueeze(0)
+                    for view_i in range(n_views)
+                ]).unsqueeze(0)
+                for batch_i in range(batch_size)
+            ])
+        ) * self.final_scaling
 
 
 def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
@@ -215,51 +246,28 @@ def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints,
         for batch_i in range(batch_size)
     ])  # project DLT-ed points in all views
 
-    starters = torch.cat([
+    penalizations = torch.cat([
         torch.cat([
-            initial_keypoints[batch_i, view_i].unsqueeze(0)
+            torch.sqrt(torch.square(
+                torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
+            )).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
-    ])  # initial 2D points from all views
+    ])  # penalize ratio of area => I want it not too little, nor not too big
 
     return torch.mean(
         torch.cat([
             torch.cat([
-                HuberLoss(threshold=1e-2)(
-                    projections[batch_i, view_i] /
-                        torch.norm(projections[batch_i, view_i], p='fro'),
-                    starters[batch_i, view_i] /
-                        torch.norm(starters[batch_i, view_i], p='fro')
-                ).unsqueeze(0)
+                criterion(
+                    initial_keypoints[batch_i, view_i],  # gt
+                    projections[batch_i, view_i]
+                ).unsqueeze(0) * penalizations[batch_i, view_i]
                 for view_i in range(n_views)
-            ]).unsqueeze(0)
+            ])
             for batch_i in range(batch_size)
         ])
-    ) * 1e3
-
-    # penalizations = torch.cat([
-    #     torch.cat([
-    #         torch.sqrt(torch.square(
-    #             torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(starters[batch_i, view_i], p='fro') - 1
-    #         )).unsqueeze(0)
-    #         for view_i in range(n_views)
-    #     ]).unsqueeze(0).to(dev)  # pred
-    #     for batch_i in range(batch_size)
-    # ])  # penalize ratio of area => I want it not too little, nor not too big
-
-    # return torch.mean(
-    #     torch.cat([
-    #         torch.cat([
-    #             criterion(
-    #                 starters[batch_i, view_i],  # gt
-    #                 projections[batch_i, view_i]
-    #             ).unsqueeze(0) * penalizations[batch_i, view_i]
-    #             for view_i in range(n_views)
-    #         ])
-    #         for batch_i in range(batch_size)
-    #     ])
-    # )
+    )
 
 
 def self_squash_loss(kps_world_pred):

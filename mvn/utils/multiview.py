@@ -222,7 +222,6 @@ def project_3d_points_to_image_plane_without_distortion(proj_matrix, points_3d, 
         return result
 
 
-
 def triangulate_point_from_multiple_views_linear(proj_matricies, points, convert_to_euclidean=True):  # todo use confidences
     """Triangulates one point from multiple (N) views using direct linear transformation (DLT). For more information look at "Multiple view geometry in computer vision", Richard Hartley and Andrew Zisserman, 12.2 (p. 312).
 
@@ -469,3 +468,22 @@ def _my_proj(ext, K):
         )
 
     return _f
+
+
+def project_to_weak_views(K, cam_preds, kps_world_pred):
+    """ assuming https://en.wikipedia.org/wiki/3D_projection#Weak_perspective_projection """
+
+    batch_size = cam_preds.shape[0]
+    n_views = cam_preds.shape[1]
+    dev = cam_preds.device
+
+    return torch.cat([
+        torch.cat([
+            _my_proj(
+                cam_preds[batch_i, view_i],
+                K.to(dev)
+            )(kps_world_pred[batch_i]).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0).to(dev)  # pred
+        for batch_i in range(batch_size)
+    ])  # project DLT-ed points in all views

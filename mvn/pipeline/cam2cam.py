@@ -6,7 +6,7 @@ import torch
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, self_squash_loss, ScaleIndependentProjectionLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, self_squash_loss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss
 from mvn.utils.img import rotation_matrix_from_vectors_torch
 
 _ITER_TAG = 'cam2cam'
@@ -253,7 +253,8 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
+    #loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
+    loss_self_proj = QuadraticProjectionLoss(1e2)(
         K,
         cam_preds,
         kps_world_pred,

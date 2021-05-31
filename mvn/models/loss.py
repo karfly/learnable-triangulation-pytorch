@@ -210,6 +210,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
         n_views = cam_preds.shape[1]
+        dev = cam_preds.device
 
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
@@ -217,10 +218,11 @@ class ScaleIndependentProjectionLoss(nn.Module):
         return torch.mean(
             torch.cat([
                 torch.cat([
-                    HuberLoss(threshold=1e-2)(  # todo avoid Huber
-                        projections[batch_i, view_i] /
+                    nn.L1Loss()(
+                    # HuberLoss(threshold=1e-2)(
+                        projections[batch_i, view_i].to(dev) /
                             torch.norm(projections[batch_i, view_i], p='fro'),
-                        initial_keypoints[batch_i, view_i] /
+                        initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')
                     ).unsqueeze(0)
                     for view_i in range(n_views)
@@ -230,44 +232,46 @@ class ScaleIndependentProjectionLoss(nn.Module):
         ) * self.final_scaling
 
 
-def self_proj_loss(same_K_for_all, cam_preds, kps_world_pred, initial_keypoints, criterion=KeypointsMSESmoothLoss(threshold=1e2), scale_kps=1e2):
-    batch_size = cam_preds.shape[0]
-    n_views = cam_preds.shape[1]
-    dev = cam_preds.device
+class QuadraticProjectionLoss(nn.Module):
+    """ inspired by `ScaleIndependentProjectionLoss` """
 
-    projections = torch.cat([
-        torch.cat([
-            _my_proj(
-                cam_preds[batch_i, view_i],
-                same_K_for_all.to(dev)
-            )(kps_world_pred[batch_i]).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0).to(dev)  # pred
-        for batch_i in range(batch_size)
-    ])  # project DLT-ed points in all views
+    def __init__(self, scale_kps, criterion=KeypointsMSESmoothLoss(threshold=1e2)):
+        super().__init__()
 
-    penalizations = torch.cat([
-        torch.cat([
-            torch.sqrt(torch.square(
-                torch.norm(projections[batch_i, view_i], p='fro') / torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
-            )).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0).to(dev)  # pred
-        for batch_i in range(batch_size)
-    ])  # penalize ratio of area => I want it not too little, nor not too big
+        self.scale_kps = scale_kps
+        self.criterion = criterion
 
-    return torch.mean(
-        torch.cat([
+    def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
+        batch_size = cam_preds.shape[0]
+        n_views = cam_preds.shape[1]
+        dev = cam_preds.device
+
+        projections = project_to_weak_views(
+            K, cam_preds, kps_world_pred
+        )
+        penalizations = torch.cat([
             torch.cat([
-                criterion(
-                    initial_keypoints[batch_i, view_i],  # gt
-                    projections[batch_i, view_i]
-                ).unsqueeze(0) * penalizations[batch_i, view_i]
+                torch.sqrt(torch.square(
+                    torch.norm(projections[batch_i, view_i], p='fro') /
+                    torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
+                )).unsqueeze(0)
                 for view_i in range(n_views)
-            ])
+            ]).unsqueeze(0).to(dev)  # pred
             for batch_i in range(batch_size)
-        ])
-    )
+        ])  # penalize ratio of area => I want it not too little, nor not too big
+
+        return torch.mean(
+            torch.cat([
+                torch.cat([
+                    self.criterion(
+                        initial_keypoints[batch_i, view_i].to(dev) * self.scale_kps,
+                        projections[batch_i, view_i].to(dev) * self.scale_kps
+                    ).unsqueeze(0) * penalizations[batch_i, view_i]
+                    for view_i in range(n_views)
+                ])
+                for batch_i in range(batch_size)
+            ])
+        )
 
 
 def self_squash_loss(kps_world_pred):

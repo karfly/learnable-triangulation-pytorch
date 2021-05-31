@@ -216,28 +216,28 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
-        penalizations = torch.cat([
-            torch.cat([
-                torch.sqrt(torch.square(
-                    torch.norm(projections[batch_i, view_i], p='fro') /
-                    torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
-                )).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0).to(dev)  # pred
-            for batch_i in range(batch_size)
-        ])  # penalize ratio of area => I want it not too little, nor not too big
+        # penalizations = torch.cat([
+        #     torch.cat([
+        #         torch.square(
+        #             torch.norm(projections[batch_i, view_i], p='fro') /
+        #             torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
+        #         ).unsqueeze(0)
+        #         for view_i in range(n_views)
+        #     ]).unsqueeze(0).to(dev)  # pred
+        #     for batch_i in range(batch_size)
+        # ])  # penalize ratio of area => I want it not too little, nor not too big
 
         return torch.mean(
             torch.cat([
                 torch.cat([
-                    KeypointsMSESmoothLoss(threshold=20*np.sqrt(2))(
+                    KeypointsMSESmoothLoss(threshold=1*np.sqrt(2))(
                     # self.criterion(
                     # HuberLoss(threshold=1e-2)(
                         projections[batch_i, view_i].to(dev) /
-                            torch.norm(projections[batch_i, view_i], p='fro') * 1e2,
+                            torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
-                            torch.norm(initial_keypoints[batch_i, view_i] * 1e2, p='fro')
-                    ).unsqueeze(0) * penalizations[batch_i, view_i]
+                            torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                    ).unsqueeze(0) # * penalizations[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)

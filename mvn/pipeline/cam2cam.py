@@ -268,7 +268,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         total_loss += config.cam2cam.loss.proj * loss_proj
 
     loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
-    #loss_self_proj = QuadraticProjectionLoss(1e2)( worse
+    #loss_self_proj = QuadraticProjectionLoss(1e2)(
         K,
         cam_preds,
         kps_world_pred,
@@ -354,6 +354,13 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             batch['cameras'],
             config
         )
+        loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
+            kps_world_pred[:, :2] * config.opt.scale_keypoints_3d,
+            kps_world_gt[:, :2].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+            keypoints_3d_binary_validity_gt[:, :2],
+        )
+        print(loss_pose_ref)
+        total_loss += loss_pose_ref
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',

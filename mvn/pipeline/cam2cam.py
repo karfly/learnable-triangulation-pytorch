@@ -362,7 +362,6 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             kps_world_gt[:, :2].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
             keypoints_3d_binary_validity_gt[:, :2],
         )
-        print(loss_pose_ref)
         total_loss += 5.0 * loss_pose_ref
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(

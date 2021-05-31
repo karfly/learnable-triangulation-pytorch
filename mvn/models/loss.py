@@ -215,16 +215,16 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
-        penalizations = torch.cat([
-            torch.cat([
-                torch.square(
-                    torch.norm(projections[batch_i, view_i], p='fro') /
-                    torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0).to(dev)  # pred
-            for batch_i in range(batch_size)
-        ])  # penalize ratio of area => I want it not too little, nor not too big
+        # penalizations = torch.cat([  # todo fa sbalzare un sacco, use `pow` ?
+        #     torch.cat([
+        #         torch.square(
+        #             torch.norm(projections[batch_i, view_i], p='fro') /
+        #             torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
+        #         ).unsqueeze(0)
+        #         for view_i in range(n_views)
+        #     ]).unsqueeze(0).to(dev)  # pred
+        #     for batch_i in range(batch_size)
+        # ])  # penalize ratio of area => I want it not too little, nor not too big
 
         return torch.mean(
             torch.cat([
@@ -234,7 +234,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                    ).unsqueeze(0) * penalizations[batch_i, view_i]
+                    ).unsqueeze(0)
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)

@@ -1,6 +1,7 @@
 import torch
 
 from functools import reduce
+from mvn.utils.img import rotation_matrix_from_vectors_torch
 
 
 def find_plane_minimizing_z(points):
@@ -166,3 +167,20 @@ def rotz(theta):
         [ torch.sin(theta), torch.cos(theta), 0],
         [0, 0, 1]
     ])
+
+
+def _rotate_points(points, R):
+    return torch.mm(
+        points,
+        R.T.type(points.dtype)
+    )  # R * points ...
+
+# todo separate f
+def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
+    return _rotate_points(
+        points,
+        rotation_matrix_from_vectors_torch(
+            points[joint_i],
+            ref_points[joint_i]
+        )
+    )

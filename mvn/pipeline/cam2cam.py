@@ -1,15 +1,12 @@
 import os
 
 import torch
-import numpy as np
 
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss, HuberLoss
-from mvn.utils.img import rotation_matrix_from_vectors_torch
-from mvn.utils.tred import rotz
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss
 
 _ITER_TAG = 'cam2cam'
 
@@ -192,50 +189,6 @@ def _do_dlt(cams, keypoints_2d_pred, confidences_pred, same_K_for_all, master_ca
     ])
 
 
-def rotate2gt(pred, gt):
-    """ "in the wild" => pose wrt pelvis good, but wrt GT bad => rotate """
-
-    # todo separate f
-    def _rotate_points(points, R):
-        return torch.mm(
-            points,
-            R.T.type(points.dtype)
-        )  # R * points ...
-
-    # todo separate f
-    def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
-        return _rotate_points(
-            points,
-            rotation_matrix_from_vectors_torch(
-                points[joint_i],
-                ref_points[joint_i]
-            )
-        )
-
-    dev = pred.device
-    batch_size = pred.shape[0]
-    new_pred = torch.empty_like(pred).to(dev)
-
-    for batch_i in range(batch_size):
-        new_pred[batch_i] = _rotate_points_based_on_joint_align(
-            pred[batch_i], gt[batch_i], 2  # right leg
-        )
-        new_pred[batch_i] = _rotate_points_based_on_joint_align(
-            new_pred[batch_i], gt[batch_i], 9  # head
-        )
-
-        new_pred[batch_i] = _rotate_points(
-            new_pred[batch_i],
-            rotz(torch.tensor(np.pi))
-        )
-        
-        new_pred[batch_i] = _rotate_points_based_on_joint_align(
-            new_pred[batch_i], gt[batch_i], 16
-        )
-
-    return new_pred
-
-
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     dev = cam_preds.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
@@ -267,9 +220,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    # loss_self_proj = QuadraticProjectionLoss(1e2)(
     loss_self_proj = ScaleIndependentProjectionLoss(
-        # KeypointsMSESmoothLoss(threshold=1.0*np.sqrt(2))
         HuberLoss(threshold=1e-1)
     )(
         K,

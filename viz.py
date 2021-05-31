@@ -35,33 +35,40 @@ def get_joints_connections():
     ]
 
 
-def draw_kp_in_2d(axis, keypoints_2d_in_view, label, color):
-    for i, joint_pair in enumerate(get_joints_connections()):
+def draw_kps_in_2d(axis, keypoints_2d, label, marker='o', color='blue'):
+    for _, joint_pair in enumerate(get_joints_connections()):
         joints = [
-            keypoints_2d_in_view[joint_pair[0]],
-            keypoints_2d_in_view[joint_pair[1]]
+            keypoints_2d[joint_pair[0]],
+            keypoints_2d[joint_pair[1]]
         ]
         xs = joints[0][0], joints[1][0]
         ys = joints[0][1], joints[1][1]
 
-        if i == 0:
-            axis.plot(
-                xs, ys,
+        axis.plot(
+            xs, ys,
+            marker=marker,
+            markersize=0 if label else 10,
+            color=color,
+        )
+
+    if label:
+        xs = keypoints_2d[:, 0]
+        ys = keypoints_2d[:, 1]
+        n_points = keypoints_2d.shape[0]
+
+        cmap = plt.get_cmap('jet')
+        colors = cmap(np.linspace(0, 1, n_points))
+        for point_i in range(n_points):
+            axis.scatter(
+                [ xs[point_i] ], [ ys[point_i] ],
                 marker='o',
-                markersize=10,
-                color=color,
-                label=label
-            )
-        else:
-            axis.plot(
-                xs, ys,
-                marker='o',
-                markersize=15,
-                color=color,
+                color=colors[point_i],
+                label=label + ' {:.0f}'.format(point_i)
+                # todo too many label=label,
             )
 
 
-def draw_kp_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
+def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
     for joint_pair in get_joints_connections():
         joints = [
             keypoints_3d[joint_pair[0]],
@@ -97,7 +104,6 @@ def draw_kp_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
             )
 
 
-
 def load_data(config, dumps_folder):
     def _load(file_name):
         f_path = dumps_folder / file_name
@@ -120,7 +126,7 @@ def get_dump_folder(milestone, experiment):
     return current_milestone / folder / 'epoch-0-iter-0'
 
 
-def main(config, milestone, experiment_name):
+def viz_experiment_samples(config, milestone, experiment_name):
     dumps_folder = get_dump_folder(milestone, experiment_name)
     gts, pred, indices, dataloader = load_data(config, dumps_folder)
 
@@ -181,61 +187,51 @@ def parse_args():
     return parser.parse_args()
 
 
-def create_plane(coefficients):
-    X, Y = np.meshgrid(
-        np.arange(-1e2, 1e2),
-        np.arange(-1e2, 1e2)
-    )
-    Z = C[0] * X + C[1] * Y + C[2]
-    # matrix version: Z = np.dot(np.c_[XX, YY, np.ones(XX.shape)], C).reshape(X.shape)
-    return X, Y, Z
-
-
-def debug():
-    pred = torch.tensor([[-7.6816e+01, -1.0128e+02,  2.0695e+01],
-        [-4.3430e+01, -4.2793e+01,  3.9446e+00],
-        [-4.9607e+00, -3.6847e-01, -6.3809e+00],
-        [ 9.5493e-01, -2.6682e+00,  8.1226e+00],
-        [-3.6333e+01, -3.3956e+01,  1.8492e+01],
-        [-6.8758e+01, -9.1360e+01,  3.1245e+01],
-        [ 1.1813e+00,  3.8762e-02,  3.1309e-01],
-        [ 1.8361e+01,  1.3239e+01,  3.9560e+00],
-        [ 3.7046e+01,  2.8087e+01,  2.6287e+01],
-        [ 4.3868e+01,  4.6385e+01,  5.0022e+01],
-        [ 1.8518e+01,  3.8230e+01,  4.6319e+01],
-        [-1.3389e+00,  9.5479e+00,  1.8709e+01],
-        [ 2.8213e+01,  2.1733e+01,  1.7224e+01],
-        [ 3.3770e+01,  2.3431e+01,  2.5136e+01],
-        [ 2.7387e+01,  3.0527e+01,  3.0452e+01],
-        [ 3.4501e+01,  4.6283e+01,  4.2892e+01],
-        [ 3.6357e+01,  3.4379e+01,  3.2808e+01]]).float() * 30
-    gt = torch.tensor([[  37.4991, -144.7940, -871.4387],
-        [ 129.3202,   54.0021, -465.2055],
-        [ 138.2558,  -32.2440,   13.5774],
-        [-138.2538,   32.2435,  -13.5772],
-        [-140.5757,  297.0284, -421.7780],
-        [-135.5292,   27.7523, -796.5333],
+def debug_live_training():
+    pred = torch.tensor([[-120.0351,  -97.5238, -847.3595],
+        [  19.4619,  -64.5193, -439.7347],
+        [  38.6705,  -97.9529,  -12.1802],
+        [ -25.3350,   96.3627,    8.4132],
+        [  18.4084,   78.7236, -423.2703],
+        [-105.6909,  115.3522, -833.6101],
+        [  -4.8296,    1.9117,    9.1521],
+        [ -35.0383,   11.2138,  205.2767],
+        [ -49.7013,   11.3933,  445.0732],
+        [ -55.7458,  -11.7605,  594.7091],
+        [ 158.0260, -100.8921,  579.7028],
+        [ 206.0661, -142.5098,  363.1733],
+        [ -19.1693,  -73.7891,  416.9742],
+        [-102.3154,   74.6540,  393.7753],
+        [-149.9107,  139.6545,  138.5996],
+        [-111.7834,  179.0937,  -87.8924],
+        [ -21.9193,  -36.7624,  495.8151]]).float()
+    gt = torch.tensor([[-123.5816,  -63.1810, -864.4102],
+        [  23.1837,  -74.3185, -451.8706],
+        [  32.6581, -131.7078,   -7.0428],
+        [ -32.6581,  131.7076,    7.0428],
+        [  19.8084,  157.5186, -437.7446],
+        [ -98.6799,  185.7531, -858.4759],
         [   0.0000,    0.0000,    0.0000],
-        [ -45.3304,  -75.7998,  246.8953],
-        [ -82.1804,  -68.0094,  504.1621],
-        [ -44.4716,  -11.2745,  663.8755],
-        [ 146.7015,  168.1520,  560.7039],
-        [ 312.8317,   29.3780,  420.4814],
-        [  55.7141, -117.3896,  474.8474],
-        [-201.8953,  -12.5610,  434.1146],
-        [-274.3504,  275.3397,  384.4215],
-        [ -98.4383,  254.2147,  571.8475],
-        [ -54.6237,   34.4836,  558.8606]]).float()
+        [ -40.0030,  -28.9358,  220.7925],
+        [ -71.0292,  -23.5397,  474.2511],
+        [ -74.5952,  -62.3802,  627.2699],
+        [ 161.1007, -191.2156,  611.1978],
+        [ 228.8489, -214.3185,  374.4852],
+        [ -32.2064, -152.6614,  437.6392],
+        [-115.1191,   90.9162,  407.3412],
+        [-158.4828,  178.7477,  149.7747],
+        [-114.1517,  251.6376,  -82.3426],
+        [ -23.7438, -100.7664,  531.5288]]).float()
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
 
-    draw_kp_in_3d(
+    draw_kps_in_3d(
         axis, pred.detach().cpu().numpy(), label='pred',
         marker='^', color='red'
     )
 
-    draw_kp_in_3d(
+    draw_kps_in_3d(
         axis, gt.detach().cpu().numpy(), label='gt',
         marker='o', color='blue'
     )
@@ -245,13 +241,66 @@ def debug():
     plt.show()
 
 
-if __name__ == '__main__':
-    debug()
-    1/0
-    args = parse_args()
-    config = get_config('experiments/human36m/train/human36m_alg.yaml')
+def debug_noisy_kps():
+    pred = torch.tensor([[-2.4766e+00,  1.3749e+02],
+        [ 5.1553e+00,  6.4850e+01],
+        [ 2.0758e+01, -5.5261e+00],
+        [-2.1199e+01,  5.6435e+00],
+        [-2.6096e+01,  6.9830e+01],
+        [-2.7770e+01,  1.4269e+02],
+        [-7.5650e-16,  8.0752e-15],
+        [-1.5507e+01, -2.8643e+01],
+        [-3.7743e+01, -4.8863e+01],
+        [-3.7260e+01, -6.8515e+01],
+        [-4.3409e+01, -4.1714e+01],
+        [-1.0379e+01, -2.9870e+01],
+        [-1.2607e+01, -4.6328e+01],
+        [-5.6277e+01, -4.2062e+01],
+        [-7.1047e+01,  3.4976e+00],
+        [-4.0396e+01,  3.5121e+01],
+        [-4.1566e+01, -5.1796e+01]])
 
-    try:
-        main(config, args.milestone, args.exp)
-    except ZeroDivisionError:
-        print('Have you forgotten a breakpoint?')
+    gt = torch.tensor([[ -4.2729, 135.4911],
+        [  7.2749,  65.5788],
+        [ 20.6505,  -8.0638],
+        [-22.5586,   5.5275],
+        [-30.7718,  69.5852],
+        [-28.9555, 139.2640],
+        [ -0.5923,  -3.4187],
+        [-15.7863, -32.1939],
+        [-35.3697, -47.2574],
+        [-41.1945, -67.7720],
+        [-46.1246, -44.4364],
+        [-13.1253, -29.5808],
+        [-13.6145, -43.1209],
+        [-54.4943, -42.5870],
+        [-71.2272,   4.1981],
+        [-41.6380,  34.4177],
+        [-40.1495, -48.8374]])
+
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    axis = fig.add_subplot(1, 1, 1)
+
+    draw_kps_in_2d(axis, pred.detach().cpu().numpy(), label='gt', marker='^', color='red')
+    draw_kps_in_2d(axis, gt.detach().cpu().numpy(), label='gt', marker='o', color='blue')
+
+    axis.set_ylim(axis.get_ylim()[::-1])  # invert
+    # axis.legend(loc='lower left')
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+if __name__ == '__main__':
+    debug_live_training()
+
+    # debug_noisy_kps()
+
+    # args = parse_args()
+    # config = get_config('experiments/human36m/train/human36m_alg.yaml')
+
+    # try:
+    #     viz_experiment_samples(config, args.milestone, args.exp)
+    # except ZeroDivisionError:
+    #     print('Have you forgotten a breakpoint?')

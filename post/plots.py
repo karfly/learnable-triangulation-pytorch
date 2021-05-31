@@ -185,10 +185,10 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     else:
         last_abs_metrics = None
     
-    # mabe pelvis is in origin ...
-    if last_abs_metrics and last_abs_metrics != metrics[-1]:
+    # maybe pelvis is in origin ...
+    if last_abs_metrics and abs(last_abs_metrics - metrics[-1]) > 1:
         label += ', abs MPJPE = {:.0f}'.format(
-            last_abs_metrics[-1]
+            last_abs_metrics
         )
 
     plot_stuff(
@@ -213,7 +213,7 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         last_abs_metrics = None
 
     # mabe pelvis is in origin ...
-    if last_abs_metrics and last_abs_metrics != metrics[-1]:
+    if last_abs_metrics and abs(last_abs_metrics - metrics[-1]) > 1:
         label += ', abs MPJPE = {:.0f}'.format(
             last_abs_metrics
         )

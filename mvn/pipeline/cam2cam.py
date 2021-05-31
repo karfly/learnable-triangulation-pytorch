@@ -220,9 +220,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(
-        HuberLoss(threshold=1e-1)
-    )(
+    loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
         K,
         cam_preds,
         kps_world_pred,
@@ -286,10 +284,13 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             for batch_i in range(batch_size):
                 var = 0.2  # to be scaled with K
                 for view_i in range(n_views):
+                    print(keypoints_2d_pred[batch_i, view_i] * 1e1)
                     for joint_i in range(n_joints):
                         keypoints_2d_pred[batch_i, view_i, joint_i] += torch.randn_like(
                             keypoints_2d_pred[batch_i, view_i, joint_i]
                         ) * var
+                    print(keypoints_2d_pred[batch_i, view_i] * 1e1)
+                    1/0
 
         return keypoints_2d_pred, heatmaps_pred, confidences_pred
 

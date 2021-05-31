@@ -101,7 +101,8 @@ class GeodesicLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, m1, m2):
+    def _criterion(self, m1, m2):
+        dev = m1.device
         batch_size = m1.shape[0]
         m = torch.bmm(m1, m2.transpose(1, 2))  # ~ (batch_size, 3, 3)
 
@@ -110,15 +111,17 @@ class GeodesicLoss(nn.Module):
         # bound [-1, 1]
         cos = torch.min(
             cos,
-            torch.ones(batch_size).cuda()
+            torch.ones(batch_size).to(dev)
         )
         cos = torch.max(
             cos,
-            torch.ones(batch_size).cuda() * -1
+            torch.ones(batch_size).to(dev) * -1
         )
 
-        theta = torch.acos(cos)
+        return torch.acos(cos)
 
+    def forward(self, m1, m2):
+        theta = self._criterion(m1, m2)
         return theta.mean()
 
 

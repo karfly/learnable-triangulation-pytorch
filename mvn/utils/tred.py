@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from functools import reduce
 from mvn.utils.img import rotation_matrix_from_vectors_torch
@@ -159,6 +161,26 @@ def euler_angles_to_matrix(euler_angles, convention: str):
     return reduce(torch.matmul, matrices)
 
 
+def rotx(theta):
+    """ theta rotation around x axis """
+
+    return torch.DoubleTensor([
+        [ 1, 0, 0],
+        [ 0, torch.cos(theta), -torch.sin(theta)],
+        [0, torch.sin(theta), torch.cos(theta)]
+    ])
+
+
+def roty(theta):
+    """ theta rotation around y axis """
+
+    return torch.DoubleTensor([
+        [ torch.cos(theta), 0, torch.sin(theta)],
+        [ 0, 1, 0],
+        [ -torch.sin(theta), 0, torch.cos(theta)]
+    ])
+
+
 def rotz(theta):
     """ theta rotation around z axis """
 
@@ -184,3 +206,32 @@ def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
             ref_points[joint_i]
         )
     )
+
+
+def create_plane(C):
+    X, Y = np.meshgrid(
+        np.arange(-1e2, 1e2),
+        np.arange(-1e2, 1e2)
+    )
+    Z = C[0] * X + C[1] * Y + C[2]
+    # matrix version: Z = np.dot(np.c_[XX, YY, np.ones(XX.shape)], C).reshape(X.shape)
+    return X, Y, Z
+
+
+# warning, grad may not work
+def rotation_matrix2axis_angle(batch_rotations):
+    def _mat2aa(m):
+        axis = torch.tensor(R.from_matrix(m).as_rotvec())
+        axis = axis / torch.norm(axis, p='fro')  # normalize
+
+        angle = torch.tensor(
+            np.arccos((np.trace(m) - 1) / 2.0)
+        )
+        return torch.cat([
+            axis, angle.unsqueeze(0)
+        ], dim=0)
+
+    return torch.cat([
+        _mat2aa(rot).unsqueeze(0)
+        for rot in batch_rotations
+    ])

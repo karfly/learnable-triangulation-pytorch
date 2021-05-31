@@ -156,3 +156,13 @@ def euler_angles_to_matrix(euler_angles, convention: str):
 
     matrices = map(_axis_angle_rotation, convention, torch.unbind(euler_angles, -1))
     return reduce(torch.matmul, matrices)
+
+
+def rotz(theta):
+    """ theta rotation around z axis """
+
+    return torch.DoubleTensor([
+        [ torch.cos(theta), -torch.sin(theta), 0],
+        [ torch.sin(theta), torch.cos(theta), 0],
+        [0, 0, 1]
+    ])

@@ -215,6 +215,17 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
+        penalizations = torch.cat([
+            torch.cat([
+                torch.sqrt(torch.square(
+                    torch.norm(projections[batch_i, view_i], p='fro') /
+                    torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
+                )).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0).to(dev)  # pred
+            for batch_i in range(batch_size)
+        ])  # penalize ratio of area => I want it not too little, nor not too big
+
         return torch.mean(
             torch.cat([
                 torch.cat([
@@ -224,7 +235,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                    ).unsqueeze(0)
+                    ).unsqueeze(0) * penalizations[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)
@@ -272,29 +283,3 @@ class QuadraticProjectionLoss(nn.Module):
                 for batch_i in range(batch_size)
             ])
         )
-
-
-def self_squash_loss(kps_world_pred):
-    """ penalize empty volumes """
-
-    dev = kps_world_pred.device
-    loss = torch.tensor(0.0).to(dev)
-    batch_size = kps_world_pred.shape[0]
-    for batch_i in range(batch_size):
-        batch_loss = torch.tensor(0.0).to(dev)
-        _, errors, _ = find_plane_minimizing_z(kps_world_pred[batch_i])
-        metric = torch.min(torch.abs(errors)) * 1e2  # promote NOT being on a plane
-        batch_loss += metric
-
-        _, errors, _ = find_line_minimizing_normal(kps_world_pred[batch_i])
-        most_distant = torch.max(errors)
-        most_near = torch.min(errors)
-        metric = most_near / most_distant  # promote circumferences
-        batch_loss += metric * 1e3
-
-        loss += batch_loss / torch.pow(
-            torch.norm(kps_world_pred[batch_i], p='fro'), 0.25
-        )  # penalize large world reconstructions
-
-    normalization = batch_size
-    return loss / normalization

@@ -1,13 +1,15 @@
 import os
 
-from mvn.models.utils import get_grad_params
 import torch
+import numpy as np
 
+from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, self_squash_loss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, QuadraticProjectionLoss
 from mvn.utils.img import rotation_matrix_from_vectors_torch
+from mvn.utils.tred import rotz
 
 _ITER_TAG = 'cam2cam'
 
@@ -195,7 +197,10 @@ def rotate2gt(pred, gt):
 
     # todo separate f
     def _rotate_points(points, R):
-        return torch.mm(points, R.T)  # R * points ...
+        return torch.mm(
+            points,
+            R.T.type(points.dtype)
+        )  # R * points ...
 
     # todo separate f
     def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
@@ -216,7 +221,16 @@ def rotate2gt(pred, gt):
             pred[batch_i], gt[batch_i], 2  # right leg
         )
         new_pred[batch_i] = _rotate_points_based_on_joint_align(
-            new_pred[batch_i], gt[batch_i], 8  # head
+            new_pred[batch_i], gt[batch_i], 9  # head
+        )
+
+        new_pred[batch_i] = _rotate_points(
+            new_pred[batch_i],
+            rotz(torch.tensor(np.pi))
+        )
+        
+        new_pred[batch_i] = _rotate_points_based_on_joint_align(
+            new_pred[batch_i], gt[batch_i], 16
         )
 
     return new_pred
@@ -253,8 +267,8 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.proj > 0:
         total_loss += config.cam2cam.loss.proj * loss_proj
 
-    #loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
-    loss_self_proj = QuadraticProjectionLoss(1e2)(
+    loss_self_proj = ScaleIndependentProjectionLoss(1e3)(
+    #loss_self_proj = QuadraticProjectionLoss(1e2)( worse
         K,
         cam_preds,
         kps_world_pred,
@@ -266,10 +280,6 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
     if config.cam2cam.loss.self_consistency.separation > 0:
         total_loss += loss_self_separation * config.cam2cam.loss.self_consistency.separation
-
-    loss_self_squash = self_squash_loss(kps_world_pred)
-    if config.cam2cam.loss.self_consistency.squash > 0:
-        total_loss -= loss_self_squash * config.cam2cam.loss.self_consistency.squash
 
     __batch_i = 0  # todo debug only
 
@@ -293,7 +303,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
 
     return loss_R, trans_loss,\
         loss_proj, loss_world,\
-        loss_self_proj, loss_self_separation, loss_self_squash, \
+        loss_self_proj, loss_self_separation, \
         total_loss
 
 
@@ -334,7 +344,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
         return out.cuda()
 
     def _backprop():
-        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, loss_self_squash, total_loss = _compute_losses(
+        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -345,7 +355,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             config
         )
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, SELF SQUASH ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
@@ -354,31 +364,9 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
             loss_3d.item(),
             loss_self_proj.item(),
             loss_self_separation.item(),
-            loss_self_squash.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
-
-        # todo debug only
-        per_pose_error_relative, per_pose_error_relative, _ = dataloader.dataset.evaluate(
-            rotate2gt(kps_world_pred.detach(), kps_world_gt).detach().cpu().numpy(),
-            batch['indexes'],
-            split_by_subject=True
-        )
-        message = '{} batch iter {:d} MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm (after rotating to GT reference)'.format(
-            'training' if is_train else 'validation',
-            iter_i,
-            per_pose_error_relative,
-            per_pose_error_relative,
-        )
-        live_debug_log(_ITER_TAG, message)
-
-        # todo this is used to lr decay: use something else
-        per_pose_error_relative, _, _ = dataloader.dataset.evaluate(
-            kps_world_pred.detach().cpu().numpy(),
-            batch['indexes'],
-            split_by_subject=True
-        )  # MPJPE
 
         minimon.enter()
 
@@ -387,7 +375,7 @@ def batch_iter(epoch_i, batch, iter_i, dataloader, model, cam2cam_model, _, opt,
 
         backprop(
             opt, total_loss, scheduler,
-            per_pose_error_relative + 15,  # give some slack (mm)
+            trans_loss * 1.1,  # give some slack
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')

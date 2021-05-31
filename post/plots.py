@@ -92,12 +92,12 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         'R loss / batch': {
             'color': colors[1],
-            'scaler': 2e1,
+            'scaler': 5e-1,
             'show': True,
         },
         't loss / batch': {
             'color': colors[2],
-            'scaler': 1e1,
+            'scaler': 1e-1,
             'show': True,
         },
         '2D loss / batch': {
@@ -107,7 +107,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         '3D loss / batch': {
             'color': colors[4],
-            'scaler': 2e-1,
+            'scaler': 2e-2,
             'show': True,
         },
         'self cam loss / batch': {
@@ -117,7 +117,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         'self 2D loss / batch': {
             'color': colors[7],  # colors[6] is yellow ...
-            'scaler': 1e-2,
+            'scaler': 1e-3,
             'show': True,
         },
         'self 3D loss / batch': {
@@ -128,7 +128,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'self squash loss / batch': {
             'color': colors[9],
             'scaler': 1e0,
-            'show': True,
+            'show': False,
         }
     }
 
@@ -142,7 +142,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
                 nan = np.mean(drop_na(loss_history))
                 loss_history = np.nan_to_num(loss_history, nan=nan)
 
-                if np.mean(loss_history) > 1e-2:
+                if np.mean(loss_history) > 1e-2:  # non-trivial losses
                     _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
                     _last = loss_history[-1]
                     label = '{} = {:.1f} [{:.1f}, {:.1f}]'.format(
@@ -150,9 +150,10 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
                         _last, _min, _max
                     )
 
+                    scaler = loss_plotters[key]['scaler']
                     plot_loss(
                         axis,
-                        loss_history * loss_plotters[key]['scaler'],
+                        loss_history * scaler,
                         label,
                         xrange,
                         loss_plotters[key]['color'],

@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 
   data:
     pelvis_in_origin: true

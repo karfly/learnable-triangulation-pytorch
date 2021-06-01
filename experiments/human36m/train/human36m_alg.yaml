@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: false
-  gt_cams: true
+  gt_cams: false
 
 opt:
   criterion: "MSESmooth"
@@ -44,6 +44,8 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
+  triangulate: "master"
+
   data:
     pelvis_in_origin: true
     using_gt: true
@@ -84,12 +86,12 @@ cam2cam:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 2.0
-      separation: 1.0
+      proj: 1.0
+      separation: 0.1
     world_structure:
-      camera_above_surface: 10.0
+      camera_above_surface: 0.0
     body_structure:
-      height: 10.0
+      height: 0.0
 
   opt:
     grad_clip: 1.0

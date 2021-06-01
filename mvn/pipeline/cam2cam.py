@@ -5,7 +5,7 @@ import torch
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
-from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space
+from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss, BodyStructureLoss
 
 _ITER_TAG = 'cam2cam'
@@ -126,87 +126,91 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     return preds.to(dev)
 
 
-def _prepare_cams_for_dlt(cams, keypoints_2d_pred, K):
+def _prepare_cams_for_dlt(cams, keypoints_2d_pred, K, where="world"):
     batch_size = keypoints_2d_pred.shape[0]
     full_cams = torch.empty((batch_size, 4, 3, 4))
 
     for batch_i in range(batch_size):
-        # from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
-        # full_cams[batch_i] = torch.cat([
-        #     K.unsqueeze(0),  # doing DLT  in camspace
-        #     torch.mm(
-        #         K,
-        #         torch.mm(
-        #             cams[batch_i, 1],
-        #             from_master_cam
-        #         )
-        #     ).unsqueeze(0),
-        #     torch.mm(
-        #         K,
-        #         torch.mm(
-        #             cams[batch_i, 2],
-        #             from_master_cam
-        #         )
-        #     ).unsqueeze(0),
-        #     torch.mm(
-        #         K,
-        #         torch.mm(
-        #             cams[batch_i, 3],
-        #             from_master_cam
-        #         )
-        #     ).unsqueeze(0),
-        # ])  # ~ 4, 3, 4
-
-        full_cams[batch_i] = torch.cat([
-            torch.mm(
-                K,
-                cams[batch_i, 0]
-            ).unsqueeze(0),
-            torch.mm(
-                K,
-                cams[batch_i, 1]
-            ).unsqueeze(0),
-            torch.mm(
-                K,
-                cams[batch_i, 2],
-            ).unsqueeze(0),
-            torch.mm(
-                K,
-                cams[batch_i, 3],
-            ).unsqueeze(0),
-        ])  # ~ 4, 3, 4
+        if where == 'world':
+            full_cams[batch_i] = torch.cat([
+                torch.mm(
+                    K,
+                    cams[batch_i, 0]
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    cams[batch_i, 1]
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    cams[batch_i, 2],
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    cams[batch_i, 3],
+                ).unsqueeze(0),
+            ])  # ~ 4, 3, 4
+        elif where == 'master':
+            from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
+            full_cams[batch_i] = torch.cat([
+                K.unsqueeze(0),  # doing DLT  in camspace
+                torch.mm(
+                    K,
+                    torch.mm(
+                        cams[batch_i, 1],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    torch.mm(
+                        cams[batch_i, 2],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    torch.mm(
+                        cams[batch_i, 3],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+            ])  # ~ 4, 3, 4
 
     return full_cams  # ~ batch_size, 4, 3, 4
 
 
-def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i):
+def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, where="world"):
     full_cams = _prepare_cams_for_dlt(
         cams,
         keypoints_2d_pred,
-        K
+        K,
+        where
     )
 
-    # ... perform DLT in master cam space, but since ...
-    return triangulate_batch_of_points_in_cam_space(
+    # ... perform DLT in master cam space ...
+    kps_cam_pred = triangulate_batch_of_points_in_cam_space(
         full_cams.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
     ).to(keypoints_2d_pred.device)
-
-    # ... they're in master cam space => cam2world
-    # batch_size = cams.shape[0]
-    # return torch.cat([
-    #     homogeneous_to_euclidean(
-    #         euclidean_to_homogeneous(
-    #             kps_cam_pred[batch_i]
-    #         ).to(cams.device)
-    #         @
-    #         torch.inverse(
-    #             cams[batch_i, master_cam_i].T
-    #         )
-    #     ).unsqueeze(0)
-    #     for batch_i in range(batch_size)
-    # ])
+    
+    if where == 'world':
+        return kps_cam_pred
+    elif where == 'master':  # ... but since they're in master cam space ...
+        batch_size = cams.shape[0]
+        return torch.cat([
+            homogeneous_to_euclidean(
+                euclidean_to_homogeneous(
+                    kps_cam_pred[batch_i]
+                ).to(cams.device)
+                @
+                torch.inverse(
+                    cams[batch_i, master_cam_i].T
+                )
+            ).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -241,25 +245,31 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
-        K,
-        cam_preds,
-        kps_world_pred,
-        keypoints_2d_pred
-    ) * 1e3  # final scaling
     if loss_weights.self_consistency.proj > 0:
+        loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
+            K,
+            cam_preds,
+            kps_world_pred,
+            keypoints_2d_pred
+        ) * 1e3  # final scaling
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
+    else:
+        loss_self_proj = torch.tensor(0.0)
 
-    loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
     if loss_weights.self_consistency.separation > 0:
+        loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
+    else:
+        loss_self_separation = torch.tensor(0.0)
 
-    loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
     if loss_weights.world_structure.camera_above_surface > 0:
+        loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
         total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
+    else:
+        loss_world_structure = torch.tensor(0.0)
 
-    loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
-    total_loss += loss_body_structure * loss_weights.body_structure.height
+    # todo needed ? loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
+    # total_loss += loss_body_structure * loss_weights.body_structure.height
 
     __batch_i = 0  # todo debug only
 
@@ -341,7 +351,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        # assuming to have access to 1 GT world point
+        # todo assuming to have access to 1 GT world point
         # joint_i = 9  # head
         # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
         #     kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,

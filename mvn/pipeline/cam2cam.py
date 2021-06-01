@@ -6,7 +6,8 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss, BodyStructureLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss
+from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
 _ITER_TAG = 'cam2cam'
 
@@ -107,8 +108,35 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
 
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
-            # apply post processing
+            # apply post processing ... todo as module
+
+            # ... scale distance ...
             preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
+
+            # ... no pitch
+            euler_convention = 'ZYX'
+            old_orientation_eulers = matrix_to_euler_angles(
+                preds[batch_i, view_i, :3, :3].unsqueeze(0),
+                euler_convention
+            )[0]
+            # todo as config, assumption
+            new_orientation_eulers = torch.cat([
+                old_orientation_eulers[0].unsqueeze(0),
+                torch.tensor(0.0).unsqueeze(0).to(preds.device),
+                old_orientation_eulers[2].unsqueeze(0),
+            ])
+            new_orientation = euler_angles_to_matrix(
+                new_orientation_eulers.unsqueeze(0), euler_convention
+            )[0]
+            new_R = torch.inverse(new_orientation).T
+            rot_x = torch.mm(
+                new_R,
+                torch.inverse(preds[batch_i, view_i, :3, :3])
+            )
+            preds[batch_i, view_i, :3, :3] = torch.mm(
+                rot_x,
+                preds[batch_i, view_i, :3, :3]
+            )
 
             if not (gt is None):
                 R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()

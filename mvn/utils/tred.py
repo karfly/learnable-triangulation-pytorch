@@ -39,6 +39,21 @@ def find_plane_minimizing_z(points):
     return fit, errors, residual
 
 
+def find_plane_minimizing_normal(points):
+    """ https://www.ltu.se/cms_fs/1.51590!/svd-fitting.pdf """
+
+    centroid = points.mean(axis=0)
+    points_centered = points - centroid
+    u, _, v = torch.svd(points_centered)
+    normal = u[2, :]  # normal vector of the best-fitting plane
+
+    d = - torch.dot(centroid, normal)  # distance from origin
+    fit = torch.cat(
+        [normal, d.unsqueeze(0)], axis=0
+    )
+    return fit, None, None  # todo errors, residual
+
+
 def perpendicular_distance(x1, y1, z1, a, b, c, d):
     d = torch.abs((a * x1 + b * y1 + c * z1 + d))
     e = torch.sqrt(a * a + b * b + c * c)
@@ -72,9 +87,9 @@ def find_line_minimizing_normal(points):
 
     centroid = points.mean(axis=0)
     points_centered = points - centroid
-    _, _, vh = torch.svd(points_centered)
-    direction = vh[0, :]  # line is parametrized as `centroid + t * direction`
-    
+    u, _, v = torch.svd(points_centered)
+    direction = u[2, :]  # line is parametrized as `centroid + t * direction`
+
     a = centroid
     b = centroid + direction
     errors = torch.cat([
@@ -191,15 +206,16 @@ def rotz(theta):
     ])
 
 
-def _rotate_points(points, R):
+def rotate_points(points, R):
     return torch.mm(
         points,
         R.T.type(points.dtype)
     )  # R * points ...
 
+
 # todo separate f
 def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
-    return _rotate_points(
+    return rotate_points(
         points,
         rotation_matrix_from_vectors_torch(
             points[joint_i],
@@ -209,13 +225,27 @@ def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
 
 
 def create_plane(C):
-    X, Y = np.meshgrid(
-        np.arange(-1e2, 1e2),
-        np.arange(-1e2, 1e2)
+    a, b, c, d = C  # unpack
+    x, y = np.meshgrid(
+        np.arange(-2e2, 2e2, 10),
+        np.arange(-2e2, 2e2, 10)
     )
-    Z = C[0] * X + C[1] * Y + C[2]
+    z = (d - (a*x + b*y)) / c
     # matrix version: Z = np.dot(np.c_[XX, YY, np.ones(XX.shape)], C).reshape(X.shape)
-    return X, Y, Z
+    return x, y, z
+
+
+def create_line(coefficients):
+    centroid, direction = coefficients  # unpack
+    ts = torch.arange(-2e2, 2e2, 10)
+    return torch.cat([
+        torch.DoubleTensor([
+            centroid[0] + t * direction[0],
+            centroid[1] + t * direction[1],
+            centroid[2] + t * direction[2],
+        ]).unsqueeze(0)
+        for t in ts
+    ])
 
 
 # warning, grad may not work

@@ -285,3 +285,6 @@ class QuadraticProjectionLoss(nn.Module):
                 for batch_i in range(batch_size)
             ])
         )
+
+
+# todo squash loss using `find_plane_minimizing_normal`

@@ -273,24 +273,11 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _forward_kp():
         if config.cam2cam.data.using_gt:
-            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, batch['cameras'])
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, batch['cameras'], config.cam2cam.data.using_noise)
         else:
             keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                 images_batch, None, minimon
             )
-
-        if config.cam2cam.data.using_noise:
-            batch_size, n_views, n_joints = keypoints_2d_pred.shape[:3]
-            for batch_i in range(batch_size):
-                var = 0.2  # to be scaled with K
-                for view_i in range(n_views):
-                    print(keypoints_2d_pred[batch_i, view_i] * 1e1)
-                    for joint_i in range(n_joints):
-                        keypoints_2d_pred[batch_i, view_i, joint_i] += torch.randn_like(
-                            keypoints_2d_pred[batch_i, view_i, joint_i]
-                        ) * var
-                    print(keypoints_2d_pred[batch_i, view_i] * 1e1)
-                    1/0
 
         return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
@@ -321,12 +308,12 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             batch['cameras'],
             config
         )
-        loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
-            kps_world_pred[:, :1] * config.opt.scale_keypoints_3d,
-            kps_world_gt[:, :1].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
-            keypoints_3d_binary_validity_gt[:, :1],  # right foot
-        )
-        total_loss += 5.0 * loss_pose_ref
+        # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
+        #     kps_world_pred[:, 9] * config.opt.scale_keypoints_3d,
+        #     kps_world_gt[:, 9].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+        #     keypoints_3d_binary_validity_gt[:, 9],  # HEAD only
+        # )
+        # total_loss += 5.0 * loss_pose_ref
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',

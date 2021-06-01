@@ -3,8 +3,8 @@ import torch
 from mvn.utils.misc import live_debug_log
 
 
-def get_kp_gt(keypoints_3d_gt, cameras):
-    batch_size, n_joints, n_views = keypoints_3d_gt.shape[0], keypoints_3d_gt.shape[1], 4  # todo infer
+def get_kp_gt(keypoints_3d_gt, cameras, noisy=False):
+    batch_size, n_joints, n_views = keypoints_3d_gt.shape[0], keypoints_3d_gt.shape[1], len(cameras)
 
     keypoints_2d_pred = torch.cat([
         torch.cat([
@@ -15,6 +15,16 @@ def get_kp_gt(keypoints_3d_gt, cameras):
         ]).unsqueeze(0)
         for batch_i in range(batch_size)
     ])  # ~ (batch_size, n_views, 17, 2)
+    if noisy:
+        for batch_i in range(batch_size):
+            var = 0.2  # to be scaled with K
+            for view_i in range(n_views):
+                for joint_i in range(n_joints):
+                    keypoints_2d_pred[batch_i, view_i, joint_i] +=\
+                        torch.randn_like(
+                            keypoints_2d_pred[batch_i, view_i, joint_i]
+                        ) * var
+
     keypoints_2d_pred.requires_grad = False
 
     heatmaps_pred = torch.zeros(

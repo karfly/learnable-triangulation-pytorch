@@ -210,7 +210,7 @@ def make_with_target_intrinsics(image, intrinsics, target_intrinsics):
     return scaling, cropping
 
 
-def rotation_matrix_from_vectors(vec1, vec2):
+def rotation_matrix_from_vectors_rodrigues(vec1, vec2):
     """ https://stackoverflow.com/a/59204638/7643222 based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula"""
 
     a, b = (
@@ -228,6 +228,17 @@ def rotation_matrix_from_vectors(vec1, vec2):
     ])
 
     return np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))  # 3 x 3
+
+
+def rotation_matrix_from_vectors_kabsch(vec1, vec2):
+    """ https://github.com/scipy/scipy/blob/master/scipy/spatial/transform/rotation.pyx#L2204 """
+
+    from scipy.spatial.transform import Rotation as R
+
+    return R.align_vectors(
+        np.expand_dims(vec1, axis=0),
+        np.expand_dims(vec2, axis=0)
+    )[0].as_matrix()
 
 
 def rotation_matrix_from_vectors_torch(vec1, vec2):

@@ -2,13 +2,15 @@ from pathlib import Path
 import torch
 import numpy as np
 import argparse
+from scipy.spatial.transform import Rotation as R
 
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
+from mvn.utils.tred import create_plane, find_plane_minimizing_normal, rotate_points, find_line_minimizing_normal, create_line
+from mvn.utils.img import rotation_matrix_from_vectors
 
 
 def get_joints_connections():
@@ -95,146 +97,164 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
         cmap = plt.get_cmap('jet')
         colors = cmap(np.linspace(0, 1, n_points))
         for point_i in range(n_points):
+            if point_i == 9 or point_i == 6:  # VIP
+                marker, s = 'x', 100
+            else:
+                marker, s = 'o', 10
+
             axis.scatter(
                 [ xs[point_i] ], [ ys[point_i] ], [ zs[point_i] ],
-                marker='o',
+                marker=marker,
+                s=s,
                 color=colors[point_i],
                 label=label + ' {:.0f}'.format(point_i)
                 # todo too many label=label,
             )
 
 
-def load_data(config, dumps_folder):
-    def _load(file_name):
-        f_path = dumps_folder / file_name
-        return torch.load(f_path).cpu().numpy()
+def viz_experiment_samples():
+    def load_data(config, dumps_folder):
+        def _load(file_name):
+            f_path = dumps_folder / file_name
+            return torch.load(f_path).cpu().numpy()
 
-    keypoints_3d_gt = _load('kps_world_gt.trc')  # see `cam2cam:_save_stuff`
-    keypoints_3d_pred = _load('kps_world_pred.trc')
+        keypoints_3d_gt = _load('kps_world_gt.trc')  # see `cam2cam:_save_stuff`
+        keypoints_3d_pred = _load('kps_world_pred.trc')
 
-    indices = None  # _load('batch_indexes.trc')
-    _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
+        indices = None  # _load('batch_indexes.trc')
+        _, val_dataloader, _ = setup_dataloaders(config, distributed_train=False)  # ~ 0 seconds
 
-    return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
+        return keypoints_3d_gt, keypoints_3d_pred, indices, val_dataloader
 
+    def get_dump_folder(milestone, experiment):
+        tesi_folder = Path('~/Scuola/now/thesis').expanduser()
+        milestones = tesi_folder / 'milestones'
+        current_milestone = milestones / milestone
+        folder = 'human36m_alg_AlgebraicTriangulationNet@{}'.format(experiment)
+        return current_milestone / folder / 'epoch-0-iter-0'
 
-def get_dump_folder(milestone, experiment):
-    tesi_folder = Path('~/Scuola/now/thesis').expanduser()
-    milestones = tesi_folder / 'milestones'
-    current_milestone = milestones / milestone
-    folder = 'human36m_alg_AlgebraicTriangulationNet@{}'.format(experiment)
-    return current_milestone / folder / 'epoch-0-iter-0'
+    def parse_args():
+        parser = argparse.ArgumentParser()
 
-
-def viz_experiment_samples(config, milestone, experiment_name):
-    dumps_folder = get_dump_folder(milestone, experiment_name)
-    gts, pred, indices, dataloader = load_data(config, dumps_folder)
-
-    per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-        pred,
-        split_by_subject=True,
-        keypoints_gt_provided=gts,
-    )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
-
-    message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
-        per_pose_error_relative,
-        per_pose_error_absolute
-    )  # just a little bit of live debug
-    print(message)
-
-    max_plots = 6
-    n_samples = gts.shape[0]
-    n_plots = min(max_plots, n_samples)
-    samples_to_show = np.random.permutation(np.arange(n_samples))[:n_plots]
-
-    print('found {} samples but plotting {}'.format(n_samples, n_plots))
-
-    fig = plt.figure(figsize=plt.figaspect(1.5))
-    fig.set_facecolor('white')
-    for i, sample_i in enumerate(samples_to_show):
-        axis = fig.add_subplot(2, 3, i + 1, projection='3d')
-
-        draw_kp_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
-        draw_kp_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
-        print(
-            'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
-                i,
-                sample_i,
-                pred[sample_i, 6, 0],
-                pred[sample_i, 6, 1],
-                pred[sample_i, 6, 2],
-            )
+        parser.add_argument(
+            '--milestone', type=str, required=True,
+            help='milestone name, e.g "20.05_27.05_rodrigezzzzzzzzzz"'
+        )
+        parser.add_argument(
+            '--exp', type=str, required=True,
+            help='experiment name, e.g "25.05.2021-18:58:36")'
         )
 
-        # axis.legend(loc='lower left')
+        return parser.parse_args()
 
-    plt.tight_layout()
-    plt.show()
+    args = parse_args()
+    milestone, experiment_name = args.milestone, args.exp
+    config = get_config('experiments/human36m/train/human36m_alg.yaml')
 
+    try:
+        dumps_folder = get_dump_folder(milestone, experiment_name)
+        gts, pred, indices, dataloader = load_data(config, dumps_folder)
 
-def parse_args():
-    parser = argparse.ArgumentParser()
+        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
+            pred,
+            split_by_subject=True,
+            keypoints_gt_provided=gts,
+        )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
-    parser.add_argument(
-        '--milestone', type=str, required=True,
-        help='milestone name, e.g "20.05_27.05_rodrigezzzzzzzzzz"'
-    )
-    parser.add_argument(
-        '--exp', type=str, required=True,
-        help='experiment name, e.g "25.05.2021-18:58:36")'
-    )
+        message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
+            per_pose_error_relative,
+            per_pose_error_absolute
+        )  # just a little bit of live debug
+        print(message)
 
-    return parser.parse_args()
+        max_plots = 6
+        n_samples = gts.shape[0]
+        n_plots = min(max_plots, n_samples)
+        samples_to_show = np.random.permutation(np.arange(n_samples))[:n_plots]
+
+        print('found {} samples but plotting {}'.format(n_samples, n_plots))
+
+        fig = plt.figure(figsize=plt.figaspect(1.5))
+        fig.set_facecolor('white')
+        for i, sample_i in enumerate(samples_to_show):
+            axis = fig.add_subplot(2, 3, i + 1, projection='3d')
+
+            draw_kp_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
+            draw_kp_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
+            print(
+                'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
+                    i,
+                    sample_i,
+                    pred[sample_i, 6, 0],
+                    pred[sample_i, 6, 1],
+                    pred[sample_i, 6, 2],
+                )
+            )
+
+            # axis.legend(loc='lower left')
+
+        plt.tight_layout()
+        plt.show()
+    except ZeroDivisionError:
+        print('Have you forgotten a breakpoint?')
 
 
 def debug_live_training():
-    pred = torch.tensor([[-120.0351,  -97.5238, -847.3595],
-        [  19.4619,  -64.5193, -439.7347],
-        [  38.6705,  -97.9529,  -12.1802],
-        [ -25.3350,   96.3627,    8.4132],
-        [  18.4084,   78.7236, -423.2703],
-        [-105.6909,  115.3522, -833.6101],
-        [  -4.8296,    1.9117,    9.1521],
-        [ -35.0383,   11.2138,  205.2767],
-        [ -49.7013,   11.3933,  445.0732],
-        [ -55.7458,  -11.7605,  594.7091],
-        [ 158.0260, -100.8921,  579.7028],
-        [ 206.0661, -142.5098,  363.1733],
-        [ -19.1693,  -73.7891,  416.9742],
-        [-102.3154,   74.6540,  393.7753],
-        [-149.9107,  139.6545,  138.5996],
-        [-111.7834,  179.0937,  -87.8924],
-        [ -21.9193,  -36.7624,  495.8151]]).float()
-    gt = torch.tensor([[-123.5816,  -63.1810, -864.4102],
-        [  23.1837,  -74.3185, -451.8706],
-        [  32.6581, -131.7078,   -7.0428],
-        [ -32.6581,  131.7076,    7.0428],
-        [  19.8084,  157.5186, -437.7446],
-        [ -98.6799,  185.7531, -858.4759],
+    pred = torch.tensor([
+        [ 2.3641e+01, -5.1126e+01, -6.3698e+02],
+        [-5.3702e+01,  3.0688e+02, -2.9269e+02],
+        [-1.4042e+02,  5.0906e+00, -9.4177e+00],
+        [ 1.3941e+02, -5.7484e+00,  1.1342e+01],
+        [ 1.6083e+02,  3.1911e+02, -2.6591e+02],
+        [ 2.4219e+02, -3.2007e+01, -6.1190e+02],
+        [ 0.0000e+00, -9.0949e-13, -9.0949e-13],
+        [ 1.8934e+01,  1.2938e+02,  1.6864e+02],
+        [ 4.9195e+01,  3.6470e+02,  2.6948e+02],
+        [ 2.3851e+01,  5.1713e+02,  2.2665e+02],
+        [-2.7127e+02, -9.6756e+01,  2.1958e+02],
+        [-2.2832e+02,  7.5233e+01,  3.5988e+02],
+        [-9.4716e+01,  3.4057e+02,  2.9174e+02],
+        [ 1.9795e+02,  3.6118e+02,  2.8243e+02],
+        [ 3.4374e+02,  1.5595e+02,  4.3662e+02],
+        [ 3.9459e+02, -7.0551e+01,  3.7564e+02],
+        [ 1.7937e+01,  4.0214e+02,  1.8694e+02]
+    ]).float()
+    gt = torch.tensor([
+        [ -79.5401, -636.6202,  -37.0452],
+        [ -80.1006, -342.1938,  287.2476],
+        [-134.9715,    8.6331,   13.0857],
+        [ 134.9714,   -8.6331,  -13.0857],
+        [ 123.5578, -341.4131,  287.5503],
+        [ 132.1298, -641.1887,  -31.6872],
         [   0.0000,    0.0000,    0.0000],
-        [ -40.0030,  -28.9358,  220.7925],
-        [ -71.0292,  -23.5397,  474.2511],
-        [ -74.5952,  -62.3802,  627.2699],
-        [ 161.1007, -191.2156,  611.1978],
-        [ 228.8489, -214.3185,  374.4852],
-        [ -32.2064, -152.6614,  437.6392],
-        [-115.1191,   90.9162,  407.3412],
-        [-158.4828,  178.7477,  149.7747],
-        [-114.1517,  251.6376,  -82.3426],
-        [ -23.7438, -100.7664,  531.5288]]).float()
+        [  51.0227,  177.0769,  131.2592],
+        [ 106.6453,  294.1788,  351.3190],
+        [  84.2807,  248.4880,  481.9431],
+        [-230.4554,  277.3011,  -61.3511],
+        [-153.6896,  433.7529,  114.1089],
+        [ -23.4383,  343.8069,  339.6841],
+        [ 245.7708,  285.6294,  341.7256],
+        [ 396.1953,  433.1156,  164.0866],
+        [ 430.9688,  338.0313,  -61.5378],
+        [  67.0051,  198.7636,  379.6946]
+    ]).float()
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
+
+    draw_kps_in_3d(
+        axis, gt.detach().cpu().numpy(), label='gt',
+        marker='o', color='blue'
+    )
 
     draw_kps_in_3d(
         axis, pred.detach().cpu().numpy(), label='pred',
         marker='^', color='red'
     )
 
-    draw_kps_in_3d(
-        axis, gt.detach().cpu().numpy(), label='gt',
-        marker='o', color='blue'
-    )
+    # fit, errors, residual = find_plane_minimizing_normal(pred)
+    # X, Y, Z = create_plane(fit)
+    # axis.scatter(X, Y, Z, color='gray')
 
     # axis.legend(loc='lower left')
     plt.tight_layout()
@@ -291,16 +311,7 @@ def debug_noisy_kps():
     plt.show()
 
 
-
 if __name__ == '__main__':
     debug_live_training()
-
     # debug_noisy_kps()
-
-    # args = parse_args()
-    # config = get_config('experiments/human36m/train/human36m_alg.yaml')
-
-    # try:
-    #     viz_experiment_samples(config, args.milestone, args.exp)
-    # except ZeroDivisionError:
-    #     print('Have you forgotten a breakpoint?')
+    # viz_experiment_samples()

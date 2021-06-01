@@ -8,7 +8,7 @@ import cv2
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
-from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors, resample_image
+from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors_kabsch, resample_image
 
 class Human36MMultiViewDataset(Dataset):
     """
@@ -224,12 +224,6 @@ class Human36MMultiViewDataset(Dataset):
             for kp in kps
         ]).squeeze(-1)
 
-    def _reparameterize_shot_in_origin(self, shot, pelvis_i=6):
-        """ "re-parameterize everything so that the world origin sits in the pelvis" """
-
-        kps = shot['keypoints'][:self.num_keypoints]
-        return self._reparameterize_pelvis_in_origin(kps, pelvis_i)
-
     @staticmethod
     def target_K():
         return build_intrinsics(
@@ -294,17 +288,17 @@ class Human36MMultiViewDataset(Dataset):
             if self.look_at_pelvis:  # todo move to __init__
                 pelvis_index = 6  # H36M dataset, not CMU
 
-                kp_in_world = shot['keypoints'][:self.num_keypoints]
-                kp_in_cam = retval_camera.world2cam()(kp_in_world)
+                kp_in_cam = retval_camera.world2cam()(
+                    shot['keypoints'][:self.num_keypoints]  # in world
+                )
                 pelvis_vector = kp_in_cam[pelvis_index]
 
-                # ... => find rotation matrix pelvis to z ...
+                # find rotation matrix to align pelvis to z ...
                 z_axis = [0, 0, 1]
-                Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
+                Rt = rotation_matrix_from_vectors_kabsch(pelvis_vector, z_axis)
 
-                # "At that point, after you re-sample, camera translation should be [0,0,d_pelvis]"
+                # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
-                kp_in_cam = retval_camera.world2cam()(kp_in_world)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

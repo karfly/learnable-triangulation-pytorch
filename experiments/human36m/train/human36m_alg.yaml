@@ -76,7 +76,7 @@ cam2cam:
       n_layers: 2
 
     init_weights: false
-    checkpoint: ".../cam2cam_model.pth"
+    checkpoint: "/cam2cam_model.pth"
 
   loss:
     R: 0.0

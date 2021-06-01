@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: false
-  gt_cams: false
+  gt_cams: true
 
 opt:
   criterion: "MSESmooth"
@@ -70,7 +70,7 @@ cam2cam:
 
     R:
       n_layers: 2
-      parametrization: "nopitch"
+      parametrization: "6d"
 
     t:
       n_layers: 2
@@ -85,9 +85,11 @@ cam2cam:
     world: 0.0
     self_consistency:
       proj: 2.0
-      separation: 0.5
+      separation: 1.0
     world_structure:
       camera_above_surface: 10.0
+    body_structure:
+      height: 10.0
 
   opt:
     grad_clip: 1.0

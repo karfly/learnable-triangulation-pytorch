@@ -16,8 +16,11 @@ class R6DBlock(nn.Module):
         i = u[:, 1] * v[:, 2] - u[:, 2] * v[:, 1]
         j = u[:, 2] * v[:, 0] - u[:, 0] * v[:, 2]
         k = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
-        out = torch.cat((i.view(batch, 1), j.view(batch, 1), k.view(batch, 1)), 1)
-        return out
+        return torch.cat([
+            i.view(batch, 1),
+            j.view(batch, 1),
+            k.view(batch, 1)
+        ], 1)
 
     def forward(self, x):
         x_raw = x[:, 0: 3]

@@ -127,34 +127,53 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     return preds.to(dev)
 
 
-def _prepare_cams_for_dlt(cams, keypoints_2d_pred, same_K_for_all):
+def _prepare_cams_for_dlt(cams, keypoints_2d_pred, K):
     batch_size = keypoints_2d_pred.shape[0]
     full_cams = torch.empty((batch_size, 4, 3, 4))
 
     for batch_i in range(batch_size):
-        from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
+        # from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
+        # full_cams[batch_i] = torch.cat([
+        #     K.unsqueeze(0),  # doing DLT  in camspace
+        #     torch.mm(
+        #         K,
+        #         torch.mm(
+        #             cams[batch_i, 1],
+        #             from_master_cam
+        #         )
+        #     ).unsqueeze(0),
+        #     torch.mm(
+        #         K,
+        #         torch.mm(
+        #             cams[batch_i, 2],
+        #             from_master_cam
+        #         )
+        #     ).unsqueeze(0),
+        #     torch.mm(
+        #         K,
+        #         torch.mm(
+        #             cams[batch_i, 3],
+        #             from_master_cam
+        #         )
+        #     ).unsqueeze(0),
+        # ])  # ~ 4, 3, 4
+
         full_cams[batch_i] = torch.cat([
-            same_K_for_all.unsqueeze(0),  # doing DLT  in camspace
             torch.mm(
-                same_K_for_all,
-                torch.mm(
-                    cams[batch_i, 1],
-                    from_master_cam
-                )
+                K,
+                cams[batch_i, 0]
             ).unsqueeze(0),
             torch.mm(
-                same_K_for_all,
-                torch.mm(
-                    cams[batch_i, 2],
-                    from_master_cam
-                )
+                K,
+                cams[batch_i, 1]
             ).unsqueeze(0),
             torch.mm(
-                same_K_for_all,
-                torch.mm(
-                    cams[batch_i, 3],
-                    from_master_cam
-                )
+                K,
+                cams[batch_i, 2],
+            ).unsqueeze(0),
+            torch.mm(
+                K,
+                cams[batch_i, 3],
             ).unsqueeze(0),
         ])  # ~ 4, 3, 4
 
@@ -169,26 +188,26 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i):
     )
 
     # ... perform DLT in master cam space, but since ...
-    kps_cam_pred = triangulate_batch_of_points_in_cam_space(
+    return triangulate_batch_of_points_in_cam_space(
         full_cams.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
-    )
+    ).to(keypoints_2d_pred.device)
 
     # ... they're in master cam space => cam2world
-    batch_size = cams.shape[0]
-    return torch.cat([
-        homogeneous_to_euclidean(
-            euclidean_to_homogeneous(
-                kps_cam_pred[batch_i]
-            ).to(cams.device)
-            @
-            torch.inverse(
-                cams[batch_i, master_cam_i].T
-            )
-        ).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
+    # batch_size = cams.shape[0]
+    # return torch.cat([
+    #     homogeneous_to_euclidean(
+    #         euclidean_to_homogeneous(
+    #             kps_cam_pred[batch_i]
+    #         ).to(cams.device)
+    #         @
+    #         torch.inverse(
+    #             cams[batch_i, master_cam_i].T
+    #         )
+    #     ).unsqueeze(0)
+    #     for batch_i in range(batch_size)
+    # ])
 
 
 def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -196,20 +215,21 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     batch_size = cam_preds.shape[0]
     n_cameras = cam_preds.shape[1]
+    loss_weights = config.cam2cam.loss
 
     loss_R = GeodesicLoss()(
         cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3],  # just R
         cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3]
     )
-    if config.cam2cam.loss.R > 0:
-        total_loss += config.cam2cam.loss.R * loss_R
+    if loss_weights.R > 0:
+        total_loss += loss_weights.R * loss_R
 
     trans_loss = MSESmoothLoss(threshold=4e2)(
         cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,  # just t
         cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,
     )
-    if config.cam2cam.loss.t > 0:
-        total_loss += config.cam2cam.loss.t * trans_loss
+    if loss_weights.t > 0:
+        total_loss += loss_weights.t * trans_loss
 
     K = torch.DoubleTensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss()(
@@ -219,8 +239,8 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         K,
         cam_preds
     )
-    if config.cam2cam.loss.proj > 0:
-        total_loss += config.cam2cam.loss.proj * loss_proj
+    if loss_weights.proj > 0:
+        total_loss += loss_weights.proj * loss_proj
 
     loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
         K,
@@ -228,19 +248,19 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         kps_world_pred,
         keypoints_2d_pred
     ) * 1e3  # final scaling
-    if config.cam2cam.loss.self_consistency.proj > 0:
-        total_loss += loss_self_proj * config.cam2cam.loss.self_consistency.proj
+    if loss_weights.self_consistency.proj > 0:
+        total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
     loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
-    if config.cam2cam.loss.self_consistency.separation > 0:
-        total_loss += loss_self_separation * config.cam2cam.loss.self_consistency.separation
+    if loss_weights.self_consistency.separation > 0:
+        total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
     loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
-    if config.cam2cam.loss.world_structure.camera_above_surface > 0:
-        total_loss += loss_world_structure * config.cam2cam.loss.world_structure.camera_above_surface
+    if loss_weights.world_structure.camera_above_surface > 0:
+        total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
 
     loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
-    total_loss += loss_body_structure * 100.0
+    total_loss += loss_body_structure * loss_weights.body_structure.height
 
     __batch_i = 0  # todo debug only
 
@@ -259,8 +279,8 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,
         keypoints_3d_binary_validity_gt,
     )
-    if config.cam2cam.loss.world > 0:
-        total_loss += loss_world * config.cam2cam.loss.world
+    if loss_weights.world > 0:
+        total_loss += loss_world * loss_weights.world
 
     return loss_R, trans_loss,\
         loss_proj, loss_world,\
@@ -308,6 +328,8 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         return out.cuda()
 
     def _backprop():
+        minimon.enter()
+
         loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, loss_world_structure, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
@@ -318,6 +340,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             batch['cameras'],
             config
         )
+        minimon.leave('compute loss')
 
         # assuming to have access to 1 GT world point
         # joint_i = 9  # head
@@ -390,7 +413,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')
 
-    minimon.leave('cam2cam forward')
+    minimon.leave('forward')
 
     minimon.enter()
 
@@ -407,7 +430,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         _save_stuff(batch['indexes'], 'batch_indexes')
         _save_stuff(kps_world_gt, 'kps_world_gt')
 
-    minimon.leave('cam2cam DLT')
+    minimon.leave('triangulate')
 
     if is_train:
         _backprop()

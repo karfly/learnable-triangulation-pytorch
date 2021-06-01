@@ -14,8 +14,9 @@ class KeypointsMSELoss(nn.Module):
         super().__init__()
 
     def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity):
+        dev = keypoints_pred.device
         dimension = keypoints_pred.shape[-1]
-        loss = torch.sum((keypoints_gt - keypoints_pred) ** 2 * keypoints_binary_validity)
+        loss = torch.sum((keypoints_gt.to(dev) - keypoints_pred) ** 2 * keypoints_binary_validity)
         loss = loss / (dimension * max(1, torch.sum(keypoints_binary_validity).item()))
         return loss
 
@@ -29,11 +30,12 @@ class KeypointsMSESmoothLoss(nn.Module):
         self.beta = beta
 
     def forward(self, keypoints_pred, keypoints_gt, keypoints_binary_validity=None):
+        dev = keypoints_pred.device
         dimension = keypoints_pred.shape[-1]
-        diff = (keypoints_gt - keypoints_pred) ** 2
+        diff = (keypoints_gt.to(dev) - keypoints_pred) ** 2
 
         if not (keypoints_binary_validity is None):
-            diff *= keypoints_binary_validity
+            diff *= keypoints_binary_validity.to(dev)
 
         diff[diff > self.threshold] = torch.pow(
             diff[diff > self.threshold], self.alpha
@@ -322,24 +324,5 @@ class WorldStructureLoss(nn.Module):
         loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
         return torch.mean(loss)
 
-    # todo ... then predict just euler X and Z ...
-    # def _penalize_cam_rotation(self, cam_preds):
-    #     """ assumption: no pitch in cam R => -sin(beta) ~ 0, see https://en.wikipedia.org/wiki/Rotation_matrix """
-
-    #     cam_preds = cam_preds.view(-1, 4, 4)  # handle it better
-    #     batch_size = cam_preds.shape[0]
-
-
-    #     gamma = torch.asin(cam_preds[:, 2, 1])
-    #     should_be = torch.cat([
-    #         NoPitchBlock._build_it(alpha[i], gamma[i]).unsqueeze(0)
-    #         for i in range(batch_size)
-    #     ])
-
-    #     return GeodesicLoss()(
-    #         cam_preds[:, :3, :3],
-    #         should_be.to(cam_preds.device),
-    #     )
-
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds)  # self._penalize_cam_rotation(cam_preds)
+        return self._penalize_cam_z_location(cam_preds)

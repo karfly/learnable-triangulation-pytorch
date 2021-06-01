@@ -314,8 +314,9 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
         # todo assuming cameras are above the surface (i.e surface is NOT transparent)
         cams_location = get_cam_location_in_world(cam_preds)
-        zs = cams_location[:, 2, 3]
-        total_loss += 1000.0 * torch.norm(zs, p='fro')
+        print(cams_location)
+        zs = cams_location[..., 2, 3]  # in all views (of all batches)
+        total_loss += 100.0 * torch.norm(zs[zs < 0], p='fro')
 
         # todo relly hacky
         # floor_z, _ = torch.min(

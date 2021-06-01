@@ -4,14 +4,11 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
-from scipy.spatial.transform import Rotation as R
 
-import torch
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import scale_bbox, rotation_matrix_from_vectors_rodrigues
-from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
 
 # todo refactor diocan
@@ -307,10 +304,6 @@ class Human36MMultiViewDataset(Dataset):
 
                 # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
-                kp_in_cam = retval_camera.world2cam()(
-                    shot['keypoints'][:self.num_keypoints]  # in world
-                )
-
                 # fix arbitrary orientation
                 # euler_convention = 'XYZ'
                 # old_cam_pose = torch.inverse(

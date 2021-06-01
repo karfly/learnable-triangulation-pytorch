@@ -2,11 +2,9 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.functional import norm
 
 from mvn.utils.multiview import project_to_weak_views
-from mvn.utils.tred import get_cam_location_in_world, matrix_to_euler_angles
-from mvn.models.layers import NoPitchBlock
+from mvn.utils.tred import get_cam_location_in_world
 
 
 class KeypointsMSELoss(nn.Module):

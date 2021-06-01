@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation as R
 from post.plots import get_figa
 from viz import draw_kps_in_2d
 from mvn.models.loss import GeodesicLoss
-from mvn.utils.tred import rotx, roty, rotz, rotation_matrix2axis_angle
+from mvn.utils.tred import rotz, rotation_matrix2axis_angle
 
 
 def viz_2ds(keypoints_2d):

@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 from functools import reduce
 from mvn.utils.img import rotation_matrix_from_vectors_torch

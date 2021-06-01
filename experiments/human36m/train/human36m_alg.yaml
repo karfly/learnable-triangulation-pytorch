@@ -85,7 +85,7 @@ cam2cam:
     world: 0.0
     self_consistency:
       proj: 2.0
-      separation: 0.1
+      separation: 0.5
 
   opt:
     grad_clip: 1.0

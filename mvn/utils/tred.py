@@ -91,7 +91,7 @@ def find_line_minimizing_normal(points):
     centroid = points.mean(axis=0)
     points_centered = points - centroid
     u, _, v = torch.svd(points_centered)
-    direction = u[2, :]  # line is parametrized as `centroid + t * direction`
+    direction = v[1, :]  # line is parametrized as `centroid + t * direction`
 
     a = centroid
     b = centroid + direction
@@ -318,5 +318,20 @@ def mirror_points_along_x(x):
     return _f
 
 
+def get_cam_orientation_in_world(exts):
+    batch_size = exts.shape[0]
+    return torch.cat([
+        exts[batch_i, :3, :3].T.unsqueeze(0)  # inverse, faster by transpose
+        for batch_i in range(batch_size)
+    ])
+
+
 def get_cam_location_in_world(exts):
-    return torch.inverse(exts)
+    batch_size = exts.shape[0]
+    return torch.cat([
+        torch.mm(
+            (-exts[batch_i, :3, :3]).T,
+            exts[batch_i, :3, 3].unsqueeze(0).T
+        ).unsqueeze(0)
+        for batch_i in range(batch_size)
+    ])

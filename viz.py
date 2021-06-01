@@ -251,23 +251,23 @@ def debug_live_training():
          [-3.4980e-01,  3.8544e-01, -8.5386e-01,  4.5888e+03],
          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]]).float()
     pred = torch.tensor([
-        [-2.0805e+02, -2.5143e+01, -6.8236e+01],
-        [-1.1058e+02, -1.6452e+01, -1.0818e+01],
-        [-5.8068e+00,  2.5100e+01,  2.5735e+01],
-        [ 5.7219e+00, -2.4129e+01, -2.5303e+01],
-        [-1.0066e+02, -6.8927e+01, -4.5781e+01],
-        [-2.0037e+02, -8.5286e+01, -1.0098e+02],
-        [-3.4106e-13,  4.5475e-13, -2.4869e-14],
-        [ 5.3075e+01,  2.6209e+01,  7.5694e+00],
-        [ 1.1680e+02,  4.0700e+01,  1.0144e+01],
-        [ 1.5462e+02,  5.3961e+01,  1.8759e+01],
-        [ 1.4701e+02,  3.7557e+01,  7.9443e+01],
-        [ 8.6698e+01,  2.3981e+01,  8.8498e+01],
-        [ 1.0292e+02,  6.3047e+01,  3.5621e+01],
-        [ 1.0365e+02,  2.0458e+01, -1.6882e+01],
-        [ 4.1591e+01, -3.1471e+00, -4.8578e+01],
-        [-1.3130e+01, -4.1479e+01, -6.3104e+01],
-        [ 1.2879e+02,  5.1440e+01,  3.1814e+01]
+        [-3.5775e+02, -6.3525e+02,  1.4934e+03],
+        [ 4.5278e-01, -4.3093e+02,  8.1449e+02],
+        [-6.3064e+01, -2.4749e+02, -7.8843e+01],
+        [ 6.4177e+01,  2.4451e+02,  7.8651e+01],
+        [-1.1322e+02, -5.6299e+01,  9.1810e+02],
+        [-3.7023e+02, -2.6666e+02,  1.6866e+03],
+        [ 5.4570e-12, -1.8190e-12,  9.0949e-13],
+        [-2.1489e+01,  6.9028e+01, -5.3477e+02],
+        [ 6.7954e+01,  2.9132e+02, -1.1051e+03],
+        [ 1.0728e+02,  3.7937e+02, -1.6084e+03],
+        [-4.2451e+00, -5.5528e+02, -4.5706e+01],
+        [-6.2352e+01, -3.3761e+02, -5.1284e+02],
+        [-7.3252e+00, -1.0266e+01, -1.0587e+03],
+        [ 1.1019e+02,  4.6226e+02, -7.7651e+02],
+        [ 1.5593e+02,  4.2291e+02, -1.1092e+02],
+        [ 3.0009e+02,  2.8915e+02,  3.3600e+02],
+        [ 1.4575e+02,  3.0650e+02, -1.3460e+03]
     ]).float()
     
     cam_gt = torch.tensor([[
@@ -324,17 +324,17 @@ def debug_live_training():
         marker='^', color='red'
     )
 
-    n_cameras = cam_pred.shape[0]
-    for cam_i in range(n_cameras):
-        eulers = R.from_matrix(
-            cam_pred[cam_i, :3, :3]
-        ).as_euler('zyx', degrees=True)
-        print('pr cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
-    for cam_i in range(n_cameras):
-        eulers = R.from_matrix(
-            cam_gt[cam_i, :3, :3]
-        ).as_euler('zyx', degrees=True)
-        print('gt cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
+    # n_cameras = cam_pred.shape[0]
+    # for cam_i in range(n_cameras):
+    #     eulers = R.from_matrix(
+    #         cam_pred[cam_i, :3, :3]
+    #     ).as_euler('zyx', degrees=True)
+    #     print('pr cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
+    # for cam_i in range(n_cameras):
+    #     eulers = R.from_matrix(
+    #         cam_gt[cam_i, :3, :3]
+    #     ).as_euler('zyx', degrees=True)
+    #     print('gt cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
 
     # draw points in cam spaces
     # n_cameras = cam_pred.shape[0]

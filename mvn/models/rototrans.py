@@ -98,7 +98,6 @@ class RotoTransNet(nn.Module):
                 activation=nn.LeakyReLU,
             ),
         ])
-        # todo self.t_model = 
 
         self.combiner = RotoTransCombiner()
 

@@ -130,24 +130,36 @@ def _index_from_letter(letter: str):
         return 2
 
 
-def matrix_to_euler_angles(matrix, convention):
+def matrix_to_euler_angles(matrix, convention, with_central=True):
     """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.matrix_to_euler_angles """
 
     i0 = _index_from_letter(convention[0])
     i2 = _index_from_letter(convention[2])
     tait_bryan = i0 != i2
-    if tait_bryan:
-        central_angle = torch.asin(
-            matrix[..., i0, i2] * (-1.0 if i0 - i2 in [-1, 2] else 1.0)
-        )
-    else:
-        central_angle = torch.acos(matrix[..., i0, i0])
 
+    if with_central:
+        if tait_bryan:
+            central_angle = torch.asin(
+                matrix[..., i0, i2] * (-1.0 if i0 - i2 in [-1, 2] else 1.0)
+            )
+        else:
+            central_angle = torch.acos(matrix[..., i0, i0])
+
+        o = (
+            _angle_from_tan(
+                convention[0], convention[1], matrix[..., i2], False, tait_bryan
+            ),
+            central_angle,
+            _angle_from_tan(
+                convention[2], convention[1], matrix[..., i0, :], True, tait_bryan
+            ),
+        )
+        return torch.stack(o, -1)
+    
     o = (
         _angle_from_tan(
             convention[0], convention[1], matrix[..., i2], False, tait_bryan
         ),
-        central_angle,
         _angle_from_tan(
             convention[2], convention[1], matrix[..., i0, :], True, tait_bryan
         ),

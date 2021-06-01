@@ -110,33 +110,8 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
         for view_i in range(n_views):
             # apply post processing ... todo as module
 
-            # ... scale distance ...
+            # ... scale distance
             preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
-
-            # ... no pitch
-            euler_convention = 'ZYX'
-            old_orientation_eulers = matrix_to_euler_angles(
-                preds[batch_i, view_i, :3, :3].unsqueeze(0),
-                euler_convention
-            )[0]
-            # todo as config, assumption
-            new_orientation_eulers = torch.cat([
-                old_orientation_eulers[0].unsqueeze(0),
-                torch.tensor(0.0).unsqueeze(0).to(preds.device),
-                old_orientation_eulers[2].unsqueeze(0),
-            ])
-            new_orientation = euler_angles_to_matrix(
-                new_orientation_eulers.unsqueeze(0), euler_convention
-            )[0]
-            new_R = torch.inverse(new_orientation).T
-            rot_x = torch.mm(
-                new_R,
-                torch.inverse(preds[batch_i, view_i, :3, :3])
-            )
-            preds[batch_i, view_i, :3, :3] = torch.mm(
-                rot_x,
-                preds[batch_i, view_i, :3, :3]
-            )
 
             if not (gt is None):
                 R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
@@ -383,6 +358,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     if config.debug.dump_tensors:
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
+    print(keypoints_2d_pred[0])
 
     cam_gts = _get_cams_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:

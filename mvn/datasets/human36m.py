@@ -315,7 +315,7 @@ class Human36MMultiViewDataset(Dataset):
 
                 # fix arbitrary orientation
 
-                euler_convention = 'ZYX'
+                euler_convention = 'XYZ'
                 # print('after look at pelvis', retval_camera.extrinsics_padded)
 
                 old_cam_pose = torch.inverse(
@@ -329,16 +329,15 @@ class Human36MMultiViewDataset(Dataset):
                 # print('...eulers', old_orientation_eulers)
 
                 new_orientation_eulers = torch.tensor([
-                    old_orientation_eulers[0],
+                    old_orientation_eulers[0],  # X
                     0.0,  # fix no rotation, todo as config, assumption
-                    old_orientation_eulers[2],
+                    old_orientation_eulers[2],  # Z
                 ])
                 new_orientation = euler_angles_to_matrix(
                     new_orientation_eulers.unsqueeze(0), euler_convention
                 )[0]
-                new_R = torch.inverse(new_orientation).T  # orientation -> pose
+                new_R = torch.inverse(new_orientation)  # orientation -> pose
                 retval_camera.R = new_R.numpy()
-                # print(retval_camera.extrinsics_padded)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

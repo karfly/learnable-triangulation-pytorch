@@ -33,7 +33,7 @@ opt:
 
   scale_keypoints_3d: 0.1
 
-  torch_anomaly_detection: false
+  torch_anomaly_detection: true
 # `torch_anomaly_detection: true` just x2s time
 
   save_every_n_epochs: 5

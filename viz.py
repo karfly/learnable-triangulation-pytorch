@@ -58,7 +58,7 @@ def get_joints_index(joint_name):
 def is_vip(joint_i):
     vips = map(
         get_joints_index,
-        ['pelvis']
+        ['pelvis', 'head']
     )
 
     return joint_i in vips
@@ -88,9 +88,14 @@ def draw_kps_in_2d(axis, keypoints_2d, label, marker='o', color='blue'):
         cmap = plt.get_cmap('jet')
         colors = cmap(np.linspace(0, 1, n_points))
         for point_i in range(n_points):
+            if is_vip(point_i):
+                marker, s = 'x', 100
+            else:
+                marker, s = 'o', 10
             axis.scatter(
                 [ xs[point_i] ], [ ys[point_i] ],
-                marker='o',
+                marker=marker,
+                s=s,
                 color=colors[point_i],
                 label=label + ' {:.0f}'.format(point_i)
                 # todo too many label=label,

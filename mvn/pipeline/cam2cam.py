@@ -358,7 +358,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     if config.debug.dump_tensors:
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
-    print(keypoints_2d_pred[0])
 
     cam_gts = _get_cams_gt(batch['cameras'])
     if config.cam2cam.data.using_heatmaps:

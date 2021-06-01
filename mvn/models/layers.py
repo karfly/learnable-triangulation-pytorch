@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from mvn.utils.tred import rotx, rotz
+
 
 class R6DBlock(nn.Module):
     """ https://arxiv.org/abs/1812.07035 """
@@ -107,37 +109,23 @@ class NoPitchBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
+    @staticmethod
+    def _build_it(alpha, gamma):
+        return torch.mm(
+            rotz(gamma),
+            rotx(alpha)
+        ).to(alpha.device)
+
     def forward(self, batched_angles):
         batch_size = batched_angles.shape[0]  # todo tensored
-        out = torch.zeros(3, 3, requires_grad=True)\
-            .view(1, 3, 3).repeat(batch_size, 1, 1).to(batched_angles.device)
-
-        for batch_i in range(batch_size):
-            radians = nn.functional.normalize(
-                batched_angles[batch_i].unsqueeze(0)
-            ) * 3.14  # rad
-            alpha = radians[0, 0]
-            gamma = radians[0, 1]
-
-            ca = torch.cos(alpha)
-            sa = torch.sin(alpha)
-
-            cg = torch.cos(gamma)
-            sg = torch.sin(gamma)
-
-            out[batch_i, 0, 0] = ca
-            out[batch_i, 0, 1] = -sa * cg
-            out[batch_i, 0, 2] = sa * sg
-
-            out[batch_i, 1, 0] = sa
-            out[batch_i, 1, 1] = ca * cg
-            out[batch_i, 1, 2] = -ca * sg
-
-            # out[batch_i, 2, 0] = 0.0
-            out[batch_i, 2, 1] = sg
-            out[batch_i, 2, 2] = cg
-
-        return out
+        batched_angles = nn.functional.normalize(batched_angles, dim=1)
+        return torch.cat([
+            self._build_it(
+                batched_angles[i, 0],
+                batched_angles[i, 1],
+            ).unsqueeze(0)
+            for i in range(batch_size)
+        ])
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP
 class SEBlock(nn.Module):

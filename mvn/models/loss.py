@@ -5,7 +5,8 @@ from torch import nn
 from torch.functional import norm
 
 from mvn.utils.multiview import project_to_weak_views
-from mvn.utils.tred import get_cam_location_in_world
+from mvn.utils.tred import get_cam_location_in_world, matrix_to_euler_angles
+from mvn.models.layers import NoPitchBlock
 
 
 class KeypointsMSELoss(nn.Module):
@@ -322,14 +323,23 @@ class WorldStructureLoss(nn.Module):
         return torch.mean(loss)
 
     # todo ... then predict just euler X and Z ...
-    def _penalize_cam_rotation(self, cam_preds):
-        """ assumption: no pitch in cam R => -sin(beta) ~ 0, see https://en.wikipedia.org/wiki/Rotation_matrix """
+    # def _penalize_cam_rotation(self, cam_preds):
+    #     """ assumption: no pitch in cam R => -sin(beta) ~ 0, see https://en.wikipedia.org/wiki/Rotation_matrix """
 
-        sin_pitches = cam_preds.view(-1, 4, 4)[:, 2, 0]
-        loss = torch.exp(torch.square(sin_pitches)) -\
-            torch.exp(torch.tensor(0.0))
-        return torch.mean(loss)
+    #     cam_preds = cam_preds.view(-1, 4, 4)  # handle it better
+    #     batch_size = cam_preds.shape[0]
+
+
+    #     gamma = torch.asin(cam_preds[:, 2, 1])
+    #     should_be = torch.cat([
+    #         NoPitchBlock._build_it(alpha[i], gamma[i]).unsqueeze(0)
+    #         for i in range(batch_size)
+    #     ])
+
+    #     return GeodesicLoss()(
+    #         cam_preds[:, :3, :3],
+    #         should_be.to(cam_preds.device),
+    #     )
 
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds) +\
-            self._penalize_cam_rotation(cam_preds)
+        return self._penalize_cam_z_location(cam_preds)  # self._penalize_cam_rotation(cam_preds)

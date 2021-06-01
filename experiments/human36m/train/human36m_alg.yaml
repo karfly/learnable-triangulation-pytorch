@@ -15,7 +15,7 @@ debug:
   dump_tensors: false
   show_minimon: true
   noisy: false
-  gt_cams: false
+  gt_cams: true
 
 opt:
   criterion: "MSESmooth"
@@ -33,7 +33,7 @@ opt:
 
   scale_keypoints_3d: 0.1
 
-  torch_anomaly_detection: true
+  torch_anomaly_detection: false
 # `torch_anomaly_detection: true` just x2s time
 
   save_every_n_epochs: 5
@@ -86,7 +86,7 @@ cam2cam:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 1.0
+      proj: 2.0
       separation: 0.1
     world_structure:
       camera_above_surface: 0.0

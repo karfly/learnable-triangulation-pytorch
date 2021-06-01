@@ -487,3 +487,57 @@ def project_to_weak_views(K, cam_preds, kps_world_pred):
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
     ])  # project DLT-ed points in all views
+
+
+def prepare_weak_cams_for_dlt(extrinsics, K, where="world"):
+    batch_size = extrinsics.shape[0]
+    full_cams = torch.empty((batch_size, 4, 3, 4))
+
+    for batch_i in range(batch_size):
+        if where == 'world':
+            full_cams[batch_i] = torch.cat([
+                torch.mm(
+                    K,
+                    extrinsics[batch_i, 0]
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    extrinsics[batch_i, 1]
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    extrinsics[batch_i, 2],
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    extrinsics[batch_i, 3],
+                ).unsqueeze(0),
+            ])  # ~ 4, 3, 4
+        elif where == 'master':
+            from_master_cam = torch.inverse(extrinsics[batch_i, 0])  # master is first
+            full_cams[batch_i] = torch.cat([
+                K.unsqueeze(0),  # doing DLT  in camspace
+                torch.mm(
+                    K,
+                    torch.mm(
+                        extrinsics[batch_i, 1],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    torch.mm(
+                        extrinsics[batch_i, 2],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+                torch.mm(
+                    K,
+                    torch.mm(
+                        extrinsics[batch_i, 3],
+                        from_master_cam
+                    )
+                ).unsqueeze(0),
+            ])  # ~ 4, 3, 4
+
+    return full_cams  # ~ batch_size, 4, 3, 4

@@ -151,7 +151,6 @@ def build_env(config, device):
         cam2cam_model = None
 
     # ... load weights (if necessary) ...
-
     if config.model.init_weights:
         load_checkpoint(model, config.model.checkpoint)
 

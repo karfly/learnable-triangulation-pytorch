@@ -5,13 +5,13 @@ import torch
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
-from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous
+from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss, BodyStructureLoss
 
 _ITER_TAG = 'cam2cam'
 
 
-def _center_to_pelvis(keypoints_2d, pelvis_i=6):
+def center2pelvis(keypoints_2d, pelvis_i=6):
     """ pelvis -> (0, 0) """
 
     n_joints = keypoints_2d.shape[2]
@@ -31,13 +31,13 @@ def dist2pelvis(keypoints_2d_in_view, pelvis_i=6):
     ])).unsqueeze(0)
 
 
-def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
+def normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     """ "divided by its Frobenius norm in the preprocessing" """
 
     batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
 
     if pelvis_center_kps:
-        kps = _center_to_pelvis(keypoints_2d)
+        kps = center2pelvis(keypoints_2d)
     else:
         kps = keypoints_2d
 
@@ -96,7 +96,7 @@ def _get_cams_gt(cameras, master_i=0):
     return cam_gts.cuda()
 
 
-def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
+def _forward_cams(cam2cam_model, detections, gt=None, noisy=False):
     batch_size = detections.shape[0]
     n_views = detections.shape[1]
 
@@ -107,11 +107,6 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
 
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
-            # apply post processing ... todo as module
-
-            # ... scale distance
-            preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
-
             if not (gt is None):
                 R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
                 t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
@@ -126,64 +121,9 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
     return preds.to(dev)
 
 
-def _prepare_cams_for_dlt(cams, keypoints_2d_pred, K, where="world"):
-    batch_size = keypoints_2d_pred.shape[0]
-    full_cams = torch.empty((batch_size, 4, 3, 4))
-
-    for batch_i in range(batch_size):
-        if where == 'world':
-            full_cams[batch_i] = torch.cat([
-                torch.mm(
-                    K,
-                    cams[batch_i, 0]
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 1]
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 2],
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 3],
-                ).unsqueeze(0),
-            ])  # ~ 4, 3, 4
-        elif where == 'master':
-            from_master_cam = torch.inverse(cams[batch_i, 0])  # master is first
-            full_cams[batch_i] = torch.cat([
-                K.unsqueeze(0),  # doing DLT  in camspace
-                torch.mm(
-                    K,
-                    torch.mm(
-                        cams[batch_i, 1],
-                        from_master_cam
-                    )
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    torch.mm(
-                        cams[batch_i, 2],
-                        from_master_cam
-                    )
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    torch.mm(
-                        cams[batch_i, 3],
-                        from_master_cam
-                    )
-                ).unsqueeze(0),
-            ])  # ~ 4, 3, 4
-
-    return full_cams  # ~ batch_size, 4, 3, 4
-
-
 def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, where="world"):
-    full_cams = _prepare_cams_for_dlt(
+    full_cams = prepare_weak_cams_for_dlt(
         cams,
-        keypoints_2d_pred,
         K,
         where
     )
@@ -245,28 +185,22 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
+    loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
+        K,
+        cam_preds,
+        kps_world_pred,
+        keypoints_2d_pred
+    ) * 1e3  # final scaling
     if loss_weights.self_consistency.proj > 0:
-        loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
-            K,
-            cam_preds,
-            kps_world_pred,
-            keypoints_2d_pred
-        ) * 1e3  # final scaling
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
-    else:
-        loss_self_proj = torch.tensor(0.0)
 
+    loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
     if loss_weights.self_consistency.separation > 0:
-        loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
-    else:
-        loss_self_separation = torch.tensor(0.0)
 
+    loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
     if loss_weights.world_structure.camera_above_surface > 0:
-        loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
         total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
-    else:
-        loss_world_structure = torch.tensor(0.0)
 
     # todo needed ? loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
     # total_loss += loss_body_structure * loss_weights.body_structure.height
@@ -397,7 +331,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if hasattr(config.cam2cam.preprocess, 'normalize_kps'):
-            kps = _normalize_keypoints(
+            kps = normalize_keypoints(
                 keypoints_2d_pred,
                 config.cam2cam.preprocess.pelvis_center_kps,
                 config.cam2cam.preprocess.normalize_kps
@@ -415,7 +349,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     cam_preds = _forward_cams(
         cam2cam_model,
         detections[master_i],
-        config.cam2cam.postprocess.scale_t,
         cam_gts if config.debug.gt_cams else None,
         noisy=config.debug.noisy
     )
@@ -432,7 +365,8 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         keypoints_2d_pred[:, ordered],
         confidences_pred,
         torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
-        master_i
+        master_i,
+        config.cam2cam.triangulate
     )
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')

@@ -110,9 +110,7 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
                 continue
 
             if config.opt.torch_anomaly_detection:
-                torch.autograd.set_detect_anomaly(
-                    config.opt.torch_anomaly_detection
-                )
+                torch.autograd.set_detect_anomaly(True)
                 with detect_anomaly():  # about x2s time
                     results_pred = iter_batch(
                         batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,

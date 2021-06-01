@@ -46,6 +46,7 @@ class RotoTransNet(nn.Module):
 
         self.n_views_comparing = 4
         self.n_pairs = self.n_views_comparing - 1
+        self.scale_t = config.cam2cam.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
         batch_norm = config.cam2cam.model.batch_norm
@@ -123,5 +124,6 @@ class RotoTransNet(nn.Module):
 
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
         trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
+        trans = trans / self.scale_t
 
         return self.combiner(rots, trans)

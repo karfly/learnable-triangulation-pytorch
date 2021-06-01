@@ -9,8 +9,9 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.tred import create_plane, find_plane_minimizing_normal, rotate_points, find_line_minimizing_normal, create_line
-from mvn.utils.img import rotation_matrix_from_vectors
+from mvn.utils.tred import create_plane, find_plane_minimizing_normal, rotate_points, find_line_minimizing_normal, create_line, mirror_points_along_x, mirror_points_along_z, mirror_points_along_y, rotx, roty, rotz
+from mvn.utils.img import rotation_matrix_from_vectors_rodrigues
+from mvn.utils.multiview import euclidean_to_homogeneous, homogeneous_to_euclidean
 
 
 def get_joints_connections():
@@ -35,6 +36,24 @@ def get_joints_connections():
         (12, 11),
         (11, 10)
     ]
+
+
+def get_joints_index(joint_name):
+    indices = {
+        'pelvis': 6,
+        'head': 9
+    }
+
+    return indices[joint_name]
+
+
+def is_vip(joint_i):
+    vips = map(
+        get_joints_index,
+        ['pelvis']
+    )
+
+    return joint_i in vips
 
 
 def draw_kps_in_2d(axis, keypoints_2d, label, marker='o', color='blue'):
@@ -97,7 +116,7 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
         cmap = plt.get_cmap('jet')
         colors = cmap(np.linspace(0, 1, n_points))
         for point_i in range(n_points):
-            if point_i == 9 or point_i == 6:  # VIP
+            if is_vip(point_i):
                 marker, s = 'x', 100
             else:
                 marker, s = 'o', 10
@@ -110,6 +129,9 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
                 label=label + ' {:.0f}'.format(point_i)
                 # todo too many label=label,
             )
+
+        print(label, 'centroid ~', keypoints_3d.mean(axis=0))
+        print(label, 'pelvis ~', keypoints_3d[get_joints_index('pelvis')])
 
 
 def viz_experiment_samples():
@@ -200,6 +222,26 @@ def viz_experiment_samples():
 
 
 def debug_live_training():
+    cam_pred = torch.tensor([[
+        [-9.7820e-01, -8.5482e-02,  1.8925e-01,  0.0000e+00],
+         [ 1.3602e-01, -9.5238e-01,  2.7288e-01,  0.0000e+00],
+         [ 1.5691e-01,  2.9267e-01,  9.4325e-01,  5.6545e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[ 8.4163e-01,  4.8745e-02,  5.3786e-01,  0.0000e+00],
+         [ 2.5049e-01, -9.1755e-01, -3.0880e-01,  0.0000e+00],
+         [ 4.7846e-01,  3.9462e-01, -7.8444e-01,  5.7320e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[-8.7837e-01, -9.0128e-02, -4.6941e-01,  0.0000e+00],
+         [-2.1810e-02, -9.7348e-01,  2.2772e-01,  0.0000e+00],
+         [-4.7749e-01,  2.1026e-01,  8.5311e-01,  5.9238e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[ 9.3676e-01,  1.5488e-01, -3.1384e-01,  0.0000e+00],
+         [ 1.1282e-02, -9.0964e-01, -4.1524e-01,  0.0000e+00],
+         [-3.4980e-01,  3.8544e-01, -8.5386e-01,  4.5888e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]]).float()
     pred = torch.tensor([
         [ 2.3641e+01, -5.1126e+01, -6.3698e+02],
         [-5.3702e+01,  3.0688e+02, -2.9269e+02],
@@ -218,6 +260,28 @@ def debug_live_training():
         [ 3.4374e+02,  1.5595e+02,  4.3662e+02],
         [ 3.9459e+02, -7.0551e+01,  3.7564e+02],
         [ 1.7937e+01,  4.0214e+02,  1.8694e+02]
+    ]).float()
+    
+    cam_gt = torch.tensor([[
+        [-9.2829e-01,  3.7185e-01,  6.5016e-04,  4.9728e-14],
+         [ 1.0662e-01,  2.6784e-01, -9.5755e-01, -2.7233e-14],
+         [-3.5624e-01, -8.8881e-01, -2.8828e-01,  5.5426e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[ 9.3246e-01,  3.6046e-01,  2.4059e-02,  1.9896e-14],
+         [ 1.2453e-01, -2.5819e-01, -9.5803e-01, -3.6986e-14],
+         [-3.3912e-01,  8.9633e-01, -2.8564e-01,  5.7120e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[-9.5123e-01, -3.0488e-01, -4.7087e-02, -2.3485e-14],
+         [-3.5426e-02,  2.5958e-01, -9.6507e-01, -6.5800e-15],
+         [ 3.0645e-01, -9.1633e-01, -2.5772e-01,  5.6838e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[ 9.2061e-01, -3.7942e-01,  9.2279e-02,  2.9982e-15],
+         [-5.2180e-02, -3.5374e-01, -9.3389e-01,  9.9662e-15],
+         [ 3.8698e-01,  8.5493e-01, -3.4546e-01,  4.4827e+03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]
     ]).float()
     gt = torch.tensor([
         [ -79.5401, -636.6202,  -37.0452],
@@ -242,15 +306,74 @@ def debug_live_training():
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
 
+    # compare in world
     draw_kps_in_3d(
         axis, gt.detach().cpu().numpy(), label='gt',
         marker='o', color='blue'
     )
-
     draw_kps_in_3d(
         axis, pred.detach().cpu().numpy(), label='pred',
         marker='^', color='red'
     )
+
+    # draw points in cam spaces
+    # n_cameras = cam_pred.shape[0]
+    # colors = plt.get_cmap('cool')(np.linspace(0, 1, n_cameras))
+    # for cam_i in range(n_cameras):
+    #     in_cam = homogeneous_to_euclidean(
+    #         euclidean_to_homogeneous(
+    #             gt  # [x y z] -> [x y z 1]
+    #         ) @ cam_gt[cam_i].T
+    #     )
+
+    #     draw_kps_in_3d(
+    #         axis, in_cam.detach().cpu().numpy(), label='cam #{:.0f}'.format(cam_i),
+    #         marker='^', color=colors[cam_i]
+    #     )
+
+    # compare in cam space
+    # cam_i = 3
+
+    # cam = cam_gt[cam_i]
+    # in_cam = homogeneous_to_euclidean(
+    #     euclidean_to_homogeneous(
+    #         gt  # [x y z] -> [x y z 1]
+    #     ) @ cam.T
+    # )
+    # draw_kps_in_3d(
+    #     axis, in_cam.detach().cpu().numpy(), label='gt',
+    #     marker='^', color='blue'
+    # )
+    # print('gt cam', R.from_matrix(
+    #     cam[:3, :3]
+    # ).as_euler('zyx', degrees=True))
+
+    # cam = cam_pred[cam_i]
+    # print('pred cam', R.from_matrix(
+    #     cam[:3, :3]
+    # ).as_euler('zyx', degrees=True))
+    # cam[:3, :3] = torch.mm(
+    #     rotx(torch.tensor(np.pi)).float(),
+    #     cam_pred[cam_i, :3, :3]
+    # )
+    # print('rotated cam', R.from_matrix(
+    #     cam[:3, :3]
+    # ).as_euler('zyx', degrees=True))
+    # in_cam = homogeneous_to_euclidean(
+    #     euclidean_to_homogeneous(
+    #         pred  # [x y z] -> [x y z 1]
+    #     ) @ cam.T
+    # )
+    # in_cam = mirror_points_along_y(
+    #     np.mean([cam_gt[cam_i, 2, 2], cam_pred[cam_i, 2, 2]])
+    # )(in_cam)
+    # draw_kps_in_3d(
+    #     axis, in_cam.detach().cpu().numpy(), label='pred',
+    #     marker='^', color='red'
+    # )
+    # print(R.from_matrix(
+    #     cam[:3, :3]
+    # ).as_euler('zyx', degrees=True))
 
     # fit, errors, residual = find_plane_minimizing_normal(pred)
     # X, Y, Z = create_plane(fit)

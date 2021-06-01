@@ -265,3 +265,52 @@ def rotation_matrix2axis_angle(batch_rotations):
         _mat2aa(rot).unsqueeze(0)
         for rot in batch_rotations
     ])
+
+
+def mirror_points_along_z(z):
+    def _f(points):
+        out = points.clone()
+        n_points = points.shape[0]
+        for point_i in range(n_points):  # todo batched
+            old_z = points[point_i, 2]
+            if old_z < z:
+                new_z = z + (z - old_z)  # todo simplify
+            else:
+                new_z = z - (old_z - z)
+            
+            out[point_i, 2] = new_z
+        return out
+    return _f
+
+
+def mirror_points_along_y(y):
+    def _f(points):
+        out = points.clone()
+        n_points = points.shape[0]
+        for point_i in range(n_points):  # todo batched
+            old_y = points[point_i, 1]
+            if old_y < y:
+                new_y = y + (y - old_y)  # todo simplify
+            else:
+                new_y = y - (old_y - y)
+            
+            out[point_i, 1] = new_y
+        return out
+    return _f
+
+
+
+def mirror_points_along_x(x):
+    def _f(points):
+        out = points.clone()
+        n_points = points.shape[0]
+        for point_i in range(n_points):  # todo batched
+            old_x = points[point_i, 0]
+            if old_x < x:
+                new_x = x + (x - old_x)  # todo simplify
+            else:
+                new_x = x - (old_x - x)
+            
+            out[point_i, 0] = new_x
+        return out
+    return _f

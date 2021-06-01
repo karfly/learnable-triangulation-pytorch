@@ -261,6 +261,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
 
 def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
+    n_views = len(batch['cameras'])
     n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
     iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
@@ -308,6 +309,11 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             batch['cameras'],
             config
         )
+
+        # todo relly hacky
+        zs_below_surface = kps_world_pred[kps_world_pred[:, :, 2] < 0]
+        total_loss += 100.0 * torch.norm(zs_below_surface, p='fro')
+
         # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
         #     kps_world_pred[:, 9] * config.opt.scale_keypoints_3d,
         #     kps_world_gt[:, 9].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,

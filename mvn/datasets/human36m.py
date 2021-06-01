@@ -8,7 +8,7 @@ import cv2
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
-from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors_kabsch, resample_image
+from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors_kabsch, rotation_matrix_from_vectors_rodrigues, resample_image
 
 class Human36MMultiViewDataset(Dataset):
     """
@@ -295,7 +295,9 @@ class Human36MMultiViewDataset(Dataset):
 
                 # find rotation matrix to align pelvis to z ...
                 z_axis = [0, 0, 1]
-                Rt = rotation_matrix_from_vectors_kabsch(pelvis_vector, z_axis)
+                Rt = rotation_matrix_from_vectors_rodrigues(
+                    pelvis_vector, z_axis
+                )
 
                 # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)

@@ -1,3 +1,4 @@
+from matplotlib.pyplot import axis
 import numpy as np
 import cv2
 from PIL import Image
@@ -233,16 +234,34 @@ def rotation_matrix_from_vectors_rodrigues(vec1, vec2):
 def rotation_matrix_from_vectors_kabsch(vec1, vec2):
     """ https://github.com/scipy/scipy/blob/master/scipy/spatial/transform/rotation.pyx#L2204 """
 
-    from scipy.spatial.transform import Rotation as R
+    a = np.asarray(np.expand_dims(vec1, axis=0))
+    b = np.asarray(np.expand_dims(vec2, axis=0))
+    weights = np.ones(len(b))
+    B = np.einsum('ji,jk->ik', weights[:, None] * a, b)
+    u, s, vh = np.linalg.svd(B)
 
-    return R.align_vectors(
-        np.expand_dims(vec1, axis=0),
-        np.expand_dims(vec2, axis=0)
-    )[0].as_matrix()
+    # Correct improper rotation if necessary (as in Kabsch algorithm)
+    if np.linalg.det(u @ vh) < 0:
+        s[-1] = -s[-1]
+        u[:, -1] = -u[:, -1]
+
+    C = np.dot(u, vh)
+
+    if s[1] + s[2] < 1e-16 * s[0]:
+        print("Optimal rotation is not uniquely or poorly defined for the given sets of vectors.")
+
+    # rmsd = np.sqrt(
+    #     max(
+    #         np.sum(weights * np.sum(b ** 2 + a ** 2, axis=1)) - 2 * np.sum(s),
+    #         0
+    #     )
+    # )
+
+    return C
 
 
 def rotation_matrix_from_vectors_torch(vec1, vec2):
-    """ see `rotation_matrix_from_vectors` """
+    """ `rotation_matrix_from_vectors_rodrigues` but for torch """
 
     dev = vec1.device
     a, b = (

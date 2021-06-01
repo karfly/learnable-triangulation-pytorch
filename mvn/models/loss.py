@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import project_to_weak_views
-from mvn.utils.tred import get_cam_location_in_world
+from mvn.utils.tred import get_cam_location_in_world, matrix_to_euler_angles
 
 
 class KeypointsMSELoss(nn.Module):
@@ -322,5 +322,11 @@ class WorldStructureLoss(nn.Module):
         loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
         return torch.mean(loss)
 
+    def _penalize_cam_rotation(self, cam_preds):
+        eulers = matrix_to_euler_angles(cam_preds, 'XYZ')
+        pitches = eulers.view(-1, 3)[:, 1]
+        return torch.norm(pitches, p='fro')
+
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds)
+        return self._penalize_cam_z_location(cam_preds) +\
+            self._penalize_cam_rotation(cam_preds)

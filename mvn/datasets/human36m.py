@@ -5,10 +5,12 @@ from collections import defaultdict
 import numpy as np
 import cv2
 
+import torch
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import scale_bbox, rotation_matrix_from_vectors_rodrigues
+from mvn.utils.tred import euler_angles_to_matrix, matrix_to_euler_angles
 
 
 # todo refactor diocan
@@ -304,24 +306,25 @@ class Human36MMultiViewDataset(Dataset):
 
                 # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
+
                 # fix arbitrary orientation
-                # euler_convention = 'XYZ'
-                # old_cam_pose = torch.inverse(
-                #     torch.tensor(retval_camera.extrinsics_padded)
-                # )
-                # old_orientation_eulers = matrix_to_euler_angles(
-                #     old_cam_pose[:3, :3].unsqueeze(0),
-                #     euler_convention
-                # )[0]
-                # new_orientation_eulers = torch.tensor([
-                #     old_orientation_eulers[0],  # X
-                #     0.0,  # fix no rotation, todo as config, assumption
-                #     old_orientation_eulers[2],  # Z
-                # ])
-                # new_orientation = euler_angles_to_matrix(
-                #     new_orientation_eulers.unsqueeze(0), euler_convention
-                # )[0]
-                # retval_camera.R = torch.inverse(new_orientation).numpy()  # orientation -> pose
+                euler_convention = 'XYZ'
+                old_cam_pose = torch.inverse(
+                    torch.tensor(retval_camera.extrinsics_padded)
+                )
+                old_orientation_eulers = matrix_to_euler_angles(
+                    old_cam_pose[:3, :3].unsqueeze(0),
+                    euler_convention
+                )[0]
+                new_orientation_eulers = torch.tensor([
+                    old_orientation_eulers[0],  # X
+                    0.0,  # fix no rotation, todo as config, assumption
+                    old_orientation_eulers[2],  # Z
+                ])
+                new_orientation = euler_angles_to_matrix(
+                    new_orientation_eulers.unsqueeze(0), euler_convention
+                )[0]
+                retval_camera.R = torch.inverse(new_orientation).numpy()  # orientation -> pose
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

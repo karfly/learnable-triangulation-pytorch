@@ -124,6 +124,6 @@ class RotoTransNet(nn.Module):
 
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
         trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | comparisons |, 1 = ext.d for each view
-        trans = trans / self.scale_t
+        trans = trans * self.scale_t
 
         return self.combiner(rots, trans)

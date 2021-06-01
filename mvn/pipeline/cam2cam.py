@@ -6,8 +6,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss
-from mvn.utils.tred import get_cam_location_in_world
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss
 
 _ITER_TAG = 'cam2cam'
 
@@ -82,8 +81,6 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     ])
 
 
-from scipy.spatial.transform import Rotation as R
-import numpy as np
 def _get_cams_gt(cameras, master_i=0):
     n_cameras = len(cameras)
     batch_size = len(cameras[0])
@@ -235,6 +232,10 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.self_consistency.separation > 0:
         total_loss += loss_self_separation * config.cam2cam.loss.self_consistency.separation
 
+    loss_world_structure = WorldStructureLoss()(cam_preds)
+    if config.cam2cam.loss.world_structure.camera_above_surface > 0:
+        total_loss += loss_world_structure * config.cam2cam.loss.world_structure.camera_above_surface
+
     __batch_i = 0  # todo debug only
 
     print('pred exts {:.0f}'.format(__batch_i))
@@ -258,12 +259,12 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     return loss_R, trans_loss,\
         loss_proj, loss_world,\
         loss_self_proj, loss_self_separation, \
+        loss_world_structure, \
         total_loss
 
 
 def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
-    n_views = len(batch['cameras'])
     n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
     iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
@@ -301,7 +302,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         return out.cuda()
 
     def _backprop():
-        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
+        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, loss_world_structure, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -312,31 +313,16 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             config
         )
 
-        # todo assuming cameras are above the surface (i.e surface is NOT transparent)
-        cams_location = get_cam_location_in_world(cam_preds.view(-1, 4, 4)).view(-1, 3)
-        zs = cams_location[:, 2]  # in all views (of all batches)
-        total_loss += 10.0 * torch.norm(zs[zs < 0], p='fro')
-
-        # todo relly hacky
-        # floor_z, _ = torch.min(
-        #     torch.cat([
-        #         kps_world_pred[:, 0, 2].unsqueeze(0),  # right foot
-        #         kps_world_pred[:, 5, 2].unsqueeze(0),  # left foot
-        #     ]), dim=0
-        # )
-        # below_floor = kps_world_pred[
-        #     kps_world_pred[:, :, 2] < floor_z.view(batch_size, 1).repeat(1, 17)
-        # ]
-        # total_loss += 1.0 * torch.norm(below_floor, p='fro')
-
+        # assuming to have access to 1 GT world point
+        # joint_i = 9  # head
         # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
-        #     kps_world_pred[:, 9] * config.opt.scale_keypoints_3d,
-        #     kps_world_gt[:, 9].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
-        #     keypoints_3d_binary_validity_gt[:, 9],  # HEAD only
+        #     kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
+        #     kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+        #     keypoints_3d_binary_validity_gt[:, joint_i],  # HEAD only
         # )
         # total_loss += 5.0 * loss_pose_ref
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, WORLD STRUCT ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
@@ -345,6 +331,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             loss_3d.item(),
             loss_self_proj.item(),
             loss_self_separation.item(),
+            loss_world_structure.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)

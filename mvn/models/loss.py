@@ -2,10 +2,9 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.functional import norm
 
-from mvn.utils.multiview import _my_proj, project_to_weak_views
-from mvn.utils.tred import find_plane_minimizing_z, find_line_minimizing_normal
+from mvn.utils.multiview import project_to_weak_views
+from mvn.utils.tred import get_cam_location_in_world
 
 
 class KeypointsMSELoss(nn.Module):
@@ -218,17 +217,6 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
-        # penalizations = torch.cat([  # todo fa sbalzare un sacco, use `pow` ?
-        #     torch.cat([
-        #         torch.square(
-        #             torch.norm(projections[batch_i, view_i], p='fro') /
-        #             torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
-        #         ).unsqueeze(0)
-        #         for view_i in range(n_views)
-        #     ]).unsqueeze(0).to(dev)  # pred
-        #     for batch_i in range(batch_size)
-        # ])  # penalize ratio of area => I want it not too little, nor not too big
-
         return torch.mean(
             torch.cat([
                 torch.cat([
@@ -287,4 +275,15 @@ class QuadraticProjectionLoss(nn.Module):
         )
 
 
-# todo squash loss using `find_plane_minimizing_normal`
+class WorldStructureLoss(nn.Module):
+    """ assuming cameras are above the surface (i.e surface is NOT transparent) """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, cam_preds):
+        cams_location = get_cam_location_in_world(
+            cam_preds.view(-1, 4, 4)
+        ).view(-1, 3)
+        zs = cams_location[:, 2]  # in all views (of all batches)
+        return torch.norm(zs[zs < 0], p='fro')

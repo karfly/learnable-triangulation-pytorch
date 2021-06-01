@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, NoPitchBlock
 
 
 class RotoTransCombiner(nn.Module):
@@ -31,13 +31,8 @@ class RotoTransCombiner(nn.Module):
             ).repeat(batch_size, n_views, 1, 1)
         ], dim=-2)  # hstack => ~ batch_size, | comparisons |, 3, 4
 
-        # master_cam_i = 0  # first view acting as master
         return torch.cat([
             torch.cat([
-                # torch.mm(
-                #     roto_trans[batch_i, target_view],
-                #     torch.inverse(roto_trans[batch_i, master_cam_i])
-                # ).unsqueeze(0)  # 1 x 4 x 4
                 roto_trans[batch_i, view_i].unsqueeze(0)
                 for view_i in range(n_views)
             ]).unsqueeze(0)
@@ -72,8 +67,17 @@ class RotoTransNet(nn.Module):
                 nn.BatchNorm1d(n_features),
             ])
 
-        n_params_per_R = 6 if config.cam2cam.model.R.parametrization == '6d' else 3
-        self.R_param = R6DBlock() if config.cam2cam.model.R.parametrization == '6d' else RodriguesBlock()
+        n_params_per_R, self.R_param = None, None
+        if config.cam2cam.model.R.parametrization == '6d':
+            n_params_per_R = 6
+            self.R_param = R6DBlock()
+        elif config.cam2cam.model.R.parametrization == 'rodrigues':
+            n_params_per_R = 3
+            self.R_param = RodriguesBlock()
+        elif config.cam2cam.model.R.parametrization == 'nopitch':
+            n_params_per_R = 2
+            self.R_param = NoPitchBlock()
+        
         self.R_model = nn.Sequential(*[
             MLPResNet(
                 in_features=n_features,

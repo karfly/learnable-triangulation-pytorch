@@ -9,15 +9,6 @@ class R6DBlock(nn.Module):
         super().__init__()
 
     @staticmethod
-    def normalize_vector(v, eps=1e-8):
-        batch = v.shape[0]
-        v_mag = torch.sqrt(v.pow(2).sum(1))
-        v_mag = torch.max(v_mag, torch.cuda.DoubleTensor([eps]))
-        v_mag = v_mag.view(batch, 1).expand(batch, v.shape[1])
-        v = v / v_mag
-        return v  # `nn.functional.normalize(v)`
-
-    @staticmethod
     def cross_product(u, v):
         batch = u.shape[0]
         i = u[:, 1] * v[:, 2] - u[:, 2] * v[:, 1]
@@ -30,9 +21,9 @@ class R6DBlock(nn.Module):
         x_raw = x[:, 0: 3]
         y_raw = x[:, 3: 6]
 
-        x = nn.functional.normalize(x_raw)  # self.normalize_vector(x_raw)
+        x = nn.functional.normalize(x_raw)
         z = self.cross_product(x, y_raw)
-        z = nn.functional.normalize(z)  # self.normalize_vector(z)
+        z = nn.functional.normalize(z)
 
         y = self.cross_product(z, x)
         x = x.view(-1, 3, 1)
@@ -110,6 +101,43 @@ class RodriguesBlock(nn.Module):
         
         return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
 
+
+class NoPitchBlock(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, batched_angles):
+        batch_size = batched_angles.shape[0]  # todo tensored
+        out = torch.zeros(3, 3, requires_grad=True)\
+            .view(1, 3, 3).repeat(batch_size, 1, 1).to(batched_angles.device)
+
+        for batch_i in range(batch_size):
+            radians = nn.functional.normalize(
+                batched_angles[batch_i].unsqueeze(0)
+            ) * 3.14  # rad
+            alpha = radians[0, 0]
+            gamma = radians[0, 1]
+
+            ca = torch.cos(alpha)
+            sa = torch.sin(alpha)
+
+            cg = torch.cos(gamma)
+            sg = torch.sin(gamma)
+
+            out[batch_i, 0, 0] = ca
+            out[batch_i, 0, 1] = -sa * cg
+            out[batch_i, 0, 2] = sa * sg
+
+            out[batch_i, 1, 0] = sa
+            out[batch_i, 1, 1] = ca * cg
+            out[batch_i, 1, 2] = -ca * sg
+
+            # out[batch_i, 2, 0] = 0.0
+            out[batch_i, 2, 1] = sg
+            out[batch_i, 2, 2] = cg
+
+        return out
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP
 class SEBlock(nn.Module):

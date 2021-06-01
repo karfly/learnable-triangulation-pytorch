@@ -109,7 +109,6 @@ def _forward_cams(cam2cam_model, detections, scale_t, gt=None, noisy=False):
         for view_i in range(n_views):
             # apply post processing
             preds[batch_i, view_i, :3, 3] = preds[batch_i, view_i, :3, 3] * scale_t
-            preds[batch_i, view_i, 2, 0] = 0.0  # fix euler.y
 
             if not (gt is None):
                 R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()

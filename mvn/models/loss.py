@@ -2,6 +2,7 @@ import numpy as np
 
 import torch
 from torch import nn
+from torch.functional import norm
 
 from mvn.utils.multiview import project_to_weak_views
 from mvn.utils.tred import get_cam_location_in_world
@@ -275,10 +276,36 @@ class QuadraticProjectionLoss(nn.Module):
         )
 
 
+class BodyStructureLoss(nn.Module):
+    """ assuming human body <= 2.5 m """
+
+    def __init__(self, threshold=2.5e3):
+        super().__init__()
+
+        half_body = threshold / 2.0
+        self.threshold = half_body
+
+    def forward(self, kps_world_pred):
+        batch_size = kps_world_pred.shape[0]
+        n_joints = kps_world_pred.shape[1]
+
+        loss = torch.tensor(0.0).to(kps_world_pred.device)
+        for batch_i in range(batch_size):  # todo batched
+            for joint_i in range(n_joints):
+                distance_from_pelvis = torch.norm(
+                    kps_world_pred[batch_i, joint_i], p='fro'
+                )
+                if distance_from_pelvis > self.threshold:
+                    loss += distance_from_pelvis
+
+        normalization = batch_size * n_joints
+        return loss / normalization
+
+
 class WorldStructureLoss(nn.Module):
     """ assuming cameras are above the surface (i.e surface is NOT transparent) """
 
-    def __init__(self, scale=1e2):
+    def __init__(self, scale):
         super().__init__()
 
         self.scale = scale
@@ -289,4 +316,5 @@ class WorldStructureLoss(nn.Module):
         ).view(-1, 3)
         zs = cams_location[:, 2]  # Z coordinate in all views (of all batches)
         zs = zs / self.scale
-        return torch.mean(torch.exp(-zs))  # zs > 0 => -> 0, else -> infty
+        loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
+        return torch.mean(loss)

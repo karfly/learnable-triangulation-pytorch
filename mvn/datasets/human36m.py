@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
+from scipy.spatial.transform import Rotation as R
 
 from torch.utils.data import Dataset
 
@@ -292,6 +293,7 @@ class Human36MMultiViewDataset(Dataset):
                     shot['keypoints'][:self.num_keypoints]  # in world
                 )
                 pelvis_vector = kp_in_cam[pelvis_index]
+                # print('pelvis now @', pelvis_vector)
 
                 # find rotation matrix to align pelvis to z ...
                 z_axis = [0, 0, 1]
@@ -301,6 +303,41 @@ class Human36MMultiViewDataset(Dataset):
 
                 # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
+                kp_in_cam = retval_camera.world2cam()(
+                    shot['keypoints'][:self.num_keypoints]  # in world
+                )
+                pelvis_vector = kp_in_cam[pelvis_index]
+                # print('pelvis now @', pelvis_vector)
+
+                # fix arbitrary orientation
+
+                euler_convention = 'zyx'
+                # print('after look at pelvis', retval_camera.extrinsics_padded)
+
+                old_cam_pose = np.linalg.inv(retval_camera.extrinsics_padded)
+                # print('... orientation', old_cam_pose)
+                old_orientation_eulers = R.from_matrix(
+                    old_cam_pose[:3, :3]
+                ).as_euler(euler_convention)
+                # print('...eulers', old_orientation_eulers)
+
+                new_orientation_eulers = np.float64([
+                    old_orientation_eulers[0],
+                    0,  # fix no rotation around y
+                    old_orientation_eulers[2]
+                ])
+                new_orientation = R.from_euler(
+                    euler_convention, new_orientation_eulers
+                ).as_matrix()
+                new_R = np.linalg.inv(new_orientation)
+                retval_camera.R = new_R
+
+
+                kp_in_cam = retval_camera.world2cam()(
+                    shot['keypoints'][:self.num_keypoints]  # in world
+                )
+                pelvis_vector = kp_in_cam[pelvis_index]
+                # print('pelvis now @', pelvis_vector)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

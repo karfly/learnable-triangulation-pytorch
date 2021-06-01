@@ -87,7 +87,7 @@ cam2cam:
       proj: 2.0
       separation: 0.5
     world_structure:
-      camera_above_surface: 10
+      camera_above_surface: 10.0
 
   opt:
     grad_clip: 1.0

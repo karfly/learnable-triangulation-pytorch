@@ -322,9 +322,9 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             config
         )
         loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
-            kps_world_pred[:, :2] * config.opt.scale_keypoints_3d,
-            kps_world_gt[:, :2].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
-            keypoints_3d_binary_validity_gt[:, :2],
+            kps_world_pred[:, :1] * config.opt.scale_keypoints_3d,
+            kps_world_gt[:, :1].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+            keypoints_3d_binary_validity_gt[:, :1],  # right foot
         )
         total_loss += 5.0 * loss_pose_ref
 

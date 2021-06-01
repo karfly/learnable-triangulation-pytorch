@@ -47,7 +47,7 @@ cam2cam:
   data:
     pelvis_in_origin: true
     using_gt: true
-    using_noise: true
+    using_noise: false
     using_heatmaps: false
 
   preprocess:

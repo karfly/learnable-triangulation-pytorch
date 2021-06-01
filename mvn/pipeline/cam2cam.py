@@ -6,7 +6,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss, BodyStructureLoss
 from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
 _ITER_TAG = 'cam2cam'
@@ -239,7 +239,8 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if config.cam2cam.loss.world_structure.camera_above_surface > 0:
         total_loss += loss_world_structure * config.cam2cam.loss.world_structure.camera_above_surface
 
-    # todo ? loss_body_structure = BodyStructureLoss(250)(kps_world_pred)
+    loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
+    total_loss += loss_body_structure * 100.0
 
     __batch_i = 0  # todo debug only
 

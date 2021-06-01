@@ -282,7 +282,7 @@ class QuadraticProjectionLoss(nn.Module):
 class BodyStructureLoss(nn.Module):
     """ assuming human body <= 2.5 m """
 
-    def __init__(self, threshold=2.5e3):
+    def __init__(self, threshold):
         super().__init__()
 
         half_body = threshold / 2.0

@@ -6,6 +6,9 @@ from functools import reduce
 from mvn.utils.img import rotation_matrix_from_vectors_torch
 
 
+# todo refactor everything diocan
+
+
 def find_plane_minimizing_z(points):
     """ https://math.stackexchange.com/a/2306029/83083 """
 
@@ -299,7 +302,6 @@ def mirror_points_along_y(y):
     return _f
 
 
-
 def mirror_points_along_x(x):
     def _f(points):
         out = points.clone()
@@ -314,3 +316,7 @@ def mirror_points_along_x(x):
             out[point_i, 0] = new_x
         return out
     return _f
+
+
+def get_cam_location_in_world(exts):
+    return torch.inverse(exts)

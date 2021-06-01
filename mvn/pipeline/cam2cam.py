@@ -7,6 +7,7 @@ from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space, euclidean_to_homogeneous, homogeneous_to_euclidean
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss
+from mvn.utils.tred import get_cam_location_in_world
 
 _ITER_TAG = 'cam2cam'
 
@@ -81,13 +82,14 @@ def _normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     ])
 
 
+from scipy.spatial.transform import Rotation as R
+import numpy as np
 def _get_cams_gt(cameras, master_i=0):
     n_cameras = len(cameras)
     batch_size = len(cameras[0])
     cameras_i = get_master_pairs()
 
     cam_gts = torch.zeros(batch_size, n_cameras, 4, 4)
-    # for master_i in range(n_cameras):
     for batch_i in range(batch_size):
         cam_gts[batch_i] = torch.cat([
             torch.DoubleTensor(cameras[camera_i][batch_i].extrinsics_padded).unsqueeze(0)
@@ -310,9 +312,22 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             config
         )
 
+        # todo assuming cameras are above the surface (i.e surface is NOT transparent)
+        cams_location = get_cam_location_in_world(cam_preds)
+        zs = cams_location[:, 2, 3]
+        total_loss += 1000.0 * torch.norm(zs, p='fro')
+
         # todo relly hacky
-        zs_below_surface = kps_world_pred[kps_world_pred[:, :, 2] < 0]
-        total_loss += 100.0 * torch.norm(zs_below_surface, p='fro')
+        # floor_z, _ = torch.min(
+        #     torch.cat([
+        #         kps_world_pred[:, 0, 2].unsqueeze(0),  # right foot
+        #         kps_world_pred[:, 5, 2].unsqueeze(0),  # left foot
+        #     ]), dim=0
+        # )
+        # below_floor = kps_world_pred[
+        #     kps_world_pred[:, :, 2] < floor_z.view(batch_size, 1).repeat(1, 17)
+        # ]
+        # total_loss += 1.0 * torch.norm(below_floor, p='fro')
 
         # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
         #     kps_world_pred[:, 9] * config.opt.scale_keypoints_3d,

@@ -125,10 +125,10 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
             'scaler': 1e-1,
             'show': True,
         },
-        'self squash loss / batch': {
+        'world struct loss / batch': {
             'color': colors[9],
-            'scaler': 1e0,
-            'show': False,
+            'scaler': 1e-1,
+            'show': True,
         }
     }
 

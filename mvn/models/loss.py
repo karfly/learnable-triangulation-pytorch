@@ -278,12 +278,15 @@ class QuadraticProjectionLoss(nn.Module):
 class WorldStructureLoss(nn.Module):
     """ assuming cameras are above the surface (i.e surface is NOT transparent) """
 
-    def __init__(self):
+    def __init__(self, scale=1e2):
         super().__init__()
+
+        self.scale = scale
 
     def forward(self, cam_preds):
         cams_location = get_cam_location_in_world(
             cam_preds.view(-1, 4, 4)
         ).view(-1, 3)
-        zs = cams_location[:, 2]  # in all views (of all batches)
-        return torch.norm(zs[zs < 0], p='fro')
+        zs = cams_location[:, 2]  # Z coordinate in all views (of all batches)
+        zs = zs / self.scale
+        return torch.mean(torch.exp(-zs))  # zs > 0 => -> 0, else -> infty

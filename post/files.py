@@ -128,6 +128,8 @@ def parse_job_log(f_path, verbose=False):
                     key = 'self 3D'
                 elif loss_name == 'self squash':
                     key = 'self squash'
+                elif loss_name == 'world struct':
+                    key = 'world struct'
                 elif loss_name == 'total':
                     key = 'total'
 

@@ -105,9 +105,8 @@ def find_line_minimizing_normal(points):
     return fit, errors, residual
 
 
-def _angle_from_tan(
-    axis: str, other_axis: str, data, horizontal: bool, tait_bryan: bool
-):
+# todo install `pytorch3d` in cluster
+def _angle_from_tan(axis, other_axis, data, horizontal, tait_bryan):
     """ https://github.com/facebookresearch/pytorch3d/blob/master/pytorch3d/transforms/rotation_conversions.py """
 
     i1, i2 = {"X": (2, 1), "Y": (0, 2), "Z": (1, 0)}[axis]
@@ -121,16 +120,18 @@ def _angle_from_tan(
     return torch.atan2(data[..., i2], -data[..., i1])
 
 
-def matrix_to_euler_angles(matrix, convention: str):
-    """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.matrix_to_euler_angles """
+# todo install `pytorch3d` in cluster
+def _index_from_letter(letter: str):
+    if letter == "X":
+        return 0
+    if letter == "Y":
+        return 1
+    if letter == "Z":
+        return 2
 
-    def _index_from_letter(letter: str):
-        if letter == "X":
-            return 0
-        if letter == "Y":
-            return 1
-        if letter == "Z":
-            return 2
+
+def matrix_to_euler_angles(matrix, convention):
+    """ https://pytorch3d.readthedocs.io/en/latest/modules/transforms.html#pytorch3d.transforms.matrix_to_euler_angles """
 
     i0 = _index_from_letter(convention[0])
     i2 = _index_from_letter(convention[2])
@@ -154,6 +155,7 @@ def matrix_to_euler_angles(matrix, convention: str):
     return torch.stack(o, -1)
 
 
+# todo install `pytorch3d` in cluster
 def _axis_angle_rotation(axis: str, angle):
     """ https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html """
 

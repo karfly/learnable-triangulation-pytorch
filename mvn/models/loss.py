@@ -188,9 +188,11 @@ class ProjectionLoss(nn.Module):
         n_views = len(cameras)
         batch_size = kps_world_gt.shape[0]
         dev = cam_preds.device
+        projections = project_to_weak_views(K, cam_preds, kps_world_pred)
+        
         return torch.mean(torch.cat([
             criterion(
-                project_to_weak_views(K, cam_preds, kps_world_pred),  # pred
+                projections[batch_i],
                 torch.cat([
                     cameras[view_i][batch_i].world2proj()(
                         kps_world_gt[batch_i]
@@ -310,7 +312,7 @@ class WorldStructureLoss(nn.Module):
 
         self.scale = scale
 
-    def forward(self, cam_preds):
+    def _penalize_cam_z_location(self, cam_preds):
         cams_location = get_cam_location_in_world(
             cam_preds.view(-1, 4, 4)
         ).view(-1, 3)
@@ -318,3 +320,15 @@ class WorldStructureLoss(nn.Module):
         zs = zs / self.scale
         loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
         return torch.mean(loss)
+
+    def _penalize_cam_rotation(self, cam_preds):
+        """ assumption: no pitch in cam R => -sin(beta) ~ 0, see https://en.wikipedia.org/wiki/Rotation_matrix """
+
+        sin_pitches = cam_preds.view(-1, 4, 4)[:, 0, 2]
+        print(sin_pitches)
+        loss = torch.exp(torch.square(sin_pitches))
+        return torch.mean(loss)
+
+    def forward(self, cam_preds):
+        return self._penalize_cam_z_location(cam_preds) +\
+            self._penalize_cam_rotation(cam_preds)

@@ -6,11 +6,15 @@ import numpy as np
 import cv2
 from scipy.spatial.transform import Rotation as R
 
+import torch
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
-from mvn.utils.img import resize_image, crop_image, normalize_image, scale_bbox, make_with_target_intrinsics, rotation_matrix_from_vectors_kabsch, rotation_matrix_from_vectors_rodrigues, resample_image
+from mvn.utils.img import scale_bbox, rotation_matrix_from_vectors_rodrigues
+from mvn.utils.tred import matrix_to_euler_angles, euler_angles_to_matrix
 
+
+# todo refactor diocan
 class Human36MMultiViewDataset(Dataset):
     """
         Human3.6M for multiview tasks.
@@ -311,33 +315,30 @@ class Human36MMultiViewDataset(Dataset):
 
                 # fix arbitrary orientation
 
-                euler_convention = 'zyx'
+                euler_convention = 'ZYX'
                 # print('after look at pelvis', retval_camera.extrinsics_padded)
 
-                old_cam_pose = np.linalg.inv(retval_camera.extrinsics_padded)
+                old_cam_pose = torch.inverse(
+                    torch.tensor(retval_camera.extrinsics_padded)
+                )
                 # print('... orientation', old_cam_pose)
-                old_orientation_eulers = R.from_matrix(
-                    old_cam_pose[:3, :3]
-                ).as_euler(euler_convention)
+                old_orientation_eulers = matrix_to_euler_angles(
+                    old_cam_pose[:3, :3].unsqueeze(0),
+                    euler_convention
+                )[0]
                 # print('...eulers', old_orientation_eulers)
 
-                new_orientation_eulers = np.float64([
+                new_orientation_eulers = torch.tensor([
                     old_orientation_eulers[0],
-                    0,  # fix no rotation around y
-                    old_orientation_eulers[2]
+                    0.0,  # fix no rotation, todo as config, assumption
+                    old_orientation_eulers[2],
                 ])
-                new_orientation = R.from_euler(
-                    euler_convention, new_orientation_eulers
-                ).as_matrix()
-                new_R = np.linalg.inv(new_orientation)
-                retval_camera.R = new_R
-
-
-                kp_in_cam = retval_camera.world2cam()(
-                    shot['keypoints'][:self.num_keypoints]  # in world
-                )
-                pelvis_vector = kp_in_cam[pelvis_index]
-                # print('pelvis now @', pelvis_vector)
+                new_orientation = euler_angles_to_matrix(
+                    new_orientation_eulers.unsqueeze(0), euler_convention
+                )[0]
+                new_R = torch.inverse(new_orientation)  # orientation -> pose
+                retval_camera.R = new_R.numpy()
+                # print(retval_camera.extrinsics_padded)
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

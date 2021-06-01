@@ -321,12 +321,13 @@ class WorldStructureLoss(nn.Module):
         loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
         return torch.mean(loss)
 
+    # todo ... then predict just euler X and Z ...
     def _penalize_cam_rotation(self, cam_preds):
         """ assumption: no pitch in cam R => -sin(beta) ~ 0, see https://en.wikipedia.org/wiki/Rotation_matrix """
 
-        sin_pitches = cam_preds.view(-1, 4, 4)[:, 0, 2]
-        print(sin_pitches)
-        loss = torch.exp(torch.square(sin_pitches))
+        sin_pitches = cam_preds.view(-1, 4, 4)[:, 2, 0]
+        loss = torch.exp(torch.square(sin_pitches)) -\
+            torch.exp(torch.tensor(0.0))
         return torch.mean(loss)
 
     def forward(self, cam_preds):

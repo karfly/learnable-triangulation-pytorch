@@ -336,7 +336,7 @@ class Human36MMultiViewDataset(Dataset):
                 new_orientation = euler_angles_to_matrix(
                     new_orientation_eulers.unsqueeze(0), euler_convention
                 )[0]
-                new_R = torch.inverse(new_orientation)  # orientation -> pose
+                new_R = torch.inverse(new_orientation).T  # orientation -> pose
                 retval_camera.R = new_R.numpy()
                 # print(retval_camera.extrinsics_padded)
 

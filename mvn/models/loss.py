@@ -326,7 +326,7 @@ class WorldStructureLoss(nn.Module):
 
     def _penalize_cam_rotation(self, cam_preds):
         def criterion(x):
-            return torch.mean(1 / (1 - torch.abs(x)) - 1)
+            return torch.mean(10.0 / (1 - torch.abs(x)) - 1)
 
         eulers = matrix_to_euler_angles(cam_preds, 'XYZ')
         pitches = eulers.view(-1, 3)[:, 1]

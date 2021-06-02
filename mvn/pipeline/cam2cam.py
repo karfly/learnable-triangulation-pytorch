@@ -6,7 +6,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleIndependentProjectionLoss, HuberLoss, WorldStructureLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss, WorldStructureLoss
 
 _ITER_TAG = 'cam2cam'
 
@@ -185,7 +185,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(
+    loss_self_proj = ScaleDependentProjectionLoss(
         HuberLoss(threshold=1e-1)  # KeypointsMSESmoothLoss(threshold=1.0)
     )(
         K,
@@ -196,7 +196,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
-    loss_self_separation = SeparationLoss(3e1)(kps_world_pred)
+    loss_self_separation = SeparationLoss(5e1, 25e2)(kps_world_pred)
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 

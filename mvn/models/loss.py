@@ -150,11 +150,11 @@ class HuberLoss(nn.Module):
 class SeparationLoss(nn.Module):
     """ see eq 8 in https://papers.nips.cc/paper/2018/file/24146db4eb48c718b84cae0a0799dcfc-Paper.pdf """
 
-    def __init__(self, threshold):
+    def __init__(self, min_threshold, max_threshold):
         super().__init__()
 
-        self.threshold = torch.tensor(np.square(threshold))
-        # todo max thresh ?
+        self.min_threshold = torch.square(torch.tensor(min_threshold))
+        self.max_threshold = torch.square(torch.tensor(max_threshold))
 
     def forward(self, batched_kps):
         batch_size = batched_kps.shape[0]
@@ -163,12 +163,26 @@ class SeparationLoss(nn.Module):
         return torch.mean(torch.cat([
             torch.sum(torch.cat([
                 torch.cat([
-                    torch.max(  # todo refactor into lambda
-                        torch.tensor(0.0).to(dev),
-                        self.threshold.to(dev) -\
-                        torch.square(
-                            torch.norm(batched_kps[batch_i, joint_i] - batched_kps[batch_i, other_joint])
-                        ).to(dev)
+                    (
+                        torch.max(
+                            torch.tensor(0.0).to(dev),
+                            self.min_threshold.to(dev) -\
+                            torch.square(
+                                torch.norm(
+                                    batched_kps[batch_i, joint_i] -\
+                                        batched_kps[batch_i, other_joint]
+                                )
+                            )
+                        ) + \
+                        torch.max(
+                            torch.tensor(0.0).to(dev),
+                            torch.square(
+                                torch.norm(
+                                    batched_kps[batch_i, joint_i] -\
+                                        batched_kps[batch_i, other_joint]
+                                )
+                            ) - self.max_threshold
+                        )
                     ).unsqueeze(0)
                     for other_joint in range(n_joints)
                     if other_joint != joint_i
@@ -205,7 +219,7 @@ class ProjectionLoss(nn.Module):
         ]))
 
 
-class ScaleIndependentProjectionLoss(nn.Module):
+class ScaleDependentProjectionLoss(nn.Module):
     """ see eq 2 in https://arxiv.org/abs/2011.14679 """
 
     def __init__(self, criterion=nn.L1Loss()):
@@ -220,7 +234,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
-            )  # * self.penalization(projection, initials)
+            ) * self.penalization(projection, initials)
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]

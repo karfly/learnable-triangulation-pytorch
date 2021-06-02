@@ -46,7 +46,7 @@ cam2cam:
   triangulate: "master"
 
   cams:
-    using_gt: false
+    using_gt: true
     using_noise: false
 
   data:
@@ -90,10 +90,10 @@ cam2cam:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 2.0
+      proj: 1.0
       separation: 0.1
     world_structure:
-      camera_above_surface: 1.0
+      camera_above_surface: 0.1
 
   opt:
     grad_clip: 1.0

@@ -14,8 +14,6 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  noisy: false
-  gt_cams: false
 
 opt:
   criterion: "MSESmooth"
@@ -32,6 +30,7 @@ opt:
   loss_2d: true
 
   scale_keypoints_3d: 0.1
+# mm -> cm
 
   torch_anomaly_detection: false
 # `torch_anomaly_detection: true` just x2s time
@@ -45,6 +44,10 @@ svd:
 
 cam2cam:
   triangulate: "master"
+
+  cams:
+    using_gt: false
+    using_noise: false
 
   data:
     pelvis_in_origin: true
@@ -63,6 +66,7 @@ cam2cam:
     type: "mlp"
     batch_norm: true
 # `Martin` would disapprove
+
     drop_out: 0
     n_features: 1024
 
@@ -92,8 +96,9 @@ cam2cam:
       camera_above_surface: 1.0
 
   opt:
-    grad_clip: 1.0
-# https://stats.stackexchange.com/a/352037
+    grad_clip: 2.0
+# "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
+
     lr: 0.0002
     weight_decay: 20.0
 

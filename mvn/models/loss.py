@@ -211,9 +211,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
     def __init__(self, criterion=nn.L1Loss()):
         super().__init__()
 
-        self.criterion = lambda x, y: HuberLoss(threshold=1e-1)._criterion(
-            criterion(x, y)
-        )
+        self.criterion = criterion
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
@@ -223,20 +221,6 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
-
-        penalization = torch.cat([
-            torch.cat([
-                (
-                    MSESmoothLoss(threshold=1.0)(
-                        torch.norm(projections[batch_i, view_i], p='fro'),
-                        torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                    ) + 1.0  # no penal if norm the same (rather than 0)
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])  # I want the norm to be the same
-
         return torch.mean(
             torch.cat([
                 torch.cat([
@@ -245,7 +229,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')  # I want the (scaled) KPs to match
-                    ).unsqueeze(0) * penalization[batch_i, view_i]
+                    ).unsqueeze(0)
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)
@@ -341,9 +325,13 @@ class WorldStructureLoss(nn.Module):
         )
 
     def _penalize_cam_rotation(self, cam_preds):
+        def criterion(x):
+            return torch.mean(1 / (1 - torch.abs(x)) - 1)
+
         eulers = matrix_to_euler_angles(cam_preds, 'XYZ')
         pitches = eulers.view(-1, 3)[:, 1]
-        return torch.mean(1 / (1 - torch.abs(pitches)) - 1)
+        sins = cam_preds.view(-1, 4, 4)[:, 2, 0]
+        return criterion(pitches) + criterion(sins)
 
     def forward(self, cam_preds):
         return self._penalize_cam_z_location(cam_preds) +\

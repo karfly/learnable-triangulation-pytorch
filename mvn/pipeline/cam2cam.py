@@ -186,7 +186,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         total_loss += loss_weights.proj * loss_proj
 
     loss_self_proj = ScaleIndependentProjectionLoss(
-        KeypointsMSESmoothLoss(threshold=1.0)
+        # KeypointsMSESmoothLoss(threshold=1.0)
     )(
         K,
         cam_preds,
@@ -348,8 +348,8 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     cam_preds = _forward_cams(
         cam2cam_model,
         detections[master_i],
-        cam_gts if config.debug.gt_cams else None,
-        noisy=config.debug.noisy
+        cam_gts if config.cam2cam.cams.using_gt else None,
+        noisy=config.cam2cam.cams.using_noise
     )
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')

@@ -220,7 +220,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
-            ) * self.penalization(projection, initials)
+            ) # * self.penalization(projection, initials)
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]

@@ -43,7 +43,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 
   cams:
     using_gt: false
@@ -88,12 +88,12 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 1.0
+    world: 10.0
     self_consistency:
-      proj: 2.0
-      separation: 1.0
+      proj: 1.0
+      separation: 0.1
     world_structure:
-      camera_above_surface: 10.0
+      camera_above_surface: 0.1
 
   opt:
     grad_clip: 0.25

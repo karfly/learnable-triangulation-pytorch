@@ -186,7 +186,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         total_loss += loss_weights.proj * loss_proj
 
     loss_self_proj = ScaleIndependentProjectionLoss(
-        KeypointsMSESmoothLoss(threshold=1.0)
+        HuberLoss(threshold=1e-1)  # KeypointsMSESmoothLoss(threshold=1.0)
     )(
         K,
         cam_preds,

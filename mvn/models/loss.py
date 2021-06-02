@@ -160,37 +160,40 @@ class SeparationLoss(nn.Module):
         batch_size = batched_kps.shape[0]
         n_joints = batched_kps.shape[1]
         dev = batched_kps.device
-        return torch.mean(torch.cat([
-            torch.sum(torch.cat([
-                torch.cat([
-                    (
-                        torch.max(
-                            torch.tensor(0.0).to(dev),
-                            self.min_threshold.to(dev) -\
-                            torch.square(
-                                torch.norm(
-                                    batched_kps[batch_i, joint_i] -\
-                                        batched_kps[batch_i, other_joint]
+        return torch.pow(
+            torch.mean(torch.cat([
+                torch.sum(torch.cat([
+                    torch.cat([
+                        (
+                            torch.max(
+                                torch.tensor(0.0).to(dev),
+                                self.min_threshold.to(dev) -\
+                                torch.square(
+                                    torch.norm(
+                                        batched_kps[batch_i, joint_i] -\
+                                            batched_kps[batch_i, other_joint]
+                                    )
                                 )
+                            ) + \
+                            torch.max(
+                                torch.tensor(0.0).to(dev),
+                                torch.square(
+                                    torch.norm(
+                                        batched_kps[batch_i, joint_i] -\
+                                            batched_kps[batch_i, other_joint]
+                                    )
+                                ) - self.max_threshold
                             )
-                        ) + \
-                        torch.max(
-                            torch.tensor(0.0).to(dev),
-                            torch.square(
-                                torch.norm(
-                                    batched_kps[batch_i, joint_i] -\
-                                        batched_kps[batch_i, other_joint]
-                                )
-                            ) - self.max_threshold
-                        )
-                    ).unsqueeze(0)
-                    for other_joint in range(n_joints)
-                    if other_joint != joint_i
-                ]).unsqueeze(0)
-                for joint_i in range(n_joints)
-            ])).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ]))
+                        ).unsqueeze(0)
+                        for other_joint in range(n_joints)
+                        if other_joint != joint_i
+                    ]).unsqueeze(0)
+                    for joint_i in range(n_joints)
+                ])).unsqueeze(0)
+                for batch_i in range(batch_size)
+            ])),
+            0.4
+        )  # squeeze it when too large
 
 
 class ProjectionLoss(nn.Module):
@@ -226,9 +229,12 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.penalization = lambda projection, initials: torch.square(
-            torch.norm(projection, p='fro') / torch.norm(initials, p='fro') - 1.0
-        )  # penalize diff area => I want it not too little, nor not too big
+        self.penalization = lambda projection, initials: torch.pow(
+            torch.square(
+                torch.norm(projection, p='fro') / torch.norm(initials, p='fro') - 1.0
+            ),  # penalize diff area: I want it not too little, nor not too big
+            0.4  # squeeze it when too large
+        ) + 1.0  # multiplicative ...
         self.scale_free = lambda x: x / torch.norm(x, p='fro')
         self.calc_loss = lambda projection, initials:\
             self.criterion(

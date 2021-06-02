@@ -25,10 +25,14 @@ function showLRReductions () {
     grep -i red ${log_file}
 }
 
-# usage: peek "17030421"
-function peek () {
-    job_id=$1
-    tail -n200 ${job_id}.out
+# from fs last job (`squeue` takes takes too much)
+function getLastJob () {
+    ls *.out | sort | tail -n1 | sed -e 's/.out//g'
+}
 
-    echo "\n... from ${job_id}.out"
+function peekLastJob () {
+    filename=$(getLastJob).out
+    tail -n200 ${filename}
+
+    echo "\n... from ${filename}"
 }

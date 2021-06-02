@@ -90,14 +90,12 @@ cam2cam:
       separation: 0.1
     world_structure:
       camera_above_surface: 1.0
-    body_structure:
-      height: 0.1
 
   opt:
     grad_clip: 1.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.0002
-    weight_decay: 10.0
+    weight_decay: 15.0
 
 model:
   name: "alg"

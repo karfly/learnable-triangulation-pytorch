@@ -186,7 +186,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         total_loss += loss_weights.proj * loss_proj
 
     loss_self_proj = ScaleIndependentProjectionLoss(
-        # HuberLoss(threshold=1.0)
+        KeypointsMSESmoothLoss(threshold=1.0)
     )(
         K,
         cam_preds,
@@ -203,9 +203,6 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
     if loss_weights.world_structure.camera_above_surface > 0:
         total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
-
-    # todo needed ? loss_body_structure = BodyStructureLoss(2.5e3)(kps_world_pred)
-    # total_loss += loss_body_structure * loss_weights.body_structure.height
 
     __batch_i = 0  # todo debug only
 

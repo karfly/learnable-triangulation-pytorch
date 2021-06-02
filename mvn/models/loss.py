@@ -221,6 +221,18 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
+
+        penalization = torch.cat([
+            torch.cat([
+                MSESmoothLoss(threshold=1.0)(
+                    torch.norm(projections[batch_i, view_i], p='fro'),
+                    torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])  # I want the norm to be the same
+
         return torch.mean(
             torch.cat([
                 torch.cat([
@@ -229,7 +241,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                    ).unsqueeze(0)
+                    ).unsqueeze(0) * penalization[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)

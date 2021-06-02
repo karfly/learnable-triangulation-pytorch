@@ -53,20 +53,19 @@ class RotoTransNet(nn.Module):
         drop_out = config.cam2cam.model.drop_out
         n_features = config.cam2cam.model.n_features
 
-        if config.cam2cam.model.type == 'mlp':  # what else?
-            self.backbone = nn.Sequential(*[
-                nn.Flatten(),  # will be fed into a MLP
-                MLPResNet(
-                    in_features=self.n_views_comparing * n_joints * 2,
-                    inner_size=config.cam2cam.model.backbone.inner_size,
-                    n_inner_layers=config.cam2cam.model.backbone.n_layers,
-                    out_features=n_features,
-                    batch_norm=batch_norm,
-                    drop_out=drop_out,
-                    activation=nn.LeakyReLU,
-                ),
-                nn.BatchNorm1d(n_features),
-            ])
+        self.backbone = nn.Sequential(*[
+            nn.Flatten(),  # will be fed into a MLP
+            MLPResNet(
+                in_features=self.n_views_comparing * n_joints * 2,
+                inner_size=config.cam2cam.model.backbone.inner_size,
+                n_inner_layers=config.cam2cam.model.backbone.n_layers,
+                out_features=n_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),
+            nn.BatchNorm1d(n_features),
+        ])
 
         n_params_per_R, self.R_param = None, None
         if config.cam2cam.model.R.parametrization == '6d':
@@ -79,30 +78,26 @@ class RotoTransNet(nn.Module):
             n_params_per_R = 2
             self.R_param = NoPitchBlock()
         
-        self.R_model = nn.Sequential(*[
-            MLPResNet(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.R.n_layers,
-                out_features=n_params_per_R * self.n_views_comparing,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
+        self.R_model = MLPResNet(
+            in_features=n_features,
+            inner_size=n_features,
+            n_inner_layers=config.cam2cam.model.R.n_layers,
+            out_features=n_params_per_R * self.n_views_comparing,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=nn.LeakyReLU,
+        )
 
         self.td = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
-        self.t_model = nn.Sequential(*[
-            MLPResNet(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.t.n_layers,
-                out_features=self.td * self.n_views_comparing,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
+        self.t_model = MLPResNet(
+            in_features=n_features,
+            inner_size=n_features,
+            n_inner_layers=config.cam2cam.model.t.n_layers,
+            out_features=self.td * self.n_views_comparing,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=nn.LeakyReLU,
+        )
 
         self.combiner = RotoTransCombiner()
 

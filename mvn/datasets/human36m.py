@@ -296,7 +296,6 @@ class Human36MMultiViewDataset(Dataset):
                     shot['keypoints'][:self.num_keypoints]  # in world
                 )
                 pelvis_vector = kp_in_cam[pelvis_index]
-                # print('pelvis now @', pelvis_vector)
 
                 # find rotation matrix to align pelvis to z ...
                 z_axis = [0, 0, 1]
@@ -308,23 +307,21 @@ class Human36MMultiViewDataset(Dataset):
                 retval_camera.update_roto_extrsinsic(Rt)
 
                 # fix arbitrary orientation
-                euler_convention = 'XYZ'
-                old_cam_pose = torch.inverse(
-                    torch.tensor(retval_camera.extrinsics_padded)
-                )
-                old_orientation_eulers = matrix_to_euler_angles(
-                    old_cam_pose[:3, :3].unsqueeze(0),
-                    euler_convention
+                convention = 'XYZ'
+                old_cam_eulers = matrix_to_euler_angles(
+                    torch.tensor(retval_camera.R).unsqueeze(0),
+                    convention
                 )[0]
-                new_orientation_eulers = torch.tensor([
-                    old_orientation_eulers[0],  # X
+                new_cam_eulers = torch.tensor([
+                    old_cam_eulers[0],
+                    old_cam_eulers[1],
                     0.0,  # fix no rotation, todo as config, assumption
-                    old_orientation_eulers[2],  # Z
                 ])
-                new_orientation = euler_angles_to_matrix(
-                    new_orientation_eulers.unsqueeze(0), euler_convention
+                new_cam = euler_angles_to_matrix(
+                    new_cam_eulers.unsqueeze(0),
+                    convention
                 )[0]
-                retval_camera.R = torch.inverse(new_orientation).numpy()  # orientation -> pose
+                retval_camera.R = new_cam.clone().numpy()
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

@@ -224,9 +224,11 @@ class ScaleIndependentProjectionLoss(nn.Module):
 
         penalization = torch.cat([
             torch.cat([
-                MSESmoothLoss(threshold=1.0)(
-                    torch.norm(projections[batch_i, view_i], p='fro'),
-                    torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                (
+                    MSESmoothLoss(threshold=1.0)(
+                        torch.norm(projections[batch_i, view_i], p='fro'),
+                        torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                    ) + 1.0  # no penal if norm the same (rather than 0)
                 ).unsqueeze(0)
                 for view_i in range(n_views)
             ]).unsqueeze(0)

@@ -212,6 +212,14 @@ class ScaleIndependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
+        self.penalization = lambda projection, initials: torch.square(
+            torch.norm(projection, p='fro') - torch.norm(initials, p='fro') + 1
+        )  # penalize ratio of area => I want it not too little, nor not too big
+        self.calc_loss = lambda projection, initials:\
+            self.criterion(
+                projection / torch.norm(projection, p='fro'),
+                initials / torch.norm(initials, p='fro')
+            ) * self.penalization(projection, initials)
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
@@ -221,25 +229,13 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
-        penalization = torch.cat([
-            torch.cat([
-                (
-                    torch.norm(projections[batch_i, view_i], p='fro') /\
-                        torch.norm(initial_keypoints[batch_i, view_i], p='fro')
-                ).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])  # I want the norm to be the same
         return torch.mean(
             torch.cat([
                 torch.cat([
-                    self.criterion(
-                        projections[batch_i, view_i].to(dev) /
-                            torch.norm(projections[batch_i, view_i], p='fro'),
-                        initial_keypoints[batch_i, view_i].to(dev) /
-                            torch.norm(initial_keypoints[batch_i, view_i], p='fro')  # I want the (scaled) KPs to match
-                    ).unsqueeze(0) * penalization[batch_i, view_i]
+                    self.calc_loss(
+                        projections[batch_i, view_i].to(dev),
+                        initial_keypoints[batch_i, view_i].to(dev)
+                    ).unsqueeze(0)
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)

@@ -144,11 +144,11 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
 
                 if np.mean(loss_history) > 1e-2:  # non-trivial losses
                     _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
-                    threshold = 1e5
-                    if _min < -threshold:
-                        _min = float('-inf')
-                    if _max > threshold:
-                        _max = float('+inf')
+                    # threshold = 1e5
+                    # if _min < -threshold:
+                    #     _min = float('-inf')
+                    # if _max > threshold:
+                    #     _max = float('+inf')
 
                     _last = loss_history[-1]
                     label = '{} = {:.1f} [{:.1f}, {:.1f}]'.format(

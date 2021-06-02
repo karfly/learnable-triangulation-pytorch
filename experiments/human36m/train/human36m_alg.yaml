@@ -91,7 +91,7 @@ cam2cam:
     world_structure:
       camera_above_surface: 1.0
     body_structure:
-      height: 0.0
+      height: 0.1
 
   opt:
     grad_clip: 1.0

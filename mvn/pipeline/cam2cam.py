@@ -185,7 +185,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
-    loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=1e-1))(
+    loss_self_proj = ScaleIndependentProjectionLoss(HuberLoss(threshold=5e-2))(
         K,
         cam_preds,
         kps_world_pred,
@@ -198,7 +198,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
-    loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
+    loss_world_structure = WorldStructureLoss(1e1)(cam_preds)
     if loss_weights.world_structure.camera_above_surface > 0:
         total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
 

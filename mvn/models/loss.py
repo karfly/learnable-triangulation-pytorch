@@ -313,19 +313,22 @@ class WorldStructureLoss(nn.Module):
 
         self.scale = scale
 
+    # todo in another loss
     def _penalize_cam_z_location(self, cam_preds):
         cams_location = get_cam_location_in_world(
             cam_preds.view(-1, 4, 4)
         ).view(-1, 3)
         zs = cams_location[:, 2]  # Z coordinate in all views (of all batches)
         zs = zs / self.scale
-        loss = torch.pow(2, -zs)  # exp blows up, zs > 0 => -> 0, else -> infty
-        return torch.mean(loss)
+        return torch.norm(zs[zs < 0], p='fro')
 
     def _penalize_cam_rotation(self, cam_preds):
+        def _pitch_metrix(batched_pitch):
+            return torch.mean(1 / (1 - torch.abs(batched_pitch)) - 1)
+
         eulers = matrix_to_euler_angles(cam_preds, 'XYZ')
         pitches = eulers.view(-1, 3)[:, 1]
-        return torch.mean(1 / (1 - torch.abs(pitches)) - 1)
+        return _pitch_metrix(pitches)
 
     def forward(self, cam_preds):
         return self._penalize_cam_z_location(cam_preds) +\

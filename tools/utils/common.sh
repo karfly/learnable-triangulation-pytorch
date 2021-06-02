@@ -24,3 +24,9 @@ function showLRReductions () {
 
     grep -i red ${log_file}
 }
+
+# usage: peek "17030421"
+function peek () {
+    job_id=$1
+    tail -n200 ${job_id}.out
+}

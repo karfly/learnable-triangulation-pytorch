@@ -46,7 +46,7 @@ cam2cam:
   triangulate: "master"
 
   cams:
-    using_gt: false
+    using_gt: true
     using_noise: false
 
   data:
@@ -88,7 +88,7 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 10.0
+    world: 0.0
     self_consistency:
       proj: 1.0
       separation: 0.1
@@ -171,3 +171,4 @@ dataset:
 
     retain_every_n_frames_in_test: 500
 # `3` => ~ 703, `10` => ~ 211, `100` => ~ 22, `500` => ~ 5, `600` => ~ 4
+# CanonPose samples 1/64 => ~ 33 images

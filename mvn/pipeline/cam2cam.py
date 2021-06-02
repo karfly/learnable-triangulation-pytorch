@@ -284,14 +284,14 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        # todo assuming to have access to 1 GT world point
-        # joint_i = 9  # head
-        # loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
-        #     kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
-        #     kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
-        #     keypoints_3d_binary_validity_gt[:, joint_i],  # HEAD only
-        # )
-        # total_loss += 5.0 * loss_pose_ref
+        if True:  # assuming to have access to 1 GT world point
+            joint_i = 9  # head
+            loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
+                kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
+                kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+                keypoints_3d_binary_validity_gt[:, joint_i],  # HEAD only
+            )
+            total_loss += 50.0 * loss_pose_ref
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, WORLD STRUCT ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',

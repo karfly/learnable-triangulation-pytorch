@@ -220,7 +220,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
-            ) # * self.penalization(projection, initials)
+            )  # * self.penalization(projection, initials)
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
@@ -306,12 +306,16 @@ class WorldStructureLoss(nn.Module):
         )
 
     def _penalize_cam_rotation(self, cam_preds):
-        def criterion(x):
-            return torch.mean(1.0 / (1 - torch.abs(x)) - 1)
+        # def criterion(x):
+        #     return torch.mean(1.0 / (1 - torch.abs(x)) - 1)
+        # sins = cam_preds.view(-1, 4, 4)[:, 0, 2]
+        # coss = cam_preds.view(-1, 4, 4)[:, 0, 0] - 1.0
+        # return criterion(sins) + criterion(coss)
 
-        sins = cam_preds.view(-1, 4, 4)[:, 0, 2]
-        coss = cam_preds.view(-1, 4, 4)[:, 0, 0] - 1.0
-        return criterion(sins) + criterion(coss)
+        eulers = matrix_to_euler_angles(cam_preds, 'YXZ')
+        zs = eulers.view(-1, 3)[:, 2]
+        print(zs)
+        return torch.mean(1.0 / (1.0 - torch.sin(zs)) - 1.0)
 
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds) # + self._penalize_cam_rotation(cam_preds)
+        return self._penalize_cam_z_location(cam_preds) + self._penalize_cam_rotation(cam_preds)

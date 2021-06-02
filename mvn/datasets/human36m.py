@@ -306,9 +306,8 @@ class Human36MMultiViewDataset(Dataset):
                 # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
                 retval_camera.update_roto_extrsinsic(Rt)
 
-            if False:
-                # fix arbitrary orientation
-                convention = 'XYZ'
+            if True:  # fix arbitrary orientation todo in preprocess
+                convention = 'YXZ'
                 old_cam_eulers = matrix_to_euler_angles(
                     torch.tensor(retval_camera.R).unsqueeze(0),
                     convention
@@ -323,6 +322,11 @@ class Human36MMultiViewDataset(Dataset):
                     convention
                 )[0]
                 retval_camera.R = new_cam.clone().numpy()
+
+                kp_in_cam = retval_camera.world2cam()(
+                    shot['keypoints'][:self.num_keypoints]  # in world
+                )
+                pelvis_vector = kp_in_cam[pelvis_index]
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

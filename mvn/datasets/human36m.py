@@ -274,59 +274,81 @@ class Human36MMultiViewDataset(Dataset):
                 camera_name
             )
 
-            if self.crop:
-                # todo using GT ... image = crop_image(image, bbox)
-                retval_camera.update_after_crop(bbox)
+            # todo very hacky, I'm using GT KPs, so I can create any K, R|t
+            retval_camera.K = self.target_K()
 
-            if self.resample_same_K:  # todo move to __init__
-                # todo using GT ... square = (0, 0, 1000, 1000)  # get rid of 1K + eps
-                # image = crop_image(image, square)
-                # retval_camera.update_after_crop(square)
+            # todo very hacky
+            # create extrinsics with no pitch
+            convention = 'ZXY'  # todo in config
+            z_choice = np.random.choice(np.deg2rad([
+                1, 15, 28, 42, 78, 89  # todo easy: just first quadrant
+            ]))
+            x_choice = np.random.choice(np.deg2rad([
+                1, 15, 28, 42, 78, 89  # => cam.loc.z < 0
+            ]))
+            eulers = torch.tensor([
+                z_choice, x_choice, 0.0  # no pitch
+            ])
+            cam_orient_in_world = euler_angles_to_matrix(eulers, convention)
+            retval_camera.R = cam_orient_in_world.T.clone().numpy()  # inverse rotation
+            d_pelvis = np.random.choice([4e3, 5e3, 6e3, 7e3])
+            retval_camera.t = np.float64([
+                0, 0, d_pelvis
+            ]).reshape(3, 1)
 
-                # have same intrinsics
-                # todo using GT ... image = resample_image(
-                #     image, TARGET_INTRINSICS, retval_camera.K
-                # )
-                retval_camera.K = self.target_K()
+            # if self.crop:
+            #     # todo using GT ... image = crop_image(image, bbox)
+            #     retval_camera.update_after_crop(bbox)
 
-            if self.look_at_pelvis:  # todo move to __init__
-                pelvis_index = 6  # H36M dataset, not CMU
+            # if self.resample_same_K:  # todo move to __init__
+            #     # todo using GT ... square = (0, 0, 1000, 1000)  # get rid of 1K + eps
+            #     # image = crop_image(image, square)
+            #     # retval_camera.update_after_crop(square)
 
-                kp_in_cam = retval_camera.world2cam()(
-                    shot['keypoints'][:self.num_keypoints]  # in world
-                )
-                pelvis_vector = kp_in_cam[pelvis_index]
+            #     # have same intrinsics
+            #     # todo using GT ... image = resample_image(
+            #     #     image, TARGET_INTRINSICS, retval_camera.K
+            #     # )
+            #     retval_camera.K = self.target_K()
 
-                # find rotation matrix to align pelvis to z ...
-                z_axis = [0, 0, 1]
-                Rt = rotation_matrix_from_vectors_rodrigues(
-                    pelvis_vector, z_axis
-                )
+            # if self.look_at_pelvis:  # todo move to __init__
+            #     pelvis_index = 6  # H36M dataset, not CMU
 
-                # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
-                retval_camera.update_roto_extrsinsic(Rt)
+            #     kp_in_cam = retval_camera.world2cam()(
+            #         shot['keypoints'][:self.num_keypoints]  # in world
+            #     )
+            #     pelvis_vector = kp_in_cam[pelvis_index]
 
-            if True:  # fix arbitrary orientation todo in preprocess
-                convention = 'YXZ'
-                old_cam_eulers = matrix_to_euler_angles(
-                    torch.tensor(retval_camera.R).unsqueeze(0),
-                    convention
-                )[0]
-                new_cam_eulers = torch.tensor([
-                    old_cam_eulers[0],
-                    old_cam_eulers[1],
-                    0.0,  # fix no rotation, todo as config, assumption
-                ])
-                new_cam = euler_angles_to_matrix(
-                    new_cam_eulers.unsqueeze(0),
-                    convention
-                )[0]
-                retval_camera.R = new_cam.clone().numpy()
+            #     # find rotation matrix to align pelvis to z ...
+            #     z_axis = [0, 0, 1]
+            #     Rt = rotation_matrix_from_vectors_rodrigues(
+            #         pelvis_vector, z_axis
+            #     )
 
-                kp_in_cam = retval_camera.world2cam()(
-                    shot['keypoints'][:self.num_keypoints]  # in world
-                )
-                pelvis_vector = kp_in_cam[pelvis_index]
+            #     # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
+            #     retval_camera.update_roto_extrsinsic(Rt)
+
+            # if True:  # fix arbitrary orientation todo in preprocess
+            #     convention = 'YXZ'
+            #     old_cam_eulers = matrix_to_euler_angles(
+            #         torch.tensor(retval_camera.R).unsqueeze(0),
+            #         convention
+            #     )[0]
+            #     new_cam_eulers = torch.tensor([
+            #         old_cam_eulers[0],
+            #         old_cam_eulers[1],
+            #         0.0,  # fix no rotation, todo as config, assumption
+            #     ])
+            #     new_cam = euler_angles_to_matrix(
+            #         new_cam_eulers.unsqueeze(0),
+            #         convention
+            #     )[0]
+            #     retval_camera.R = new_cam.clone().numpy()
+
+            #     kp_in_cam = retval_camera.world2cam()(
+            #         shot['keypoints'][:self.num_keypoints]  # in world
+            #     )
+            #     pelvis_vector = kp_in_cam[pelvis_index]
 
             if self.image_shape is not None:  # resize
                 image_shape_before_resize = image.shape[:2]

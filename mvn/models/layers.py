@@ -1,7 +1,9 @@
 import torch
 from torch import nn
 
-from mvn.utils.tred import rotx, roty
+import numpy as np
+
+from mvn.utils.tred import matrix_to_euler_angles, rotx, rotz
 
 
 class R6DBlock(nn.Module):
@@ -111,20 +113,36 @@ class R2AnglesBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
+        max_angle = np.pi / 2  # todo very hacky
+        self.normalize = lambda x: nn.Sigmoid()(torch.abs(x)) * max_angle
+
     @staticmethod
-    def _build_it(alpha, gamma):
+    def _build_cam_orientation_in_world(x_an, z_an):
         return torch.mm(
-            roty(gamma),
-            rotx(alpha)
-        ).to(alpha.device)
+            rotz(z_an),
+            rotx(x_an)
+        ).to(x_an.device)
+
+    @staticmethod
+    def _build_cam_pose(x_an, z_an):
+        return R2AnglesBlock._build_cam_orientation_in_world(
+            x_an, z_an
+        ).T  # invert orientation
 
     def forward(self, batched_angles):
+        """ batched_angles are (some batches of)
+        - Z angle (gamma)
+        - X angle (alpha)
+
+        to construct a orientation and get the relative pose.
+        """
+
         batch_size = batched_angles.shape[0]  # todo tensored
-        batched_angles = nn.functional.normalize(batched_angles, dim=1) * 3.14
+        batched_angles = self.normalize(batched_angles)
         return torch.cat([
-            self._build_it(
-                batched_angles[i, 0],
-                batched_angles[i, 1],
+            self._build_cam_pose(
+                batched_angles[i, 0],  # x angle
+                batched_angles[i, 1],  # z angle
             ).unsqueeze(0)
             for i in range(batch_size)
         ])

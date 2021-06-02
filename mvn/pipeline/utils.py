@@ -3,6 +3,7 @@ import torch
 from mvn.utils.misc import live_debug_log
 
 
+# todo refactor
 def get_kp_gt(keypoints_3d_gt, cameras, noisy=False):
     batch_size, n_joints, n_views = keypoints_3d_gt.shape[0], keypoints_3d_gt.shape[1], len(cameras)
 

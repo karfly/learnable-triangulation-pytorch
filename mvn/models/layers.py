@@ -79,6 +79,7 @@ class RodriguesBlock(nn.Module):
             [k_one, -rz, ry, rz, k_one, -rx, -ry, rx, k_one], dim=1)
         return rotation_matrix.view(-1, 3, 3)
 
+
     def forward(self, angle_axis):
         """ https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation """
 
@@ -113,7 +114,7 @@ class R2AnglesBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
-        max_angle = np.pi / 2  # todo very hacky
+        max_angle = np.pi / 2.0  # todo very hacky
         self.normalize = lambda x: nn.Sigmoid()(torch.abs(x)) * max_angle
 
     @staticmethod

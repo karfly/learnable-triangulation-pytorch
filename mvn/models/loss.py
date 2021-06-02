@@ -325,11 +325,14 @@ class WorldStructureLoss(nn.Module):
             torch.pow(1.2, zs)  # exp blows up
         )
 
-    # def _penalize_cam_rotation(self, cam_preds):
-    #     eulers = matrix_to_euler_angles(cam_preds, 'YXZ')
-    #     zs = eulers.view(-1, 3)[:, 2]
-    #     print(zs)
-    #     return torch.mean(1.0 / (1.0 - torch.sin(zs)) - 1.0)
+    def _penalize_cam_rotation(self, cam_preds):
+        eulers = matrix_to_euler_angles(
+            torch.transpose(cam_preds.view(-1, 4, 4)[:, :3, :3], 1, 2),  # invert rotation
+            'ZXY'
+        )
+        ys = eulers.view(-1, 3)[:, 2]
+        return torch.mean(1.0 / (1.0 - torch.sin(ys)) - 1.0)
 
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds)
+        return self._penalize_cam_z_location(cam_preds) +\
+            self._penalize_cam_rotation(cam_preds)

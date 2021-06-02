@@ -196,7 +196,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
-    loss_self_separation = SeparationLoss(5e1, 25e2)(kps_world_pred)
+    loss_self_separation = SeparationLoss(3e1, 7e3)(kps_world_pred)
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
@@ -207,9 +207,9 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     __batch_i = 0  # todo debug only
 
     print('pred exts {:.0f}'.format(__batch_i))
-    print(cam_preds[__batch_i])
+    print(cam_preds[__batch_i, :, :3, :3])
     print('gt exts {:.0f}'.format(__batch_i))
-    print(cam_gts[__batch_i])
+    print(cam_gts[__batch_i, :, :3, :3])
 
     print('pred batch {:.0f}'.format(__batch_i))
     print(kps_world_pred[__batch_i])

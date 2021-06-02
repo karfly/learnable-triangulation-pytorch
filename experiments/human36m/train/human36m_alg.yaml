@@ -76,7 +76,7 @@ cam2cam:
 
     R:
       n_layers: 2
-      parametrization: "2d"
+      parametrization: "rodrigues"
 
     t:
       n_layers: 2
@@ -100,7 +100,7 @@ cam2cam:
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0002
-    weight_decay: 20.0
+    weight_decay: 10.0
 
 model:
   name: "alg"

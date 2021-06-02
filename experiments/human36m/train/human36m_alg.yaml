@@ -96,7 +96,7 @@ cam2cam:
       camera_above_surface: 10.0
 
   opt:
-    grad_clip: 2.0
+    grad_clip: 1.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0002

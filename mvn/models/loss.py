@@ -221,6 +221,16 @@ class ScaleIndependentProjectionLoss(nn.Module):
         projections = project_to_weak_views(
             K, cam_preds, kps_world_pred
         )
+        penalization = torch.cat([
+            torch.cat([
+                (
+                    torch.norm(projections[batch_i, view_i], p='fro') /\
+                        torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ]).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ])  # I want the norm to be the same
         return torch.mean(
             torch.cat([
                 torch.cat([
@@ -229,7 +239,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
                             torch.norm(initial_keypoints[batch_i, view_i], p='fro')  # I want the (scaled) KPs to match
-                    ).unsqueeze(0)
+                    ).unsqueeze(0) * penalization[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)
@@ -277,32 +287,6 @@ class QuadraticProjectionLoss(nn.Module):
                 for batch_i in range(batch_size)
             ])
         )
-
-
-class BodyStructureLoss(nn.Module):
-    """ assuming human body <= 2.5 m """
-
-    def __init__(self, threshold):
-        super().__init__()
-
-        half_body = threshold / 2.0
-        self.threshold = half_body
-
-    def forward(self, kps_world_pred):
-        batch_size = kps_world_pred.shape[0]
-        n_joints = kps_world_pred.shape[1]
-
-        loss = torch.tensor(0.0).to(kps_world_pred.device)
-        for batch_i in range(batch_size):  # todo batched
-            for joint_i in range(n_joints):
-                distance_from_pelvis = torch.norm(
-                    kps_world_pred[batch_i, joint_i], p='fro'
-                )
-                if distance_from_pelvis > self.threshold:
-                    loss += distance_from_pelvis
-
-        normalization = batch_size * n_joints
-        return loss / normalization
 
 
 class WorldStructureLoss(nn.Module):

@@ -194,13 +194,13 @@ def rotx(theta):
         ]).unsqueeze(0),
         torch.cat([
             torch.tensor(0.0).unsqueeze(0).to(dev),
-            torch.cos(theta).unsqueeze(0),
-            -torch.sin(theta).unsqueeze(0)
+            torch.cos(theta).unsqueeze(0).to(dev),
+            -torch.sin(theta).unsqueeze(0).to(dev)
         ]).unsqueeze(0),
         torch.cat([
             torch.tensor(0.0).unsqueeze(0).to(dev),
-            torch.sin(theta).unsqueeze(0),
-            torch.cos(theta).unsqueeze(0)
+            torch.sin(theta).unsqueeze(0).to(dev),
+            torch.cos(theta).unsqueeze(0).to(dev)
         ]).unsqueeze(0)
     ])
 
@@ -208,11 +208,24 @@ def rotx(theta):
 def roty(theta):
     """ theta rotation around y axis """
 
-    # todo fix grad
-    return torch.DoubleTensor([
-        [ torch.cos(theta), 0, torch.sin(theta)],
-        [ 0, 1, 0],
-        [ -torch.sin(theta), 0, torch.cos(theta)]
+    dev = theta.device
+
+    return torch.cat([
+        torch.cat([
+            torch.cos(theta).unsqueeze(0).to(dev),
+            torch.tensor(0.0).unsqueeze(0).to(dev),
+            torch.sin(theta).unsqueeze(0).to(dev)
+        ]).unsqueeze(0),
+        torch.cat([
+            torch.tensor(0.0).unsqueeze(0).to(dev),
+            torch.tensor(1.0).unsqueeze(0).to(dev),
+            torch.tensor(0.0).unsqueeze(0).to(dev)
+        ]).unsqueeze(0),
+        torch.cat([
+            - torch.sin(theta).unsqueeze(0).to(dev),
+            torch.tensor(0.0).unsqueeze(0).to(dev),
+            torch.cos(theta).unsqueeze(0).to(dev)
+        ]).unsqueeze(0)
     ])
 
 

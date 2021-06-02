@@ -284,7 +284,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        if True:  # assuming to have access to 1 GT world point
+        if False:  # assuming to have access to 1 GT world point
             joint_i = 9  # head
             loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
                 kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,

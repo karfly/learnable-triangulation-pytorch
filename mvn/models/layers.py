@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from mvn.utils.tred import rotx, rotz
+from mvn.utils.tred import rotx, roty
 
 
 class R6DBlock(nn.Module):
@@ -107,21 +107,20 @@ class RodriguesBlock(nn.Module):
         return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
 
 
-class NoPitchBlock(nn.Module):
-
+class R2AnglesBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
     @staticmethod
     def _build_it(alpha, gamma):
         return torch.mm(
-            rotz(gamma),
+            roty(gamma),
             rotx(alpha)
         ).to(alpha.device)
 
     def forward(self, batched_angles):
         batch_size = batched_angles.shape[0]  # todo tensored
-        batched_angles = nn.functional.normalize(batched_angles, dim=1)
+        batched_angles = nn.functional.normalize(batched_angles, dim=1) * 3.14
         return torch.cat([
             self._build_it(
                 batched_angles[i, 0],
@@ -129,6 +128,7 @@ class NoPitchBlock(nn.Module):
             ).unsqueeze(0)
             for i in range(batch_size)
         ])
+
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP
 class SEBlock(nn.Module):

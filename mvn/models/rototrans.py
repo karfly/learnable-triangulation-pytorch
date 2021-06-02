@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock, NoPitchBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, R2AnglesBlock
 
 
 class RotoTransCombiner(nn.Module):
@@ -74,9 +74,9 @@ class RotoTransNet(nn.Module):
         elif config.cam2cam.model.R.parametrization == 'rodrigues':
             n_params_per_R = 3
             self.R_param = RodriguesBlock()
-        elif config.cam2cam.model.R.parametrization == 'nopitch':
+        elif config.cam2cam.model.R.parametrization == '2d':
             n_params_per_R = 2
-            self.R_param = NoPitchBlock()
+            self.R_param = R2AnglesBlock()
         
         self.R_model = MLPResNet(
             in_features=n_features,

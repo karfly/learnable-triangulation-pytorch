@@ -46,7 +46,7 @@ cam2cam:
   triangulate: "master"
 
   cams:
-    using_gt: true
+    using_gt: false
     using_noise: false
 
   data:
@@ -76,7 +76,7 @@ cam2cam:
 
     R:
       n_layers: 2
-      parametrization: "6d"
+      parametrization: "2d"
 
     t:
       n_layers: 2
@@ -90,13 +90,13 @@ cam2cam:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 1.0
+      proj: 2.0
       separation: 0.1
     world_structure:
-      camera_above_surface: 0.1
+      camera_above_surface: 1.0
 
   opt:
-    grad_clip: 0.25
+    grad_clip: 1.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0002

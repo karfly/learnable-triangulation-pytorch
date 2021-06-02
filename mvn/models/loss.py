@@ -328,8 +328,9 @@ class WorldStructureLoss(nn.Module):
         def criterion(x):
             return torch.mean(1.0 / (1 - torch.abs(x)) - 1)
 
-        eulers = matrix_to_euler_angles(cam_preds, 'XYZ').view(-1, 3)[:, 2]
-        return criterion(eulers)
+        sins = cam_preds.view(-1, 4, 4)[:, 0, 2]
+        coss = cam_preds.view(-1, 4, 4)[:, 0, 0] - 1.0
+        return criterion(sins) + criterion(coss)
 
     def forward(self, cam_preds):
         return self._penalize_cam_z_location(cam_preds) +\

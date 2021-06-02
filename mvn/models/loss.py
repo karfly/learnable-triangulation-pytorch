@@ -211,7 +211,9 @@ class ScaleIndependentProjectionLoss(nn.Module):
     def __init__(self, criterion=nn.L1Loss()):
         super().__init__()
 
-        self.criterion = criterion
+        self.criterion = lambda x, y: HuberLoss(threshold=1e-1)._criterion(
+            criterion(x, y)
+        )
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]

@@ -163,7 +163,7 @@ class SeparationLoss(nn.Module):
         return torch.mean(torch.cat([
             torch.sum(torch.cat([
                 torch.cat([
-                    torch.max(
+                    torch.max(  # todo refactor into lambda
                         torch.tensor(0.0).to(dev),
                         self.threshold.to(dev) -\
                         torch.square(
@@ -213,7 +213,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
 
         self.criterion = criterion
         self.penalization = lambda projection, initials: torch.square(
-            torch.norm(projection, p='fro') / torch.norm(initials, p='fro')
+            torch.norm(projection, p='fro') / torch.norm(initials, p='fro') - 1.0
         )  # penalize diff area => I want it not too little, nor not too big
         self.scale_free = lambda x: x / torch.norm(x, p='fro')
         self.calc_loss = lambda projection, initials:\
@@ -314,5 +314,4 @@ class WorldStructureLoss(nn.Module):
         return criterion(sins) + criterion(coss)
 
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds) +\
-            self._penalize_cam_rotation(cam_preds)
+        return self._penalize_cam_z_location(cam_preds) # + self._penalize_cam_rotation(cam_preds)

@@ -242,7 +242,7 @@ class ScaleIndependentProjectionLoss(nn.Module):
                         projections[batch_i, view_i].to(dev) /
                             torch.norm(projections[batch_i, view_i], p='fro'),
                         initial_keypoints[batch_i, view_i].to(dev) /
-                            torch.norm(initial_keypoints[batch_i, view_i], p='fro')
+                            torch.norm(initial_keypoints[batch_i, view_i], p='fro')  # I want the (scaled) KPs to match
                     ).unsqueeze(0) * penalization[batch_i, view_i]
                     for view_i in range(n_views)
                 ]).unsqueeze(0)

@@ -95,7 +95,7 @@ cam2cam:
     grad_clip: 1.0
 # https://stats.stackexchange.com/a/352037
     lr: 0.0002
-    weight_decay: 15.0
+    weight_decay: 30.0
 
 model:
   name: "alg"

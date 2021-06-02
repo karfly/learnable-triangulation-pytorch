@@ -29,4 +29,6 @@ function showLRReductions () {
 function peek () {
     job_id=$1
     tail -n200 ${job_id}.out
+
+    echo "\n... from ${job_id}.out"
 }

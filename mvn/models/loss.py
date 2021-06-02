@@ -213,12 +213,13 @@ class ScaleIndependentProjectionLoss(nn.Module):
 
         self.criterion = criterion
         self.penalization = lambda projection, initials: torch.square(
-            torch.norm(projection, p='fro') - torch.norm(initials, p='fro') + 1
-        )  # penalize ratio of area => I want it not too little, nor not too big
+            torch.norm(projection, p='fro') / torch.norm(initials, p='fro')
+        )  # penalize diff area => I want it not too little, nor not too big
+        self.scale_free = lambda x: x / torch.norm(x, p='fro')
         self.calc_loss = lambda projection, initials:\
             self.criterion(
-                projection / torch.norm(projection, p='fro'),
-                initials / torch.norm(initials, p='fro')
+                self.scale_free(projection),
+                self.scale_free(initials)
             ) * self.penalization(projection, initials)
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):

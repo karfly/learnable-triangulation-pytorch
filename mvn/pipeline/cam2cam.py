@@ -194,14 +194,14 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.world > 0:
         total_loss += loss_world * loss_weights.world
 
-    joint_i = 9  # head
+    joint_i = loss_weights.joint.i
     loss_joint = KeypointsMSESmoothLoss(threshold=20*20)(
         kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
-        kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+        kps_world_gt[:, joint_i].to(dev) * config.opt.scale_keypoints_3d,
         keypoints_3d_binary_validity_gt[:, joint_i],
     )
-    if loss_weights.head > 0:
-        total_loss += loss_joint * loss_weights.head
+    if loss_weights.joint.w > 0:
+        total_loss += loss_joint * loss_weights.joint.w
 
     # ... and self
     loss_self_proj = ScaleDependentProjectionLoss(

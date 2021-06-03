@@ -4,7 +4,6 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import project_to_weak_views
-from mvn.utils.tred import get_cam_location_in_world, matrix_to_euler_angles
 
 
 class KeypointsMSELoss(nn.Module):
@@ -225,16 +224,17 @@ class ProjectionLoss(nn.Module):
 class ScaleDependentProjectionLoss(nn.Module):
     """ see eq 2 in https://arxiv.org/abs/2011.14679 """
 
-    def __init__(self, criterion=nn.L1Loss()):
+    def __init__(self, criterion=nn.L1Loss(), final_scale=1e4):
         super().__init__()
 
         self.criterion = criterion
-        self.scale_free = lambda x: x / torch.pow(torch.norm(x, p='fro'), 0.3)
+        self.scale_free = lambda x: x / torch.pow(torch.norm(x, p='fro'), 1.3)
         self.calc_loss = lambda projection, initials:\
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
             )
+        self.final_scale = final_scale
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
@@ -255,4 +255,4 @@ class ScaleDependentProjectionLoss(nn.Module):
                 ]).unsqueeze(0)
                 for batch_i in range(batch_size)
             ])
-        )
+        ) * self.final_scale

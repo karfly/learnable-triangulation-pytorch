@@ -90,7 +90,9 @@ cam2cam:
     t: 0.0
     proj: 0.0
     world: 0.0
-    head: 100.0
+    joint:
+      i: 9
+      w: 100.0
     self_consistency:
       proj: 10.0
       separation: 0.1

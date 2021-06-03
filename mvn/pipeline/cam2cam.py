@@ -108,15 +108,17 @@ def _forward_cams(cam2cam_model, detections, gt=None, noisy=False):
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
             if not (gt is None):
-                R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
-                t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
+                preds[batch_i, view_i, :3, :3] = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
+                
+                # R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
+                # t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
 
-                if noisy:  # noisy
-                    R = R + 1e-1 * torch.rand_like(R)
-                    t = t + 1e2 * torch.rand_like(t)
+                # if noisy:  # noisy
+                #     R = R + 1e-1 * torch.rand_like(R)
+                #     t = t + 1e2 * torch.rand_like(t)
 
-                preds[batch_i, view_i, :3, :3] = R
-                preds[batch_i, view_i, :3, 3] = t
+                # preds[batch_i, view_i, :3, :3] = R
+                # preds[batch_i, view_i, :3, 3] = t
 
     return preds.to(dev)
 
@@ -348,7 +350,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     cam_preds = _forward_cams(
         cam2cam_model,
         detections[master_i],
-        cam_gts if config.cam2cam.cams.using_gt else None,
+        cam_gts,  # if config.cam2cam.cams.using_gt else None,
         noisy=config.cam2cam.cams.using_noise
     )
     if config.debug.dump_tensors:

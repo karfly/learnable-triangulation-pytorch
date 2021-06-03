@@ -236,10 +236,10 @@ class Human36MMultiViewDataset(Dataset):
 
     def with_no_R(self, retval_camera):
         retval_camera.R = torch.mm(
-            rotz(torch.tensor(1.0)),
-            rotx(torch.tensor(2.0))
+            rotz(torch.tensor(np.random.normal(np.pi / 2.0, 1))),
+            rotx(torch.tensor(np.random.normal(np.pi / 2.0, 1)))
         ).numpy()
-        d_pelvis = np.random.normal(1e3, 50)
+        d_pelvis = np.random.normal(2e3, 1e2)
         retval_camera.t = np.float64([
             0, 0, d_pelvis
         ]).reshape(3, 1)

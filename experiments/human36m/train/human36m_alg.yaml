@@ -46,7 +46,7 @@ cam2cam:
   triangulate: "world"
 
   cams:
-    using_gt: false
+    using_gt: true
     using_noise: false
 
   data:

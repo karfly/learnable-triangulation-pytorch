@@ -95,5 +95,5 @@ alias showClusterUsageInMonth='slurmShowUsageInMonth p_humanpose cpu 3500 && ech
 function monatorCam2cam () {
     job_id=$1
 
-    watch -n5 "tail -n50 ${job_id}.out | grep -E 'cam2cam|epoc|losses' | grep -E 'comple|mm|loss'"
+    watch -n5 "tail -n200 ${job_id}.out | grep -E 'cam2cam|epoc|losses' | grep -E 'comple|mm|loss'"
 }

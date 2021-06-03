@@ -239,7 +239,7 @@ class Human36MMultiViewDataset(Dataset):
             rotz(torch.tensor(1.0)),
             rotx(torch.tensor(2.0))
         ).numpy()
-        d_pelvis = np.random.choice([2, 3, 4, 5, 6, 7, 8]) * 1e3
+        d_pelvis = np.random.normal(1e3, 50)
         retval_camera.t = np.float64([
             0, 0, d_pelvis
         ]).reshape(3, 1)

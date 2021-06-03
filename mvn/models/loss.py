@@ -334,5 +334,4 @@ class WorldStructureLoss(nn.Module):
         return torch.mean(1.0 / (1.0 - torch.sin(ys)) - 1.0)
 
     def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds) +\
-            self._penalize_cam_rotation(cam_preds)
+        return self._penalize_cam_z_location(cam_preds)

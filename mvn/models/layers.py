@@ -3,7 +3,7 @@ from torch import nn
 
 import numpy as np
 
-from mvn.utils.tred import matrix_to_euler_angles, rotx, rotz
+from mvn.utils.tred import rotx, rotz
 
 
 class R6DBlock(nn.Module):

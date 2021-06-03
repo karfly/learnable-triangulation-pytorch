@@ -43,7 +43,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "master"
+  triangulate: "world"
 
   cams:
     using_gt: false

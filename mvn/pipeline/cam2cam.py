@@ -200,7 +200,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
-    loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
+    loss_world_structure = torch.tensor(0.0)  # todo necessary? WorldStructureLoss(1e2)(cam_preds)
     if loss_weights.world_structure.camera_above_surface > 0:
         total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
 
@@ -353,6 +353,8 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     )
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')
+
+    print(cam_preds[0])
 
     minimon.leave('forward')
 

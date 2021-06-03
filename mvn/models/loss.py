@@ -229,18 +229,18 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.penalization = lambda projection, initials: torch.pow(
-            torch.square(
-                torch.norm(projection, p='fro') / torch.norm(initials, p='fro') - 1.0
-            ),  # penalize diff area: I want it not too little, nor not too big
-            0.4  # squeeze it when too large
-        ) + 1.0  # multiplicative ...
+        self.penalization = lambda projection, initials: HuberLoss(
+            threshold=1e2  # penalize diff area: not too little, nor not too big
+        )(
+            torch.norm(projection, p='fro'),
+            torch.norm(initials, p='fro')
+        )
         self.scale_free = lambda x: x / torch.norm(x, p='fro')
         self.calc_loss = lambda projection, initials:\
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
-            ) * self.penalization(projection, initials)
+            ) * (self.penalization(projection, initials) + 1.0)  # multipl ...
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]

@@ -194,7 +194,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
         cam_preds,
         kps_world_pred,
         keypoints_2d_pred
-    ) * 1e3  # final scaling
+    )
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 

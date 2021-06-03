@@ -229,21 +229,12 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.penalization = lambda projection, initials: torch.pow(
-            HuberLoss(
-                threshold=1e2  # penalize diff area: not too little, nor not too big
-            )(
-                torch.norm(projection, p='fro'),
-                torch.norm(initials, p='fro')
-            ),
-            0.1
-        )
-        self.scale_free = lambda x: x / torch.pow(torch.norm(x, p='fro'), 0.1)
+        self.scale_free = lambda x: x / torch.pow(torch.norm(x, p='fro'), 0.3)
         self.calc_loss = lambda projection, initials:\
             self.criterion(
                 self.scale_free(projection),
                 self.scale_free(initials)
-            ) * (self.penalization(projection, initials) + 1.0)  # multipl ...
+            )
 
     def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
@@ -265,76 +256,3 @@ class ScaleDependentProjectionLoss(nn.Module):
                 for batch_i in range(batch_size)
             ])
         )
-
-
-class QuadraticProjectionLoss(nn.Module):
-    """ inspired by `ScaleIndependentProjectionLoss` """
-
-    def __init__(self, scale_kps, criterion=KeypointsMSESmoothLoss(threshold=1e2)):
-        super().__init__()
-
-        self.scale_kps = scale_kps
-        self.criterion = criterion
-
-    def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
-        batch_size = cam_preds.shape[0]
-        n_views = cam_preds.shape[1]
-        dev = cam_preds.device
-
-        projections = project_to_weak_views(
-            K, cam_preds, kps_world_pred
-        )
-        penalizations = torch.cat([
-            torch.cat([
-                torch.sqrt(torch.square(
-                    torch.norm(projections[batch_i, view_i], p='fro') /
-                    torch.norm(initial_keypoints[batch_i, view_i], p='fro') - 1
-                )).unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0).to(dev)  # pred
-            for batch_i in range(batch_size)
-        ])  # penalize ratio of area => I want it not too little, nor not too big
-
-        return torch.mean(
-            torch.cat([
-                torch.cat([
-                    self.criterion(
-                        initial_keypoints[batch_i, view_i].to(dev) * self.scale_kps,
-                        projections[batch_i, view_i].to(dev) * self.scale_kps
-                    ).unsqueeze(0) * penalizations[batch_i, view_i]
-                    for view_i in range(n_views)
-                ])
-                for batch_i in range(batch_size)
-            ])
-        )
-
-
-class WorldStructureLoss(nn.Module):
-    """ assuming cameras are above the surface (i.e surface is NOT transparent) """
-
-    def __init__(self, scale):
-        super().__init__()
-
-        self.scale = scale
-
-    # todo in another loss
-    def _penalize_cam_z_location(self, cam_preds):
-        cams_location = get_cam_location_in_world(
-            cam_preds.view(-1, 4, 4)
-        ).view(-1, 3)
-        zs = cams_location[:, 2]  # Z coordinate in all views (of all batches)
-        zs = zs / self.scale
-        return torch.mean(
-            torch.pow(1.2, zs)  # exp blows up
-        )
-
-    def _penalize_cam_rotation(self, cam_preds):
-        eulers = matrix_to_euler_angles(
-            torch.transpose(cam_preds.view(-1, 4, 4)[:, :3, :3], 1, 2),  # invert rotation
-            'ZXY'
-        )
-        ys = eulers.view(-1, 3)[:, 2]
-        return torch.mean(1.0 / (1.0 - torch.sin(ys)) - 1.0)
-
-    def forward(self, cam_preds):
-        return self._penalize_cam_z_location(cam_preds)

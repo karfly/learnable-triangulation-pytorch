@@ -110,45 +110,6 @@ class RodriguesBlock(nn.Module):
         return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
 
 
-class R2AnglesBlock(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        max_angle = np.pi / 2.0  # todo very hacky
-        self.normalize = lambda x: nn.Sigmoid()(torch.abs(x)) * max_angle
-
-    @staticmethod
-    def _build_cam_orientation_in_world(x_an, z_an):
-        return torch.mm(
-            rotz(z_an),
-            rotx(x_an)
-        ).to(x_an.device)
-
-    @staticmethod
-    def _build_cam_pose(x_an, z_an):
-        return R2AnglesBlock._build_cam_orientation_in_world(
-            x_an, z_an
-        ).T  # invert orientation
-
-    def forward(self, batched_angles):
-        """ batched_angles are (some batches of)
-        - Z angle (gamma)
-        - X angle (alpha)
-
-        to construct a orientation and get the relative pose.
-        """
-
-        batch_size = batched_angles.shape[0]  # todo tensored
-        batched_angles = self.normalize(batched_angles)
-        return torch.cat([
-            self._build_cam_pose(
-                batched_angles[i, 0],  # x angle
-                batched_angles[i, 1],  # z angle
-            ).unsqueeze(0)
-            for i in range(batch_size)
-        ])
-
-
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP
 class SEBlock(nn.Module):
     def __init__(self, in_features, inner_size):

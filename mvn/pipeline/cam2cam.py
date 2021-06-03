@@ -6,7 +6,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss, WorldStructureLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss
 
 _ITER_TAG = 'cam2cam'
 
@@ -108,17 +108,15 @@ def _forward_cams(cam2cam_model, detections, gt=None, noisy=False):
     for batch_i in range(batch_size):  # todo batched
         for view_i in range(n_views):
             if not (gt is None):
-                preds[batch_i, view_i, :3, :3] = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
-                
-                # R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
-                # t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
+                R = gt[batch_i, view_i, :3, :3].to(dev).detach().clone()
+                t = gt[batch_i, view_i, :3, 3].to(dev).detach().clone()
 
-                # if noisy:  # noisy
-                #     R = R + 1e-1 * torch.rand_like(R)
-                #     t = t + 1e2 * torch.rand_like(t)
+                if noisy:  # noisy
+                    R = R + 1e-1 * torch.rand_like(R)
+                    t = t + 1e2 * torch.rand_like(t)
 
-                # preds[batch_i, view_i, :3, :3] = R
-                # preds[batch_i, view_i, :3, 3] = t
+                preds[batch_i, view_i, :3, :3] = R
+                preds[batch_i, view_i, :3, 3] = t
 
     return preds.to(dev)
 
@@ -162,6 +160,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     n_cameras = cam_preds.shape[1]
     loss_weights = config.cam2cam.loss
 
+    # using supervision ...
     loss_R = GeodesicLoss()(
         cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3],  # just R
         cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3]
@@ -187,8 +186,26 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
+    loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
+        kps_world_pred * config.opt.scale_keypoints_3d,
+        kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,
+        keypoints_3d_binary_validity_gt,
+    )
+    if loss_weights.world > 0:
+        total_loss += loss_world * loss_weights.world
+
+    joint_i = 9  # head
+    loss_joint = KeypointsMSESmoothLoss(threshold=20*20)(
+        kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
+        kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
+        keypoints_3d_binary_validity_gt[:, joint_i],
+    )
+    if loss_weights.head > 0:
+        total_loss += loss_joint * loss_weights.head
+
+    # ... and self
     loss_self_proj = ScaleDependentProjectionLoss(
-        KeypointsMSESmoothLoss(threshold=1.0)  # HuberLoss(threshold=1e-1)
+        HuberLoss(threshold=1e-1)
     )(
         K,
         cam_preds,
@@ -202,10 +219,6 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
-    loss_world_structure = WorldStructureLoss(1e2)(cam_preds)
-    if loss_weights.world_structure.camera_above_surface > 0:
-        total_loss += loss_world_structure * loss_weights.world_structure.camera_above_surface
-
     __batch_i = 0  # todo debug only
 
     print('pred exts {:.0f}'.format(__batch_i))
@@ -218,18 +231,9 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     print('gt batch {:.0f}'.format(__batch_i))
     print(kps_world_gt[__batch_i])
 
-    loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
-        kps_world_pred * config.opt.scale_keypoints_3d,
-        kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,
-        keypoints_3d_binary_validity_gt,
-    )
-    if loss_weights.world > 0:
-        total_loss += loss_world * loss_weights.world
-
     return loss_R, trans_loss,\
-        loss_proj, loss_world,\
-        loss_self_proj, loss_self_separation, \
-        loss_world_structure, \
+        loss_proj, loss_world, loss_joint,\
+        loss_self_proj, loss_self_separation,\
         total_loss
 
 
@@ -273,8 +277,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _backprop():
         minimon.enter()
-
-        loss_R, trans_loss, loss_2d, loss_3d, loss_self_proj, loss_self_separation, loss_world_structure, total_loss = _compute_losses(
+        loss_R, trans_loss, loss_2d, loss_3d, loss_joint, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             keypoints_2d_pred,
@@ -286,25 +289,16 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        if False:  # assuming to have access to 1 GT world point
-            joint_i = 9  # head
-            loss_pose_ref = KeypointsMSESmoothLoss(threshold=20*20)(
-                kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
-                kps_world_gt[:, joint_i].to(kps_world_pred.device) * config.opt.scale_keypoints_3d,
-                keypoints_3d_binary_validity_gt[:, joint_i],  # HEAD only
-            )
-            total_loss += 50.0 * loss_pose_ref
-
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, WORLD STRUCT ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, JOINT ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
             trans_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
+            loss_joint.item(),
             loss_self_proj.item(),
             loss_self_separation.item(),
-            loss_world_structure.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
@@ -316,7 +310,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
         backprop(
             opt, total_loss, scheduler,
-            loss_self_proj * 1.1,  # give some slack
+            loss_self_proj,
             _ITER_TAG, get_grad_params(cam2cam_model), clip
         )
         minimon.leave('backward pass')
@@ -350,7 +344,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     cam_preds = _forward_cams(
         cam2cam_model,
         detections[master_i],
-        cam_gts,  # if config.cam2cam.cams.using_gt else None,
+        cam_gts if config.cam2cam.cams.using_gt else None,
         noisy=config.cam2cam.cams.using_noise
     )
     if config.debug.dump_tensors:

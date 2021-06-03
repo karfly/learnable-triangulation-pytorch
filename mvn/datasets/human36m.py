@@ -234,61 +234,42 @@ class Human36MMultiViewDataset(Dataset):
             shear=0
         ).copy()  # to be sure
 
-    def with_no_R(self, retval_camera):
-        retval_camera.R = torch.mm(
-            rotz(torch.tensor(np.random.normal(np.pi / 2.0, 1))),
-            rotx(torch.tensor(np.random.normal(np.pi / 2.0, 1)))
-        ).numpy()
-        d_pelvis = np.random.normal(2e3, 1e2)
-        retval_camera.t = np.float64([
-            0, 0, d_pelvis
-        ]).reshape(3, 1)
+    def have_same_K(self, retval_camera):
+        retval_camera.K = self.target_K()  # I'm using GT KPs, so I can create any K, R|t
 
-    def with_no_pitch(self, retval_camera):
-        # todo very hacky
-        # create extrinsics with no pitch
-        convention = 'ZXY'
-        z_choice = np.random.choice(np.deg2rad([
-            1, 15, 28, 42, 78, 89  # todo easy: just first quadrant
-        ]))
-        x_choice = np.random.choice(np.deg2rad([
-            1, 15, 28, 42, 78, 89  # => cam.loc.z < 0
-        ]))
-        eulers = torch.tensor([
-            z_choice,
-            x_choice,
-            0.0  # no pitch
-        ])
-        cam_orient_in_world = euler_angles_to_matrix(eulers, convention)
-        retval_camera.R = cam_orient_in_world.T.clone().numpy()  # inverse rotation
-        d_pelvis = np.random.choice([4e3, 5e3, 6e3, 7e3])
-        retval_camera.t = np.float64([
-            0, 0, d_pelvis
-        ]).reshape(3, 1)
+    def get_bbox(self, shot, camera_idx):
+        bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1, 0, 3, 2]]  # load bounding box, TLBR to LTRB
+        bbox_height = bbox[2] - bbox[0]
+        if bbox_height == 0:
+            raise ValueError('missing view')  # convention: if the bbox is empty, then this view is missing
 
-    def preprocess_camera(self, retval_camera):
-        if self.crop:
-            # todo using GT ... image = crop_image(image, bbox)
+        # scale the bounding box
+        return scale_bbox(bbox, self.scale_bbox)
+
+    def preprocess_extrinsics(self, image, shot, camera_idx, retval_camera):
+        if False:  # using GTs ... self.crop:
+            image = crop_image(image, bbox)
+            bbox = self.get_bbox(shot, camera_idx)
             retval_camera.update_after_crop(bbox)
 
-        if self.resample_same_K:  # todo move to __init__
-            # todo using GT ... square = (0, 0, 1000, 1000)  # get rid of 1K + eps
-            # image = crop_image(image, square)
-            # retval_camera.update_after_crop(square)
+        if False:  # using GTs ... self.resample_same_K:
+            # todo move to __init__
+            square = (0, 0, 1000, 1000)  # get rid of 1K + eps
+            image = crop_image(image, square)
+            retval_camera.update_after_crop(square)
 
             # have same intrinsics
-            # todo using GT ... image = resample_image(
-            #     image, TARGET_INTRINSICS, retval_camera.K
-            # )
+            image = resample_image(
+                image, TARGET_INTRINSICS, retval_camera.K
+            )
             retval_camera.K = self.target_K()
 
-        if self.look_at_pelvis:  # todo move to __init__
+        if self.look_at_pelvis:
             pelvis_index = 6  # H36M dataset, not CMU
 
-            kp_in_cam = retval_camera.world2cam()(
+            pelvis_vector = retval_camera.world2cam()(
                 shot['keypoints'][:self.num_keypoints]  # in world
-            )
-            pelvis_vector = kp_in_cam[pelvis_index]
+            )[pelvis_index]
 
             # find rotation matrix to align pelvis to z ...
             z_axis = [0, 0, 1]
@@ -299,48 +280,22 @@ class Human36MMultiViewDataset(Dataset):
             # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
             retval_camera.update_roto_extrsinsic(Rt)
 
-        if True:  # fix arbitrary orientation todo in preprocess
-            convention = 'YXZ'
-            old_cam_eulers = matrix_to_euler_angles(
-                torch.tensor(retval_camera.R).unsqueeze(0),
-                convention
-            )[0]
-            new_cam_eulers = torch.tensor([
-                old_cam_eulers[0],
-                old_cam_eulers[1],
-                0.0,  # fix no rotation, todo as config, assumption
-            ])
-            new_cam = euler_angles_to_matrix(
-                new_cam_eulers.unsqueeze(0),
-                convention
-            )[0]
-            retval_camera.R = new_cam.clone().numpy()
-
-            kp_in_cam = retval_camera.world2cam()(
-                shot['keypoints'][:self.num_keypoints]  # in world
+    def finalize_image(self, image):
+        if False:  # using GT ... self.image_shape is not None:
+            image_shape_before_resize = image.shape[:2]
+            image = resize_image(image, self.image_shape)
+            retval_camera.update_after_resize(
+                image_shape_before_resize, self.image_shape
             )
-            pelvis_vector = kp_in_cam[pelvis_index]
+
+        if False:  # using GT ... self.norm_image:
+            image = normalize_image(image)
+
+        return image
 
     def preprocess_sample(self, shot, camera_idx, camera_name):
-        subject_idx = shot['subject_idx']
-        action_idx = shot['action_idx']
+        image = np.zeros((16, 16, 3))  # using GT ... image = self._load_image(subject, action, camera_name, frame_idx)
 
-        subject = self.labels['subject_names'][subject_idx]
-        action = self.labels['action_names'][action_idx]
-        frame_idx = shot['frame_idx']
-
-        bbox = shot['bbox_by_camera_tlbr'][camera_idx][[1, 0, 3, 2]]  # load bounding box, TLBR to LTRB
-
-        bbox_height = bbox[2] - bbox[0]
-        if bbox_height == 0:
-            raise ValueError('missing view')  # convention: if the bbox is empty, then this view is missing
-
-        # scale the bounding box
-        bbox = scale_bbox(bbox, self.scale_bbox)
-
-        image = np.zeros((16, 16, 3))  # todo using GT ... image = self._load_image(subject, action, camera_name, frame_idx)
-
-        # load camera
         shot_camera = self.labels['cameras'][shot['subject_idx'], camera_idx]
         retval_camera = Camera(
             shot_camera['R'],
@@ -350,22 +305,9 @@ class Human36MMultiViewDataset(Dataset):
             camera_name
         )
 
-        # todo very hacky, I'm using GT KPs, so I can create any K, R|t
-        retval_camera.K = self.target_K()
-
-        # self.preprocess_camera(retval_camera)
-        # self.with_no_pitch(retval_camera)
-        self.with_no_R(retval_camera)
-
-        # if self.image_shape is not None:  # resize
-        #     image_shape_before_resize = image.shape[:2]
-        #     # todo using GT ... image = resize_image(image, self.image_shape)
-        #     retval_camera.update_after_resize(
-        #         image_shape_before_resize, self.image_shape
-        #     )
-
-        if self.norm_image:
-            pass  # todo using GT ... image = normalize_image(image)
+        self.have_same_K(retval_camera)
+        self.preprocess_extrinsics(image, shot, camera_idx, retval_camera)
+        self.finalize_image(image)
 
         return image, retval_camera
 

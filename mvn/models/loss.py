@@ -228,7 +228,7 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.scale_free = lambda x: x / torch.pow(torch.norm(x, p='fro'), 1.3)
+        self.scale_free = lambda x: x / torch.norm(x, p='fro')
         self.calc_loss = lambda projection, initials:\
             self.criterion(
                 self.scale_free(projection),

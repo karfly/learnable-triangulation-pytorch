@@ -10,7 +10,8 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous
+from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous, build_intrinsics
+from mvn.utils.tred import get_cam_location_in_world, get_cam_orientation_in_world
 
 
 def get_joints_connections():
@@ -213,8 +214,8 @@ def viz_experiment_samples():
         for i, sample_i in enumerate(samples_to_show):
             axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
-            draw_kp_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
-            draw_kp_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
+            draw_kps_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
+            draw_kps_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
             print(
                 'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
                     i,
@@ -234,77 +235,43 @@ def viz_experiment_samples():
 
 
 def viz_2ds():
-    keypoints_2d = torch.tensor([[[-16.4621,  11.0777],
-         [ -8.7619,   7.0920],
-         [ -2.2775,  -1.5802],
-         [  2.1864,   1.5170],
-         [ -5.6967,   7.1440],
-         [-11.5442,   6.0178],
-         [  0.0000,   0.0000],
-         [  3.9395,  -0.3826],
-         [  8.6280,  -0.4923],
-         [ 11.6279,  -2.9150],
-         [ -0.0983,   8.9764],
-         [ -1.0055,   2.2332],
-         [  5.3962,  -1.8452],
-         [ 10.4620,   1.5216],
-         [  9.6394,   8.4670],
-         [  7.4874,   8.4563],
-         [  9.8146,  -0.3217]],
+    keypoints_2d = torch.tensor([
+        [[ 4.2062e+00,  6.7325e+00],
+        [ 2.0345e+00, -3.5230e+00],
+        [-2.8494e+00, -1.8568e-01],
+        [ 2.7873e+00,  1.8163e-01],
+        [ 6.5186e+00, -3.7257e+00],
+        [ 9.0576e+00,  6.2431e+00],
+        [ 6.6884e-17,  2.2233e-16],
+        [-1.7581e-01, -4.0769e+00],
+        [ 4.0783e-01, -9.4050e+00],
+        [ 6.0908e-01, -1.1891e+01],
+        [-6.9443e+00, -6.1852e-01],
+        [-6.2157e+00, -5.2997e+00],
+        [-2.5951e+00, -9.4108e+00],
+        [ 3.1765e+00, -9.2050e+00],
+        [ 4.3549e+00, -6.6090e+00],
+        [ 5.2991e+00, -1.7056e+00],
+        [ 4.6859e-01, -9.4208e+00]],
 
-        [[-11.1741,   7.5193],
-         [ -5.8531,   4.7376],
-         [ -1.5079,  -1.0462],
-         [  1.4674,   1.0181],
-         [ -3.8770,   4.8620],
-         [ -8.0410,   4.1916],
-         [  0.0000,   0.0000],
-         [  2.5885,  -0.2514],
-         [  5.5658,  -0.3176],
-         [  7.4393,  -1.8650],
-         [ -0.0622,   5.6823],
-         [ -0.6420,   1.4260],
-         [  3.4631,  -1.1842],
-         [  6.8076,   0.9901],
-         [  6.3142,   5.5462],
-         [  4.7998,   5.4210],
-         [  6.2673,  -0.2055]],
-
-        [[-21.5646,  14.5114],
-         [-11.6589,   9.4369],
-         [ -3.0580,  -2.1217],
-         [  2.8959,   2.0093],
-         [ -7.4436,   9.3347],
-         [-14.7592,   7.6938],
-         [  0.0000,   0.0000],
-         [  5.3305,  -0.5177],
-         [ 11.9021,  -0.6792],
-         [ 16.1841,  -4.0572],
-         [ -0.1384,  12.6403],
-         [ -1.4025,   3.1150],
-         [  7.4853,  -2.5596],
-         [ 14.3005,   2.0799],
-         [ 13.0848,  11.4932],
-         [ 10.3986,  11.7443],
-         [ 13.6885,  -0.4487]],
-
-        [[-13.3122,   8.9581],
-         [ -7.0180,   5.6805],
-         [ -1.8145,  -1.2589],
-         [  1.7562,   1.2185],
-         [ -4.6140,   5.7862],
-         [ -9.4793,   4.9414],
-         [  0.0000,   0.0000],
-         [  3.1242,  -0.3034],
-         [  6.7666,  -0.3861],
-         [  9.0735,  -2.2746],
-         [ -0.0762,   6.9592],
-         [ -0.7837,   1.7405],
-         [  4.2188,  -1.4426],
-         [  8.2481,   1.1996],
-         [  7.6303,   6.7022],
-         [  5.8497,   6.6067],
-         [  7.6498,  -0.2508]]])
+        [[ 4.1949e+00,  6.0977e+00],
+        [ 1.7903e+00, -3.1798e+00],
+        [-2.7495e+00, -4.9575e-02],
+        [ 2.7858e+00,  4.6203e-02],
+        [ 5.8071e+00, -3.6465e+00],
+        [ 8.2556e+00,  5.7024e+00],
+        [ 3.1506e-15,  2.6259e-14],
+        [-3.3759e-01, -4.1778e+00],
+        [ 4.0149e-01, -9.8858e+00],
+        [ 6.8256e-01, -1.2303e+01],
+        [-7.5806e+00, -1.3962e-01],
+        [-7.1787e+00, -5.0212e+00],
+        [-2.8316e+00, -9.5914e+00],
+        [ 3.4574e+00, -1.0041e+01],
+        [ 5.0321e+00, -7.6827e+00],
+        [ 5.8696e+00, -2.1291e+00],
+        [ 4.4599e-01, -9.6818e+00]],
+    ])
 
     _, axis = get_figa(1, 1, heigth=10, width=5)
     colors = list(mcolors.TABLEAU_COLORS.values())
@@ -323,7 +290,30 @@ def viz_2ds():
     plt.show()
 
 
+# todo refactor
+def plot_vector(axis, vec, from_origin=True, color='black'):
+    if from_origin:
+        axis.quiver(
+            0, 0, 0,
+            *vec,
+            normalize=False,
+            length=1e3,
+            color=color
+        )
+    else:
+        axis.quiver(
+            *vec,
+            0, 0, 0,
+            normalize=False,
+            length=1e3,
+            color=color
+        )
+
+
 def debug_live_training():
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    axis = fig.add_subplot(1, 1, 1, projection='3d')
+
     cam_pred = torch.tensor([
         [[-9.7820e-01, -8.5482e-02,  1.8925e-01,  0.0000e+00],
          [ 1.3602e-01, -9.5238e-01,  2.7288e-01,  0.0000e+00],
@@ -346,23 +336,23 @@ def debug_live_training():
          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]
     ]).float()
     pred = torch.tensor([
-        [ 2.3641e+01, -5.1126e+01, -6.3698e+02],
-        [-5.3702e+01,  3.0688e+02, -2.9269e+02],
-        [-1.4042e+02,  5.0906e+00, -9.4177e+00],
-        [ 1.3941e+02, -5.7484e+00,  1.1342e+01],
-        [ 1.6083e+02,  3.1911e+02, -2.6591e+02],
-        [ 2.4219e+02, -3.2007e+01, -6.1190e+02],
-        [ 0.0000e+00, -9.0949e-13, -9.0949e-13],
-        [ 1.8934e+01,  1.2938e+02,  1.6864e+02],
-        [ 4.9195e+01,  3.6470e+02,  2.6948e+02],
-        [ 2.3851e+01,  5.1713e+02,  2.2665e+02],
-        [-2.7127e+02, -9.6756e+01,  2.1958e+02],
-        [-2.2832e+02,  7.5233e+01,  3.5988e+02],
-        [-9.4716e+01,  3.4057e+02,  2.9174e+02],
-        [ 1.9795e+02,  3.6118e+02,  2.8243e+02],
-        [ 3.4374e+02,  1.5595e+02,  4.3662e+02],
-        [ 3.9459e+02, -7.0551e+01,  3.7564e+02],
-        [ 1.7937e+01,  4.0214e+02,  1.8694e+02]
+        [-1.1062e+02, -2.4021e+01, -8.6182e+02],
+        [-1.1680e+02, -9.2211e+01, -4.3108e+02],
+        [-1.4555e+02, -4.9273e+00,  8.6690e+00],
+        [ 1.4575e+02,  4.8182e+00, -8.6731e+00],
+        [ 1.8282e+02, -1.1563e+02, -4.4068e+02],
+        [ 2.2903e+02,  2.3244e+02, -7.0267e+02],
+        [ 0.0000e+00,  0.0000e+00, -1.3642e-12],
+        [-3.1957e+00,  3.2945e+01,  2.5767e+02],
+        [-5.7011e+01, -7.1020e+00,  4.9884e+02],
+        [-7.4086e+01, -7.7866e+01,  7.0594e+02],
+        [-3.0692e+02, -1.4998e+02, -7.7421e+01],
+        [-2.8731e+02, -2.9572e+01,  1.3154e+02],
+        [-1.9361e+02, -4.1243e-01,  4.0143e+02],
+        [ 1.0650e+02,  2.7479e+01,  4.7604e+02],
+        [ 2.9699e+02,  8.6436e+01,  2.6544e+02],
+        [ 4.0069e+02, -1.3346e+02,  2.5631e+02],
+        [-5.6270e+01, -8.1665e+01,  5.9283e+02]
     ]).float()
     
     cam_gt = torch.tensor([
@@ -387,93 +377,108 @@ def debug_live_training():
          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]
     ]).float()
     gt = torch.tensor([
-        [ -79.5401, -636.6202,  -37.0452],
-        [ -80.1006, -342.1938,  287.2476],
-        [-134.9715,    8.6331,   13.0857],
-        [ 134.9714,   -8.6331,  -13.0857],
-        [ 123.5578, -341.4131,  287.5503],
-        [ 132.1298, -641.1887,  -31.6872],
-        [   0.0000,    0.0000,    0.0000],
-        [  51.0227,  177.0769,  131.2592],
-        [ 106.6453,  294.1788,  351.3190],
-        [  84.2807,  248.4880,  481.9431],
-        [-230.4554,  277.3011,  -61.3511],
-        [-153.6896,  433.7529,  114.1089],
-        [ -23.4383,  343.8069,  339.6841],
-        [ 245.7708,  285.6294,  341.7256],
-        [ 396.1953,  433.1156,  164.0866],
-        [ 430.9688,  338.0313,  -61.5378],
-        [  67.0051,  198.7636,  379.6946]
+        [-1.1878e+02, -2.7432e+01, -8.6744e+02],
+        [-1.2104e+02, -9.4662e+01, -4.3400e+02],
+        [-1.4616e+02, -6.0272e+00,  8.6655e+00],
+        [ 1.4616e+02,  6.0272e+00, -8.6654e+00],
+        [ 1.7977e+02, -1.1593e+02, -4.4275e+02],
+        [ 2.2280e+02,  2.3310e+02, -7.0490e+02],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00],
+        [-8.5132e-01,  3.3737e+01,  2.5903e+02],
+        [-5.2395e+01, -6.5671e+00,  5.0137e+02],
+        [-6.7249e+01, -7.7900e+01,  7.0934e+02],
+        [-3.0896e+02, -1.5282e+02, -7.8472e+01],
+        [-2.8755e+02, -3.1385e+01,  1.3228e+02],
+        [-1.9067e+02, -9.4177e-01,  4.0382e+02],
+        [ 1.1137e+02,  2.9557e+01,  4.7806e+02],
+        [ 3.0002e+02,  9.0326e+01,  2.6648e+02],
+        [ 4.0418e+02, -1.3030e+02,  2.5663e+02],
+        [-5.0510e+01, -8.1554e+01,  5.9563e+02]
     ]).float()
 
-    fig = plt.figure(figsize=plt.figaspect(1.5))
-    axis = fig.add_subplot(1, 1, 1, projection='3d')
+    def _compare_in_world():
+        draw_kps_in_3d(
+            axis, gt.detach().cpu().numpy() * 5, label='gt',
+            marker='o', color='blue'
+        )
+        
+        draw_kps_in_3d(
+            axis, pred.detach().cpu().numpy() * 5, label='pred',
+            marker='^', color='red'
+        )
 
-    # compare in world
-    # draw_kps_in_3d(
-    #     axis, gt.detach().cpu().numpy(), label='gt',
-    #     marker='o', color='blue'
-    # )
-    # draw_kps_in_3d(
-    #     axis, pred.detach().cpu().numpy(), label='pred',
-    #     marker='^', color='red'
-    # )
+    def _compare_in_camspace():
+        K = build_intrinsics(
+            translation=(0, 0),
+            f=(1e2, 1e2),
+            shear=0
+        )
+        cam_i = 3
 
-    # n_cameras = cam_pred.shape[0]
-    # for cam_i in range(n_cameras):
-    #     eulers = R.from_matrix(
-    #         cam_pred[cam_i, :3, :3]
-    #     ).as_euler('zyx', degrees=True)
-    #     print('pr cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
-    # for cam_i in range(n_cameras):
-    #     eulers = R.from_matrix(
-    #         cam_gt[cam_i, :3, :3]
-    #     ).as_euler('zyx', degrees=True)
-    #     print('gt cam #{:.0f} eulers ~ {}'.format(cam_i, str(eulers)))
+        cam = cam_gt[cam_i]
+        in_cam = homogeneous_to_euclidean(
+            euclidean_to_homogeneous(
+                gt  # [x y z] -> [x y z 1]
+            ) @ cam.T
+        )
+        print(in_cam)
+        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
+        print(in_proj)
+        print(homogeneous_to_euclidean(in_proj))
 
-    # draw points in cam spaces
-    # n_cameras = cam_pred.shape[0]
-    # colors = plt.get_cmap('cool')(np.linspace(0, 1, n_cameras))
-    # for cam_i in range(n_cameras):
-    #     in_cam = homogeneous_to_euclidean(
-    #         euclidean_to_homogeneous(
-    #             gt  # [x y z] -> [x y z 1]
-    #         ) @ cam_gt[cam_i].T
-    #     )
+        draw_kps_in_3d(
+            axis, in_cam.detach().cpu().numpy(), label='gt',
+            marker='^', color='blue'
+        )
 
-    #     draw_kps_in_3d(
-    #         axis, in_cam.detach().cpu().numpy(), label='cam #{:.0f}'.format(cam_i),
-    #         marker='^', color=colors[cam_i]
-    #     )
+        cam = cam_pred[cam_i]
+        in_cam = homogeneous_to_euclidean(
+            euclidean_to_homogeneous(
+                pred  # [x y z] -> [x y z 1]
+            ) @ cam.T
+        )
+        print(in_cam)
+        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
+        print(in_proj)
+        print(homogeneous_to_euclidean(in_proj))
+        draw_kps_in_3d(
+            axis, in_cam.detach().cpu().numpy(), label='pred',
+            marker='^', color='red'
+        )
 
-    # compare in cam space
-    cam_i = 3
+    def _plot_cam_config():
+        cmap = plt.get_cmap('jet')
+        colors = cmap(np.linspace(0, 1, 5))
 
-    cam = cam_gt[cam_i]
-    in_cam = homogeneous_to_euclidean(
-        euclidean_to_homogeneous(
-            gt  # [x y z] -> [x y z 1]
-        ) @ cam.T
-    )
-    draw_kps_in_3d(
-        axis, in_cam.detach().cpu().numpy(), label='gt',
-        marker='^', color='blue'
-    )
+        locs = get_cam_location_in_world(cam_pred)
+        for i, loc in enumerate(locs):
+            axis.scatter(
+                [ loc[0] ], [ loc[1] ], [ loc[2] ],
+                marker='o',
+                s=600,
+                color=colors[i],
+                label='pred cam #{:.0f}'.format(i)
+            )
+            plot_vector(axis, loc, from_origin=False)
 
-    cam = cam_pred[cam_i]
-    in_cam = homogeneous_to_euclidean(
-        euclidean_to_homogeneous(
-            pred  # [x y z] -> [x y z 1]
-        ) @ cam.T
-    )
-    draw_kps_in_3d(
-        axis, in_cam.detach().cpu().numpy(), label='pred',
-        marker='^', color='red'
-    )
+        locs = get_cam_location_in_world(cam_gt)
+        for i, loc in enumerate(locs):
+            axis.scatter(
+                [ loc[0] ], [ loc[1] ], [ loc[2] ],
+                marker='x',
+                s=600,
+                color=colors[i],
+                label='GT cam #{:.0f}'.format(i)
+            )
+            plot_vector(axis, loc, from_origin=False)
 
-    # fit, errors, residual = find_plane_minimizing_normal(pred)
-    # X, Y, Z = create_plane(fit)
-    # axis.scatter(X, Y, Z, color='gray')
+        plot_vector(axis, [1, 0, 0])  # X
+        plot_vector(axis, [0, 1, 0])  # Y
+        plot_vector(axis, [0, 0, 1])  # Z
+
+        axis.legend()
+
+    _compare_in_world()
 
     # axis.legend(loc='lower left')
     plt.tight_layout()
@@ -531,7 +536,7 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    debug_live_training()
+    # debug_live_training()
     # debug_noisy_kps()
-    # viz_experiment_samples()
+    viz_experiment_samples()
     # viz_2ds()

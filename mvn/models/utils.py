@@ -154,14 +154,15 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
             lr=1e-6  # BB already optimized
         )
 
+    opts = config.cam2cam.opt.scheduler
     scheduler = ReduceLROnPlateau(
         opt,
-        factor=7e-1,  # new lr = x * lr
-        patience=131,  # n max iterations since optimum
+        factor=opts.factor,  # new lr = x * lr
+        patience=opts.patience,  # n max iterations since optimum
         # threshold=42,  # no matter what, do lr decay
         mode='min',
-        cooldown=10,
-        min_lr=4e-6,  # not pre-trained (yet)
+        cooldown=int(opts.patience * 0.05),  # 5%
+        min_lr=opts.min_lr,
         verbose=True
     )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
 

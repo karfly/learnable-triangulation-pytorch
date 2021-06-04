@@ -219,17 +219,18 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 
-    __batch_i = 0  # todo debug only
+    if config.debug.show_live:
+        __batch_i = 0  # todo debug only
 
-    print('pred exts {:.0f}'.format(__batch_i))
-    print(cam_preds[__batch_i, :, :3, :4])
-    print('gt exts {:.0f}'.format(__batch_i))
-    print(cam_gts[__batch_i, :, :3, :4])
+        print('pred exts {:.0f}'.format(__batch_i))
+        print(cam_preds[__batch_i, :, :3, :4])
+        print('gt exts {:.0f}'.format(__batch_i))
+        print(cam_gts[__batch_i, :, :3, :4])
 
-    print('pred batch {:.0f}'.format(__batch_i))
-    print(kps_world_pred[__batch_i])
-    print('gt batch {:.0f}'.format(__batch_i))
-    print(kps_world_gt[__batch_i])
+        print('pred batch {:.0f}'.format(__batch_i))
+        print(kps_world_pred[__batch_i])
+        print('gt batch {:.0f}'.format(__batch_i))
+        print(kps_world_gt[__batch_i])
 
     return loss_R, trans_loss,\
         loss_proj, loss_world, loss_joint,\
@@ -238,6 +239,7 @@ def _compute_losses(cam_preds, cam_gts, keypoints_2d_pred, kps_world_pred, kps_w
 
 
 def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
+    print(is_train)
     batch_size = images_batch.shape[0]
     n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)

@@ -97,3 +97,13 @@ function monatorCam2cam () {
 
     watch -n5 "tail -n200 ${job_id}.out | grep -E 'cam2cam|epoc|losses' | grep -E 'comple|mm|loss'"
 }
+
+# usage: showJobLastCheckpoint "17113436"
+function showJobLastCheckpoint () {
+    job_id=$1
+    job_folder=$(showJobFolder ${job_id})
+    checkpoints_folder=${job_folder}/checkpoints
+    last_checkpoint=$(ls ${checkpoints_folder} | sort | tail -n1)
+
+    echo ${checkpoints_folder}/${last_checkpoint}/
+}

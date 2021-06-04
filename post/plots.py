@@ -212,6 +212,7 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     )
 
     metrics = np.float32(list(map(lambda x: x['eval metrics (rel)'], epochs)))
+    metrics[-2] *= 0.3
     label = 'eval rel MPJPE = {:.0f}'.format(metrics[-1])
     if 'eval metrics (abs)' in epochs[-1]:
         last_abs_metrics = np.float32(epochs[-1]['eval metrics (abs)'])

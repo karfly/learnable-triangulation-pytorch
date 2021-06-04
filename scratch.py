@@ -119,24 +119,6 @@ def viz_se_smooth():
     axis.legend(loc='upper left')
 
 
-# todo refactor
-def plot_vector(axis, vec, from_origin=True, color='black'):
-    if from_origin:
-        axis.quiver(
-            0, 0, 0,
-            *vec,
-            normalize=True,
-            color=color
-        )
-    else:
-        axis.quiver(
-            *vec,
-            0, 0, 0,
-            normalize=True,
-            color=color
-        )
-
-
 def viz_extrinsics():
     convention = 'ZXY'
     eulers = torch.tensor([

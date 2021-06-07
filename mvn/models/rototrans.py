@@ -195,7 +195,7 @@ class Cam2camNet(nn.Module):
         if config.cam2cam.model.master2others.R.parametrization == '6d':
             n_params_per_R = 6
             self.master2others_R_param = R6DBlock()
-        elif config.cam2cam.model.master2others.R.parametrization == 'rodrigues':
+        elif config.cam2cam.model.master2others.R.parametrization == 'rod':
             n_params_per_R = 3
             self.master2others_R_param = RodriguesBlock()
         else:

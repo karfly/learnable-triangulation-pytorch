@@ -112,14 +112,8 @@ def parse_job_log(f_path, verbose=False):
                     key = 't'
                 elif loss_name in ['pose', '2d']:
                     key = 'proj'
-                elif loss_name == '3d':
+                elif loss_name in ['3d', 'world']:
                     key = 'world'
-                elif loss_name == 'self r':
-                    key = 'self R'
-                elif loss_name == 'self t':
-                    key = 'self t'
-                elif loss_name == 'self ext':
-                    key = 'self cam'
                 elif loss_name in ['self c', 'self cam']:
                     key = 'self cam'
                 elif loss_name in ['self p', 'self 2d', 'self proj']:

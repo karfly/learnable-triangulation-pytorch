@@ -152,7 +152,7 @@ class Cam2camNet(nn.Module):
         if config.cam2cam.model.master.R.parametrization == '6d':
             n_params_per_R = 6
             self.master_R_param = R6DBlock()
-        elif config.cam2cam.model.master.R.parametrization == 'rodrigues':
+        elif config.cam2cam.model.master.R.parametrization == 'rod':
             n_params_per_R = 3
             self.master_R_param = RodriguesBlock()
         else:
@@ -184,7 +184,6 @@ class Cam2camNet(nn.Module):
         ])
 
         self.cam2cam_backbone = nn.Sequential(*[
-            nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=n_features,
                 inner_size=n_features,

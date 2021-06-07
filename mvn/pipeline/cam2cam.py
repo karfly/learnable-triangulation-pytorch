@@ -245,7 +245,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         extrinsics,
         kps_world_pred,
         keypoints_2d_pred
-    )
+    ) + loss_proj * 0.1
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 

@@ -77,22 +77,22 @@ cam2cam:
 
     master:
       R:
-        n_layers: 2
+        n_layers: 4
         parametrization: "6d"
 
       t:
-        n_layers: 2
+        n_layers: 4
 
     master2others:
       backbone:
-        n_layers: 4
+        n_layers: 8
 
       R:
-        n_layers: 2
+        n_layers: 4
         parametrization: "rod"
 
       t:
-        n_layers: 2
+        n_layers: 4
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
@@ -104,11 +104,11 @@ cam2cam:
     world: 0.0
     joint:
       i: 9
-      w: 50.0
+      w: 0.0
     self_consistency:
-      world: 2.0
+      world: 100.0
       proj: 1.0
-      separation: 10.0
+      separation: 100.0
 
   opt:
     grad_clip: 10.0

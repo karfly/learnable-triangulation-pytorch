@@ -40,12 +40,13 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.cam2cam.model.backbone.inner_size = 16
     config.cam2cam.model.backbone.n_layers = 1
     
-    config.cam2cam.model.R.n_layers = 1
-    config.cam2cam.model.t.n_layers = 1
+    config.cam2cam.model.master.R.n_layers = 1
+    config.cam2cam.model.master.t.n_layers = 1
+
+    config.cam2cam.model.master2others.R.n_layers = 1
+    config.cam2cam.model.master2others.t.n_layers = 1
 
     config.cam2cam.model.n_features = 16
-    config.cam2cam.model.n_refine_features = 8
-    config.cam2cam.model.n_more_refine_features = 4
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

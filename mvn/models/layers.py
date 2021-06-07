@@ -1,11 +1,8 @@
 import torch
 from torch import nn
 
-import numpy as np
 
-from mvn.utils.tred import rotx, rotz
-
-
+# todo batched
 class R6DBlock(nn.Module):
     """ https://arxiv.org/abs/1812.07035 """
 
@@ -37,7 +34,7 @@ class R6DBlock(nn.Module):
         y = y.view(-1, 3, 1)
         z = z.view(-1, 3, 1)
 
-        return torch.cat((x, y, z), 2)  # 3 x 3
+        return torch.cat([x, y, z], 2)  # 3 x 3
 
 
 class RodriguesBlock(nn.Module):
@@ -79,8 +76,7 @@ class RodriguesBlock(nn.Module):
             [k_one, -rz, ry, rz, k_one, -rx, -ry, rx, k_one], dim=1)
         return rotation_matrix.view(-1, 3, 3)
 
-
-    def forward(self, angle_axis):
+    def _forward_just_one(self, angle_axis):
         """ https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation """
 
         # stolen from ceres/rotation.h
@@ -106,8 +102,15 @@ class RodriguesBlock(nn.Module):
         # fill output matrix with masked values
         rotation_matrix[..., :3, :3] = \
             mask_pos * rotation_matrix_normal + mask_neg * rotation_matrix_taylor
-        
+
         return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
+
+    def forward(self, batched_angle_axis):
+        batch_size = batched_angle_axis.shape[0]
+        return torch.cat([
+            self._forward_just_one(batched_angle_axis[i]).unsqueeze(0)
+            for i in range(batch_size)
+        ])  # todo properly-batched
 
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP

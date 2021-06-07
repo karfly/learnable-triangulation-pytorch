@@ -73,26 +73,26 @@ cam2cam:
 
     backbone:
       inner_size: 1024
-      n_layers: 6
+      n_layers: 8
 
     master:
       R:
-        n_layers: 4
+        n_layers: 2
         parametrization: "6d"
 
       t:
-        n_layers: 4
+        n_layers: 2
 
     master2others:
       backbone:
-        n_layers: 8
+        n_layers: -1
 
       R:
-        n_layers: 4
+        n_layers: 2
         parametrization: "rod"
 
       t:
-        n_layers: 4
+        n_layers: 2
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
@@ -114,7 +114,7 @@ cam2cam:
     grad_clip: 10.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
-    lr: 0.0015
+    lr: 0.0005
     weight_decay: 1000.0
     scheduler:
       factor: 0.7

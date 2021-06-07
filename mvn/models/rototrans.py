@@ -180,16 +180,16 @@ class Cam2camNet(nn.Module):
 
         self.cam2cam_backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
-            MLPResNet(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
-                out_features=n_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            nn.BatchNorm1d(n_features),
+            # MLPResNet(
+            #     in_features=n_features,
+            #     inner_size=n_features,
+            #     n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
+            #     out_features=n_features,
+            #     batch_norm=batch_norm,
+            #     drop_out=drop_out,
+            #     activation=nn.LeakyReLU,
+            # ),
+            # nn.BatchNorm1d(n_features),
         ])
 
         if config.cam2cam.model.master2others.R.parametrization == '6d':

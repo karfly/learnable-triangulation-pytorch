@@ -14,7 +14,7 @@ debug:
   dump_results: false
   dump_tensors: false
   show_minimon: true
-  show_live: false
+  show_live: true
 
 opt:
   criterion: "MSESmooth"
@@ -97,28 +97,30 @@ cam2cam:
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 20.0
-    t: 10.0
+    R: 0.0
+    t: 0.0
     proj: 0.0
-    world: 1.0
+    world: 10.0
     joint:
       i: 9
       w: 0.0
     self_consistency:
-      proj: 0.0
-      separation: 0.0
+      world: 1.0
+      proj: 0.1
+      separation: 0.1
 
   opt:
     grad_clip: 10.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0015
-    weight_decay: 1.0
+    weight_decay: 100.0
     scheduler:
       factor: 0.7
       patience: 200
 # `2000` when 10% dataset
       min_lr: 0.00001
+# not finetuned yet ...
 
 model:
   name: "alg"

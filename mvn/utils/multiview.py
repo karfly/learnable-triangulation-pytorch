@@ -515,7 +515,7 @@ def prepare_weak_cams_for_dlt(cams, K, where="world"):
             ])  # ~ 4, 3, 4
         elif where == 'master':
             full_cams[batch_i] = torch.cat([
-                K.unsqueeze(0),  # doing DLT in master's camspace
+                K.unsqueeze(0),  # doing DLT in master (0)'s camspace
                 torch.mm(
                     K,
                     cams[batch_i, 1]

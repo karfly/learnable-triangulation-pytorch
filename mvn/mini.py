@@ -13,6 +13,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.debug.img_out = '/home/stefano/Scuola/tud/_classes/4/thesis/logs/imgs'
     config.debug.dump_checkpoints = False
     config.debug.show_minimon = False
+    config.debug.show_live = False
 
     config.opt.n_epochs = 2
     config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size

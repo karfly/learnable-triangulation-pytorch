@@ -203,10 +203,6 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
 
-    # todo VS kps_world_pred = triangulate(
-    #     extrinsics, keypoints_2d_pred, confidences_pred, K, 0, "world"
-    # )
-
     loss_world = KeypointsMSESmoothLoss(threshold=20*20)(
         kps_world_pred * config.opt.scale_keypoints_3d,
         kps_world_gt.to(dev) * config.opt.scale_keypoints_3d,
@@ -225,6 +221,17 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_joint * loss_weights.joint.w
 
     # ... and self
+    kps_world_pred_from_exts = triangulate(
+        extrinsics, keypoints_2d_pred, confidences_pred, K, 0, "world"
+    )
+    loss_self_world = KeypointsMSESmoothLoss(threshold=20*20)(
+        kps_world_pred * config.opt.scale_keypoints_3d,
+        kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
+        keypoints_3d_binary_validity_gt,
+    )
+    if loss_weights.self_consistency.world > 0:
+        total_loss += loss_self_world * loss_weights.self_consistency.world
+
     loss_self_proj = ScaleDependentProjectionLoss(
         HuberLoss(threshold=1e-1)
     )(
@@ -255,7 +262,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     return loss_R, t_loss,\
         loss_proj, loss_world, loss_joint,\
-        loss_self_proj, loss_self_separation,\
+        loss_self_world, loss_self_proj, loss_self_separation,\
         total_loss
 
 
@@ -299,7 +306,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _backprop():
         minimon.enter()
-        loss_R, t_loss, loss_2d, loss_3d, loss_joint, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
+        loss_R, t_loss, loss_2d, loss_3d, loss_joint, loss_self_world, loss_self_proj, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             confidences_pred,
@@ -312,7 +319,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, 2D ~ {:.0f}, 3D ~ {:.0f}, JOINT ~ {:.0f}, SELF 2D ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, JOINT ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
@@ -321,6 +328,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             loss_3d.item(),
             loss_joint.item(),
             loss_self_proj.item(),
+            loss_self_world.item(),
             loss_self_separation.item(),
             total_loss.item(),
         )

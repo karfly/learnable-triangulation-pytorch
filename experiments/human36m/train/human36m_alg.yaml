@@ -72,8 +72,8 @@ cam2cam:
     n_features: 256
 
     backbone:
-      inner_size: 1024
-      n_layers: 8
+      inner_size: 256
+      n_layers: 6
 
     master:
       R:
@@ -85,30 +85,30 @@ cam2cam:
 
     master2others:
       backbone:
-        n_layers: -1
+        n_layers: 6
 
       R:
-        n_layers: 2
-        parametrization: "rod"
+        n_layers: 3
+        parametrization: "6d"
 
       t:
-        n_layers: 2
+        n_layers: 3
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 0.0
-    t: 0.0
+    R: 50.0
+    t: 50.0
     proj: 0.0
     world: 0.0
     joint:
       i: 9
       w: 0.0
     self_consistency:
-      world: 100.0
-      proj: 1.0
-      separation: 100.0
+      world: 0.1
+      proj: 0.1
+      separation: 1.0
 
   opt:
     grad_clip: 10.0

@@ -157,39 +157,45 @@ class Cam2camNet(nn.Module):
         else:
             n_params_per_R, self.master_R_param = None, None
 
-        self.master_R_model = MLPResNet(
-            in_features=n_features,
-            inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master.R.n_layers,
-            out_features=n_params_per_R,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=nn.LeakyReLU,
-        )  # master.R predictor
+        self.master_R_model = nn.Sequential(*[
+            MLPResNet(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master.R.n_layers,
+                out_features=n_params_per_R,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),  # master.R predictor
+            nn.BatchNorm1d(n_params_per_R),
+        ])
 
-        self.td = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
-        self.master_t_model = MLPResNet(
-            in_features=n_features,
-            inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master.t.n_layers,
-            out_features=self.td,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=nn.LeakyReLU,
-        )  # master.t predictor
+        t_params = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
+        self.master_t_model = nn.Sequential(*[
+            MLPResNet(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                out_features=t_params,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),  # master.t predictor
+            nn.BatchNorm1d(t_params),
+        ])
 
         self.cam2cam_backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
-            # MLPResNet(
-            #     in_features=n_features,
-            #     inner_size=n_features,
-            #     n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
-            #     out_features=n_features,
-            #     batch_norm=batch_norm,
-            #     drop_out=drop_out,
-            #     activation=nn.LeakyReLU,
-            # ),
-            # nn.BatchNorm1d(n_features),
+            MLPResNet(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
+                out_features=n_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),
+            nn.BatchNorm1d(n_features),
         ])
 
         if config.cam2cam.model.master2others.R.parametrization == '6d':
@@ -201,25 +207,33 @@ class Cam2camNet(nn.Module):
         else:
             n_params_per_R, self.master2others_R_param = None, None
 
-        self.master2others_R_model = MLPResNet(
-            in_features=n_features,
-            inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
-            out_features=n_params_per_R * self.n_master2other_pairs,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=nn.LeakyReLU,
-        )  # master2others.R predictor
+        out_features = n_params_per_R * self.n_master2other_pairs
+        self.master2others_R_model = nn.Sequential(*[
+            MLPResNet(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
+                out_features=out_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),
+            nn.BatchNorm1d(out_features),
+        ])
 
-        self.master2others_t_model = MLPResNet(
-            in_features=n_features,
-            inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
-            out_features=3 * self.n_master2other_pairs,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=nn.LeakyReLU,
-        )  # master2others.t predictor
+        out_features = 3 * self.n_master2other_pairs
+        self.master2others_t_model = nn.Sequential(*[
+            MLPResNet(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
+                out_features=out_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),
+            nn.BatchNorm1d(out_features),
+        ])
 
         self.combiner = RotoTransCombiner()  # what else ???
 

@@ -55,7 +55,7 @@ class MLPResNet(nn.Module):
                 x = b(x)
             x = self.activation(x)
 
-            x = l2(x)  # trying second BN ...
+            x = l2(x)
             if not (b2 is None):
                 x = b2(x)
 

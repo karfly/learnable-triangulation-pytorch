@@ -144,6 +144,7 @@ class Cam2camNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
+                final_activation=nn.LeakyReLU,
             ),
             nn.BatchNorm1d(n_features),
         ])
@@ -167,7 +168,6 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),  # master.R predictor
-            nn.BatchNorm1d(n_params_per_R),
         ])
 
         t_params = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
@@ -181,7 +181,6 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),  # master.t predictor
-            nn.BatchNorm1d(t_params),
         ])
 
         self.cam2cam_backbone = nn.Sequential(*[
@@ -194,6 +193,7 @@ class Cam2camNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
+                final_activation=nn.LeakyReLU,
             ),
             nn.BatchNorm1d(n_features),
         ])
@@ -218,7 +218,6 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(out_features),
         ])
 
         out_features = 3 * self.n_master2other_pairs
@@ -232,7 +231,6 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(out_features),
         ])
 
         self.combiner = RotoTransCombiner()  # what else ???

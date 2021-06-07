@@ -3,7 +3,7 @@ from torch import nn
 
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, final_activation=nn.LeakyReLU, init_weights=False):
+    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
         super().__init__()
 
         sizes = (n_inner_layers + 1) * [inner_size]

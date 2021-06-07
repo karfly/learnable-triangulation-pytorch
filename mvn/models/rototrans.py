@@ -255,19 +255,21 @@ class Cam2camNet(nn.Module):
 
         t_feats = self.master2others_t_model(more_features)
         t_feats = t_feats.view(
-            batch_size, self.n_master2other_pairs.n_views_comparing, -1
+            batch_size, self.n_master2other_pairs, -1
         )
         ts = t_feats * self.scale_t
 
-        print(Rs.shape, ts.shape)
-        1/0
+        return self.combiner(
+            Rs,
+            ts,
+        ).view(batch_size, self.n_master2other_pairs, 4, 4)  # master 2 others
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
         features = self.backbone(x)  # batch_size, ...
 
-        masters = self._forward_masters(features).unsqueeze(1)
+        masters = self._forward_masters(features)
         master2others = self._forward_master2others(features)
 
         return torch.cat([

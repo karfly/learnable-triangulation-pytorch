@@ -232,25 +232,45 @@ class Cam2camNet(nn.Module):
         Rs = self.master_R_param(R_feats)  # ~ batch_size, (3 x 3)
 
         t_feats = self.master_t_model(features)
-        trans = t_feats.view(batch_size, -1)
-        trans = trans * self.scale_t
+        ts = t_feats.view(batch_size, -1)
+        ts = ts * self.scale_t
 
         return self.combiner(
             Rs.unsqueeze(1),
-            trans.unsqueeze(1),
+            ts.unsqueeze(1),
         ).view(batch_size, 4, 4)  # master's extrinsics
 
     def _forward_master2others(self, features):
         batch_size = features.shape[0]
-        pass
+        more_features = self.cam2cam_backbone(features)
+
+        R_feats = self.master2others_R_model(more_features)
+        R_feats = R_feats.view(
+            batch_size, self.n_master2other_pairs, -1
+        )
+        Rs = torch.cat([
+            self.master2others_R_param(R_feats[i]).unsqueeze(0)
+            for i in range(batch_size)
+        ])  # ~ batch_size, | others pairs |, (3 x 3)
+
+        t_feats = self.master2others_t_model(more_features)
+        t_feats = t_feats.view(
+            batch_size, self.n_master2other_pairs.n_views_comparing, -1
+        )
+        ts = t_feats * self.scale_t
+
+        print(Rs.shape, ts.shape)
+        1/0
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
-        batch_size = x.shape[0]
         features = self.backbone(x)  # batch_size, ...
 
-        masters = self._forward_masters(features)
-        print(masters)
+        masters = self._forward_masters(features).unsqueeze(1)
+        master2others = self._forward_master2others(features)
 
-        return self.combiner(rots, trans)
+        return torch.cat([
+            masters.unsqueeze(1),
+            master2others
+        ], dim=1)

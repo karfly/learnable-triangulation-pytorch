@@ -16,7 +16,8 @@ def get_kp_gt(keypoints_3d_gt, cameras, noisy=False):
         ]).unsqueeze(0)
         for batch_i in range(batch_size)
     ])  # ~ (batch_size, n_views, 17, 2)
-    if noisy:
+
+    if noisy:  # todo batched
         for batch_i in range(batch_size):
             var = 0.2  # to be scaled with K
             for view_i in range(n_views):

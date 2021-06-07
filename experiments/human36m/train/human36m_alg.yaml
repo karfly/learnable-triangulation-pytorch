@@ -97,16 +97,16 @@ cam2cam:
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 0.0
-    t: 0.0
+    R: 20.0
+    t: 10.0
     proj: 0.0
-    world: 0.0
+    world: 1.0
     joint:
       i: 9
-      w: 20.0
+      w: 0.0
     self_consistency:
-      proj: 10.0
-      separation: 0.1
+      proj: 0.0
+      separation: 0.0
 
   opt:
     grad_clip: 10.0

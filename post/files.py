@@ -106,30 +106,26 @@ def parse_job_log(f_path, verbose=False):
 
             # format used in https://github.com/sirfoga/learnable-triangulation-pytorch/blob/master/train.py#L627
             for loss_name, loss_val in available_losses:
-                if loss_name == 'geo' or loss_name == 'r':
+                if loss_name in ['geo', 'r']:
                     key = 'R'
-                elif loss_name == 'trans' or loss_name == 't':
+                elif loss_name in ['trans', 't']:
                     key = 't'
-                elif loss_name == 'pose' or loss_name == '2d':
-                    key = '2D'
+                elif loss_name in ['pose', '2d']:
+                    key = 'proj'
                 elif loss_name == '3d':
-                    key = '3D'
+                    key = 'world'
                 elif loss_name == 'self r':
                     key = 'self R'
                 elif loss_name == 'self t':
                     key = 'self t'
                 elif loss_name == 'self ext':
                     key = 'self cam'
-                elif loss_name == 'self c' or loss_name == 'self cam':
+                elif loss_name in ['self c', 'self cam']:
                     key = 'self cam'
-                elif loss_name == 'self p' or loss_name == 'self 2d':
-                    key = 'self 2D'
-                elif loss_name == 'self 3d':
-                    key = 'self 3D'
-                elif loss_name == 'self squash':
-                    key = 'self squash'
-                elif loss_name == 'world struct':
-                    key = 'world struct'
+                elif loss_name in ['self p', 'self 2d', 'self proj']:
+                    key = 'self proj'
+                elif loss_name in ['self 3d', 'self world']:
+                    key = 'self world'
                 elif loss_name == 'total':
                     key = 'total'
 

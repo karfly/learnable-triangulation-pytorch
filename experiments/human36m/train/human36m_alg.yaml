@@ -105,6 +105,7 @@ cam2cam:
       i: 9
       w: 0.0
     self_consistency:
+      pelvis: 50.0
       world: 1.0
       proj: 0.1
       separation: 0.1

@@ -12,6 +12,7 @@ from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous, build_intrinsics
 from mvn.utils.tred import get_cam_location_in_world, get_cam_orientation_in_world
+from mvn.pipeline.cam2cam import PELVIS_I
 
 
 def get_joints_connections():
@@ -332,23 +333,23 @@ def debug_live_training():
          [-3.2726e-02, -9.9945e-01, -4.8490e-03,  9.2459e+03]]
     ]).float()
     pred = torch.tensor([
-        [-6.5806e+03,  1.6590e+04, -1.4014e+04],
-        [-4.5359e+03,  1.0989e+04, -8.9466e+03],
-        [-3.5243e+02,  5.0054e+02,  2.4022e+01],
-        [ 3.7333e+02, -5.0031e+02, -1.8902e+01],
-        [-3.8840e+03,  9.7508e+03, -7.7534e+03],
-        [-6.2860e+03,  1.5714e+04, -1.2331e+04],
-        [ 0.0000e+00,  0.0000e+00,  0.0000e+00],
-        [ 3.7153e+03, -8.9708e+03,  7.1391e+03],
-        [ 1.1169e+04, -2.6712e+04,  2.1507e+04],
-        [ 1.9377e+04, -4.6041e+04,  3.7218e+04],
-        [ 3.7171e+03, -8.9146e+03,  8.0425e+03],
-        [ 1.7001e+03, -4.6450e+03,  4.6887e+03],
-        [ 8.1721e+03, -1.9884e+04,  1.6685e+04],
-        [ 1.0984e+04, -2.5945e+04,  1.9999e+04],
-        [ 7.9947e+03, -1.8019e+04,  1.2474e+04],
-        [ 1.6671e+04, -3.8102e+04,  2.8376e+04],
-        [ 1.5120e+04, -3.5811e+04,  2.9058e+04]
+        [-4698.4317, -1694.9864,  3635.5131],
+        [-5605.4048, -2069.3265,  5031.2188],
+        [-6048.4157, -2185.5617,  6389.1379],
+        [-5176.5937, -1744.8884,  5465.1803],
+        [-6831.1600, -2664.1482,  6223.2604],
+        [-8747.2348, -3754.8491,  6922.4022],
+        [-5574.1515, -1947.9399,  5888.7343],
+        [-5190.5269, -1712.5105,  5955.4026],
+        [-5112.0423, -1611.6560,  6468.9478],
+        [-5162.9929, -1591.8058,  6942.2155],
+        [-7270.5191, -2710.5218,  8310.6389],
+        [-6552.5363, -2390.2998,  7304.2445],
+        [-5687.8982, -1904.2984,  6998.2098],
+        [-4522.2304, -1334.7854,  5688.3053],
+        [-3855.6350, -1028.4650,  4627.6391],
+        [-4331.9016, -1193.2112,  5617.0048],
+        [-5512.7485, -1770.4731,  7184.2917]
     ]).float()
     
     cam_gt = torch.tensor([
@@ -388,12 +389,15 @@ def debug_live_training():
         [   3.6715,    5.2748,  549.8020]
     ]).float()
 
-    def _compare_in_world():
+    def _compare_in_world(gt, pred, force_pelvis_in_origin=True):
         draw_kps_in_3d(
             axis, gt.detach().cpu().numpy() * 5, label='gt',
             marker='o', color='blue'
         )
         
+        if force_pelvis_in_origin:
+            pred = pred - pred[PELVIS_I].unsqueeze(0).repeat(17, 1)
+
         draw_kps_in_3d(
             axis, pred.detach().cpu().numpy() * 5, label='pred',
             marker='^', color='red'
@@ -475,7 +479,7 @@ def debug_live_training():
 
         axis.legend()
 
-    _compare_in_world()
+    _compare_in_world(gt, pred)
     # _compare_in_camspace(0)  # the others are master2others ...
     # _plot_cam_config()
 

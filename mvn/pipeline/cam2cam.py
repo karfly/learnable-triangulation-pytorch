@@ -225,14 +225,16 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     kps_world_pred_from_exts = triangulate(
         extrinsics, keypoints_2d_pred, confidences_pred, K, 0, "world"
     )
-    if config.cam2cam.data.pelvis_in_origin:
-        kps_world_pred_from_exts = kps_world_pred_from_exts -\
-            kps_world_pred_from_exts[:, PELVIS_I].unsqueeze(1).repeat(1, 17, 1)
     loss_self_world = KeypointsMSESmoothLoss(threshold=20*20)(
         kps_world_pred * config.opt.scale_keypoints_3d,
         kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
         keypoints_3d_binary_validity_gt,
-    )  # todo add loss on pelvis != origin
+    ) + MSESmoothLoss(threshold=4e2)(
+        kps_world_pred[:, PELVIS_I] / config.cam2cam.postprocess.scale_t,
+        torch.zeros(3).unsqueeze(0)\
+            .repeat(batch_size, 1).to(kps_world_pred.device)
+    )
+
     if loss_weights.self_consistency.world > 0:
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
@@ -396,10 +398,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         master_i,
         where=config.cam2cam.triangulate
     )
-    if config.cam2cam.data.pelvis_in_origin:
-        kps_world_pred = kps_world_pred -\
-            kps_world_pred[:, PELVIS_I].unsqueeze(1).repeat(1, 17, 1)
-
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')

@@ -69,26 +69,26 @@ cam2cam:
 # `Martin` would disapprove
 
     drop_out: 0
-    n_features: 1024
+    n_features: 256
 
     backbone:
-      inner_size: 1024
-      n_layers: 5
+      inner_size: 256
+      n_layers: 16
 
     master:
       R:
-        n_layers: 3
+        n_layers: 8
         parametrization: "rod"
 
       t:
-        n_layers: 2
+        n_layers: 4
 
     master2others:
       backbone:
-        n_layers: 5
+        n_layers: 6
 
       R:
-        n_layers: 3
+        n_layers: 4
         parametrization: "6d"
 
       t:
@@ -114,7 +114,7 @@ cam2cam:
     grad_clip: 50.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
-    lr: 0.0015
+    lr: 0.0002
     weight_decay: 5000.0
     scheduler:
       factor: 0.7

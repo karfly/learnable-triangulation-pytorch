@@ -122,7 +122,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         'self world loss / batch': {
             'color': colors[8],
-            'scaler': 2e-3,
+            'scaler': 1e-3,
             'show': True,
         },
         'world struct loss / batch': {

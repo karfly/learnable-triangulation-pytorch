@@ -84,7 +84,8 @@ cam2cam:
         n_layers: 2
 
     master2others:
-      n_layers: 2
+      backbone:
+        n_layers: 4
 
       R:
         n_layers: 2
@@ -100,12 +101,11 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 10.0
+    world: 20.0
     joint:
       i: 9
       w: 0.0
     self_consistency:
-      pelvis: 50.0
       world: 1.0
       proj: 0.1
       separation: 0.1

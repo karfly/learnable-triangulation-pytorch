@@ -9,9 +9,10 @@ from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogen
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss
 
 _ITER_TAG = 'cam2cam'
+PELVIS_I = 6
 
 
-def center2pelvis(keypoints_2d, pelvis_i=6):
+def center2pelvis(keypoints_2d, pelvis_i=PELVIS_I):
     """ pelvis -> (0, 0) """
 
     n_joints = keypoints_2d.shape[2]
@@ -20,7 +21,7 @@ def center2pelvis(keypoints_2d, pelvis_i=6):
     return keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
 
 
-def dist2pelvis(keypoints_2d_in_view, pelvis_i=6):
+def dist2pelvis(keypoints_2d_in_view, pelvis_i=PELVIS_I):
     return torch.mean(torch.cat([
         torch.norm(
             keypoints_2d_in_view[i] -\
@@ -221,14 +222,6 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_joint * loss_weights.joint.w
 
     # ... and self
-    pelvis_i = 6
-    loss_self_pelvis = MSESmoothLoss(threshold=1e2)(
-        kps_world_pred[:, pelvis_i],  # just t
-        torch.zeros(3).repeat(batch_size, 1).to(kps_world_pred.device),
-    )
-    if loss_weights.self_consistency.pelvis > 0:
-        total_loss += loss_self_pelvis * loss_weights.self_consistency.pelvis
-
     kps_world_pred_from_exts = triangulate(
         extrinsics, keypoints_2d_pred, confidences_pred, K, 0, "world"
     )
@@ -270,7 +263,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     return loss_R, t_loss,\
         loss_proj, loss_world, loss_joint,\
-        loss_self_pelvis, loss_self_proj, loss_self_world, loss_self_separation,\
+        loss_self_proj, loss_self_world, loss_self_separation,\
         total_loss
 
 
@@ -314,7 +307,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _backprop():
         minimon.enter()
-        loss_R, t_loss, loss_2d, loss_3d, loss_joint, loss_self_pelvis, loss_self_proj, loss_self_world, loss_self_separation, total_loss = _compute_losses(
+        loss_R, t_loss, loss_2d, loss_3d, loss_joint, loss_self_proj, loss_self_world, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             confidences_pred,
@@ -327,7 +320,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, JOINT ~ {:.0f}, SELF PELVIS ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, JOINT ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
@@ -335,7 +328,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             loss_2d.item(),
             loss_3d.item(),
             loss_joint.item(),
-            loss_self_pelvis.item(),
             loss_self_proj.item(),
             loss_self_world.item(),
             loss_self_separation.item(),
@@ -401,6 +393,10 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         master_i,
         where=config.cam2cam.triangulate
     )
+    if config.cam2cam.data.pelvis_in_origin:
+        kps_world_pred = kps_world_pred -\
+            kps_world_pred[:, PELVIS_I].unsqueeze(1).repeat(1, 17, 1)
+
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(batch['indexes'], 'batch_indexes')

@@ -183,7 +183,7 @@ class Cam2camNet(nn.Module):
             MLPResNet(
                 in_features=n_features,
                 inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master2others.n_layers,
+                n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
                 out_features=n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,

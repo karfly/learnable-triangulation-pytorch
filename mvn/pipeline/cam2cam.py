@@ -269,7 +269,6 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
 def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     batch_size = images_batch.shape[0]
-    n_joints = config.model.backbone.num_joints
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
     iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
 
@@ -288,22 +287,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             )
 
         return keypoints_2d_pred, heatmaps_pred, confidences_pred
-
-    def _prepare_cam2cam_keypoints_batch(keypoints):
-        """ master-cam KPs will be first, then the others """
-
-        n_views = keypoints.shape[1]
-        out = torch.zeros(n_views, batch_size, n_views, n_joints, 2)
-        pairs = get_master_pairs()
-
-        for batch_i in range(batch_size):  # todo batched
-            for master_cam in range(n_views):
-                out[master_cam, batch_i] = torch.cat([
-                    keypoints[batch_i, view_i].unsqueeze(0)
-                    for view_i in pairs[master_cam]
-                ])
-
-        return out.cuda()
 
     def _backprop():
         minimon.enter()
@@ -358,24 +341,21 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:
         if hasattr(config.cam2cam.preprocess, 'normalize_kps'):
-            kps = normalize_keypoints(
+            detections = normalize_keypoints(
                 keypoints_2d_pred,
                 config.cam2cam.preprocess.pelvis_center_kps,
                 config.cam2cam.preprocess.normalize_kps
-            )
-
-            detections = _prepare_cam2cam_keypoints_batch(kps)
+            ).to('cuda:0') * 10.0
             if config.debug.dump_tensors:
                 _save_stuff(detections, 'detections')
         else:
             pass  # todo detections = _prepare_cam2cam_keypoints_batch
 
     minimon.enter()
-
     master_i = 0  # views are randomly sorted => no need for a random master within batch
     cam_preds = _forward_cams(
         cam2cam_model,
-        detections[master_i],
+        detections,
         cam_gts if config.cam2cam.cams.using_gt else None,
         noisy=config.cam2cam.cams.using_noise
     )

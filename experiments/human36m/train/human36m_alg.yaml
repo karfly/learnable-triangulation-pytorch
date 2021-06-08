@@ -87,8 +87,6 @@ cam2cam:
         n_layers: 1
 
     master2others:
-      n_features: 512
-
       R:
         n_layers: 2
         parametrization: "6d"
@@ -106,8 +104,8 @@ cam2cam:
     world: 0.0
     self_consistency:
       world: 0.5
-      proj: 0.5
-      separation: 0.0
+      proj: 1.0
+      separation: 0.01
 
   opt:
     grad_clip: 1.0

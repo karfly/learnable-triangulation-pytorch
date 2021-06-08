@@ -167,9 +167,8 @@ class Cam2camNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
-                # final_activation=nn.LeakyReLU,  # todo needed?
             ),
-            # nn.BatchNorm1d(n_features),  # todo needed?
+            nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
         self.master_R, self.master_t = self._make_Rt_model(
@@ -195,9 +194,8 @@ class Cam2camNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
-                # final_activation=nn.LeakyReLU,  # todo needed?
             ),
-            # nn.BatchNorm1d(n_features),  # todo needed?
+            nn.BatchNorm1d(config.cam2cam.model.master2others.n_features),
         ])
 
         self.master2other_R, self.master2other_t = self._make_Rt_model(

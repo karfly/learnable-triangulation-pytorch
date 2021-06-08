@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from mvn.utils.multiview import project_to_weak_views
+from mvn.utils.multiview import project2weak_views
 
 
 class KeypointsMSELoss(nn.Module):
@@ -198,24 +198,23 @@ class SeparationLoss(nn.Module):
 class ProjectionLoss(nn.Module):
     """ project GT VS pred points to all views """
 
-    def __init__(self):
+    def __init__(self, criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)), where='world'):
         super().__init__()
 
-    def forward(self, kps_world_gt, kps_world_pred, cameras, K, cam_preds, criterion=KeypointsMSESmoothLoss(threshold=20*20)):
-        n_views = len(cameras)
-        batch_size = kps_world_gt.shape[0]
+        self.criterion = criterion
+        self.where = where
+
+    def forward(self, K, cam_preds, kps_pred, keypoints_2d_gt):
+        batch_size = kps_pred.shape[0]
         dev = cam_preds.device
-        projections = project_to_weak_views(K, cam_preds, kps_world_pred)
-        
+
+        projections = project2weak_views(
+            K, cam_preds, kps_pred, self.where
+        )
         return torch.mean(torch.cat([
-            criterion(
+            self.criterion(
                 projections[batch_i],
-                torch.cat([
-                    cameras[view_i][batch_i].world2proj()(
-                        kps_world_gt[batch_i]
-                    ).unsqueeze(0)
-                    for view_i in range(n_views)
-                ]).to(dev),  # gt
+                keypoints_2d_gt[batch_i].to(dev),
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ]))
@@ -224,35 +223,34 @@ class ProjectionLoss(nn.Module):
 class ScaleDependentProjectionLoss(nn.Module):
     """ see eq 2 in https://arxiv.org/abs/2011.14679 """
 
-    def __init__(self, criterion=nn.L1Loss(), final_scale=1e4):
+    def __init__(self, criterion=nn.L1Loss(), where='world'):
         super().__init__()
 
         self.criterion = criterion
-        self.scale_free = lambda x: x / torch.norm(x, p='fro')
-        self.calc_loss = lambda projection, initials:\
+        self.scale_free = lambda x: torch.cat([
+            (
+                x[i] / torch.pow(torch.norm(x[i], p='fro'), 0.2)
+            ).unsqueeze(0)
+            for i in range(x.shape[0])
+        ])
+        self.calc_loss = lambda projections, initials:\
             self.criterion(
-                self.scale_free(projection),
+                self.scale_free(projections),
                 self.scale_free(initials)
             )
-        self.final_scale = final_scale
+        self.where = where
 
-    def forward(self, K, cam_preds, kps_world_pred, initial_keypoints):
+    def forward(self, K, cam_preds, kps_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
-        n_views = cam_preds.shape[1]
         dev = cam_preds.device
 
-        projections = project_to_weak_views(
-            K, cam_preds, kps_world_pred
+        projections = project2weak_views(
+            K, cam_preds, kps_pred, self.where
         )
-        return torch.mean(
-            torch.cat([
-                torch.cat([
-                    self.calc_loss(
-                        projections[batch_i, view_i].to(dev),
-                        initial_keypoints[batch_i, view_i].to(dev)
-                    ).unsqueeze(0)
-                    for view_i in range(n_views)
-                ]).unsqueeze(0)
-                for batch_i in range(batch_size)
-            ])
-        ) * self.final_scale
+        return torch.mean(torch.cat([
+            self.calc_loss(
+                projections[batch_i].to(dev),
+                initial_keypoints[batch_i].to(dev)
+            ).unsqueeze(0)
+            for batch_i in range(batch_size)
+        ]))

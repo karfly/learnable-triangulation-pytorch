@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 import torch
 
@@ -6,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log, get_master_pairs
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss
 
 _ITER_TAG = 'cam2cam'
 PELVIS_I = 6
@@ -139,10 +140,10 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, wher
     ).to(keypoints_2d_pred.device)
 
     if where == 'world':
-        return kps_cam_pred
+        return None, kps_cam_pred
     elif where == 'master':  # ... but since they're in master cam space ...
         batch_size = cams.shape[0]
-        return torch.cat([
+        kps_world_pred = torch.cat([
             homogeneous_to_euclidean(
                 euclidean_to_homogeneous(
                     kps_cam_pred[batch_i]
@@ -154,9 +155,10 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, wher
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ])
+        return kps_cam_pred, kps_world_pred
 
 
-def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
+def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps_mastercam_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     dev = cam_preds.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     batch_size = cam_preds.shape[0]
@@ -194,12 +196,14 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         extrinsics = cam_preds
 
     K = torch.DoubleTensor(cameras[0][0].intrinsics_padded)  # same for all
-    loss_proj = ProjectionLoss()(
-        kps_world_gt,
-        kps_world_pred,
-        cameras,
+    loss_proj = ProjectionLoss(
+        criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),
+        where=config.cam2cam.triangulate
+    )(
         K,
-        extrinsics
+        cam_preds,
+        kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
+        keypoints_2d_pred,  # todo just because I'm using GT KPs
     )
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
@@ -212,40 +216,31 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.world > 0:
         total_loss += loss_world * loss_weights.world
 
-    joint_i = loss_weights.joint.i
-    loss_joint = KeypointsMSESmoothLoss(threshold=20*20)(
-        kps_world_pred[:, joint_i] * config.opt.scale_keypoints_3d,
-        kps_world_gt[:, joint_i].to(dev) * config.opt.scale_keypoints_3d,
-        keypoints_3d_binary_validity_gt[:, joint_i],
-    )
-    if loss_weights.joint.w > 0:
-        total_loss += loss_joint * loss_weights.joint.w
-
     # ... and self
-    kps_world_pred_from_exts = triangulate(
-        extrinsics, keypoints_2d_pred, confidences_pred, K, 0, "world"
-    )
-    loss_self_world = KeypointsMSESmoothLoss(threshold=20*20)(
-        kps_world_pred * config.opt.scale_keypoints_3d,
-        kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
-        keypoints_3d_binary_validity_gt,
-    ) + MSESmoothLoss(threshold=4e2)(
-        kps_world_pred[:, PELVIS_I] / 1e1,
-        torch.zeros(3).unsqueeze(0)\
-            .repeat(batch_size, 1).to(kps_world_pred.device)
-    )
+    if config.cam2cam.triangulate == 'master':
+        _, kps_world_pred_from_exts = triangulate(
+            extrinsics, keypoints_2d_pred, confidences_pred, K, 0, 'world'
+        )
+        loss_self_world = KeypointsMSESmoothLoss(threshold=20*20)(
+            kps_world_pred * config.opt.scale_keypoints_3d,
+            kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
+            keypoints_3d_binary_validity_gt,
+        )
+    elif config.cam2cam.triangulate == 'world':
+        loss_self_world = torch.tensor(0.0)
 
     if loss_weights.self_consistency.world > 0:
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
-        HuberLoss(threshold=1e-1)
+        criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),
+        where=config.cam2cam.triangulate
     )(
         K,
-        extrinsics,
-        kps_world_pred,
+        cam_preds,
+        kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
         keypoints_2d_pred
-    ) + loss_proj * 0.1
+    )
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
@@ -267,7 +262,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         print(kps_world_gt[__batch_i])
 
     return loss_R, t_loss,\
-        loss_proj, loss_world, loss_joint,\
+        loss_proj, loss_world,\
         loss_self_proj, loss_self_world, loss_self_separation,\
         total_loss
 
@@ -312,11 +307,12 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _backprop():
         minimon.enter()
-        loss_R, t_loss, loss_2d, loss_3d, loss_joint, loss_self_proj, loss_self_world, loss_self_separation, total_loss = _compute_losses(
+        loss_R, t_loss, loss_2d, loss_3d, loss_self_proj, loss_self_world, loss_self_separation, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             confidences_pred,
             keypoints_2d_pred,
+            kps_mastercam_pred,
             kps_world_pred,
             kps_world_gt,
             keypoints_3d_binary_validity_gt,
@@ -325,14 +321,13 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, JOINT ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
             t_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_joint.item(),
             loss_self_proj.item(),
             loss_self_world.item(),
             loss_self_separation.item(),
@@ -390,7 +385,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     minimon.leave('forward')
 
     minimon.enter()
-    kps_world_pred = triangulate(
+    kps_mastercam_pred, kps_world_pred = triangulate(
         cam_preds,
         keypoints_2d_pred,
         confidences_pred,

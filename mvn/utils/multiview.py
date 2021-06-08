@@ -470,24 +470,22 @@ def _my_proj(ext, K):
     return _f
 
 
-def project_to_weak_views(K, cam_preds, kps_world_pred):
+def project2weak_views(K, cam_preds, kps_world_pred, where='world'):
     """ assuming https://en.wikipedia.org/wiki/3D_projection#Weak_perspective_projection """
 
     batch_size = cam_preds.shape[0]
     n_views = cam_preds.shape[1]
     dev = cam_preds.device
-
     return torch.cat([
         torch.cat([
             _my_proj(
-                cam_preds[batch_i, view_i],
+                torch.eye(4).to(dev) if (where == 'master' and view_i == 0) else cam_preds[batch_i, view_i],
                 K.to(dev)
             )(kps_world_pred[batch_i]).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
     ])  # project DLT-ed points in all views
-
 
 def prepare_weak_cams_for_dlt(cams, K, where="world"):
     batch_size = cams.shape[0]

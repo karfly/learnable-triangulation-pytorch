@@ -33,7 +33,7 @@ class MLPResNet(nn.Module):
 
     def _make_bn_layers(self, sizes, batch_norm=True):
         return nn.ModuleList([
-            nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
+            nn.BatchNorm1d(sizes[i + 1], momentum=0.9) if batch_norm else None
             for i in range(len(sizes) - 1)
         ])
 

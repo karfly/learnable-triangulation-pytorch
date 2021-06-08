@@ -65,35 +65,36 @@ cam2cam:
     scale_t: 1000.0
 
   model:
-    name: "skip"
+    name: "mlp"
     batch_norm: true
 # `Martin` would disapprove
 
     drop_out: 0
-    n_features: 1024
 
+# used by master and others
     backbone:
       inner_size: 1024
       n_layers: 6
 
     master:
-      R:
-        n_layers: 4
-        parametrization: "rod"
-
-      t:
-        n_layers: 2
-
-    master2others:
-      backbone:
-        n_layers: 6
+      n_features: 256
 
       R:
-        n_layers: 4
+        n_layers: 3
         parametrization: "6d"
 
       t:
-        n_layers: 2
+        n_layers: 3
+
+    master2others:
+      n_features: 256
+
+      R:
+        n_layers: 3
+        parametrization: "6d"
+
+      t:
+        n_layers: 3
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
@@ -107,19 +108,19 @@ cam2cam:
       i: 9
       w: 0.0
     self_consistency:
-      world: 5.0
-      proj: 10.0
+      world: 0.5
+      proj: 0.5
       separation: 0.0
 
   opt:
-    grad_clip: 10.0
+    grad_clip: 1.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0015
-    weight_decay: 1000.0
+    weight_decay: 100.0
     scheduler:
       factor: 0.7
-      patience: 200
+      patience: 500
 # `2000` when 10% dataset
       min_lr: 0.00001
 # not finetuned yet ...

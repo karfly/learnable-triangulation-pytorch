@@ -6,6 +6,28 @@ from mvn.models.resnet import MLPResNet
 from mvn.models.layers import R6DBlock, RodriguesBlock
 
 
+def make_mlp_by_name(name):
+    if name == 'mlp':
+        base_class = MLPResNet
+    elif name == 'skip':
+        base_class = MLSkipper
+
+    def _f(in_features, inner_size, n_inner_layers, out_features, batch_norm, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
+        return base_class(
+            in_features=in_features,
+            inner_size=inner_size,
+            n_inner_layers=n_inner_layers,
+            out_features=out_features,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+            final_activation=final_activation,
+            init_weights=init_weights
+        )
+
+    return _f
+
+
 class RotoTransCombiner(nn.Module):
     def __init__(self):
         super().__init__()
@@ -133,180 +155,150 @@ class Cam2camNet(nn.Module):
         n_joints = config.model.backbone.num_joints
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
-        n_features = config.cam2cam.model.n_features
-        make_mlp_with = self._make_mlp(config.cam2cam.model.name)
+        make_mlp_with = make_mlp_by_name(config.cam2cam.model.name)
 
-        self.backbone = nn.Sequential(*[
+        self.bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
                 in_features=self.n_views * n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.inner_size,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
-                out_features=n_features,
+                out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
-                final_activation=nn.LeakyReLU,
+                # final_activation=nn.LeakyReLU,  # todo needed?
             ),
-            nn.BatchNorm1d(n_features),
+            # nn.BatchNorm1d(n_features),  # todo needed?
         ])
 
-        if config.cam2cam.model.master.R.parametrization == '6d':
-            n_params_per_R = 6
-            self.master_R_param = R6DBlock()
-        elif config.cam2cam.model.master.R.parametrization == 'rod':
-            n_params_per_R = 3
-            self.master_R_param = RodriguesBlock()
-        else:
-            n_params_per_R, self.master_R_param = None, None
+        self.master_R, self.master_t = self._make_Rt_model(
+            make_mlp_with,
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
+            R_param=config.cam2cam.model.master.R.parametrization,
+            R_layers=config.cam2cam.model.master.R.n_layers,
+            t_param=1 if config.cam2cam.data.pelvis_in_origin else 3,  # just d
+            t_layers=config.cam2cam.model.master.t.n_layers,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=nn.LeakyReLU,
+        )
 
-        self.master_R_model = nn.Sequential(*[
+        self.master2other_bb = nn.Sequential(*[
+            nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master.R.n_layers,
+                in_features=2 * n_joints * 2,  # 2 views (master and other)
+                inner_size=config.cam2cam.model.backbone.inner_size,
+                n_inner_layers=config.cam2cam.model.backbone.n_layers,
+                out_features=config.cam2cam.model.master2others.n_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+                # final_activation=nn.LeakyReLU,  # todo needed?
+            ),
+            # nn.BatchNorm1d(n_features),  # todo needed?
+        ])
+
+        self.master2other_R, self.master2other_t = self._make_Rt_model(
+            make_mlp_with,
+            in_features=config.cam2cam.model.master2others.n_features,
+            inner_size=config.cam2cam.model.master2others.n_features,
+            R_param=config.cam2cam.model.master2others.R.parametrization,
+            R_layers=config.cam2cam.model.master2others.R.n_layers,
+            t_param=3,
+            t_layers=config.cam2cam.model.master2others.t.n_layers,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=nn.LeakyReLU,
+        )
+
+    @staticmethod  # todo out of this class
+    def _make_Rt_model(make_mlp, in_features, inner_size, R_param, R_layers, t_param, t_layers, batch_norm, drop_out, activation):
+        if R_param == '6d':
+            n_params_per_R = 6
+            R_param = R6DBlock()
+        elif R_param == 'rod':
+            n_params_per_R = 3
+            R_param = RodriguesBlock()
+
+        R_model = nn.Sequential(*[
+            make_mlp(
+                in_features=in_features,
+                inner_size=inner_size,
+                n_inner_layers=R_layers,
                 out_features=n_params_per_R,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),  # master.R predictor
-        ])
-
-        t_params = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
-        self.master_t_model = nn.Sequential(*[
-            make_mlp_with(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                out_features=t_params,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),  # master.t predictor
-        ])
-
-        self.cam2cam_backbone = nn.Sequential(*[
-            make_mlp_with(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
-                out_features=n_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-                final_activation=nn.LeakyReLU,
+                activation=activation
             ),
-            nn.BatchNorm1d(n_features),
+            R_param
         ])
 
-        if config.cam2cam.model.master2others.R.parametrization == '6d':
-            n_params_per_R = 6
-            self.master2others_R_param = R6DBlock()
-        elif config.cam2cam.model.master2others.R.parametrization == 'rod':
-            n_params_per_R = 3
-            self.master2others_R_param = RodriguesBlock()
-        else:
-            n_params_per_R, self.master2others_R_param = None, None
-
-        out_features = n_params_per_R * self.n_master2other_pairs
-        self.master2others_R_model = nn.Sequential(*[
-            make_mlp_with(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
-                out_features=out_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
-
-        out_features = 3 * self.n_master2other_pairs
-        self.master2others_t_model = nn.Sequential(*[
-            make_mlp_with(
-                in_features=n_features,
-                inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
-                out_features=out_features,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-        ])
-
-        self.combiner = RotoTransCombiner()  # what else ???
-
-    @staticmethod  # todo outside of this class
-    def _make_mlp(name):
-        if name == 'mlp':
-            base_class = MLPResNet
-        elif name == 'skip':
-            base_class = MLSkipper
-
-        def _f(in_features, inner_size, n_inner_layers, out_features, batch_norm, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None):
-            return base_class(
+        t_model = nn.Sequential(*[
+            make_mlp(
                 in_features=in_features,
                 inner_size=inner_size,
-                n_inner_layers=n_inner_layers,
-                out_features=out_features,
+                n_inner_layers=t_layers,
+                out_features=t_param,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=activation,  # todo as param
-                final_activation=final_activation,
-            )
+                activation=activation,
+            ),
+        ])
 
-        return _f
+        return R_model, t_model
 
-    def _forward_masters(self, features):
-        batch_size = features.shape[0]
-        R_feats = self.master_R_model(features)
-        R_feats = R_feats.view(
-            batch_size, -1
-        )
-        Rs = self.master_R_param(R_feats)  # ~ batch_size, (3 x 3)
+    @staticmethod  # todo out of this class
+    def _forward_cam(R_model, t_model, base_features, scale_t):
+        Rs = R_model(base_features)  # ~ batch_size, (3 x 3)
+        ts = t_model(base_features) * scale_t
 
-        t_feats = self.master_t_model(features)
-        ts = t_feats.view(batch_size, -1)
-        ts = ts * self.scale_t
-
-        return self.combiner(
+        return RotoTransCombiner()(
             Rs.unsqueeze(1),
             ts.unsqueeze(1),
-        ).view(batch_size, 4, 4)  # master's extrinsics
+        ).view(-1, 4, 4)
 
-    def _forward_master2others(self, features):
-        batch_size = features.shape[0]
-        more_features = self.cam2cam_backbone(features)
-
-        R_feats = self.master2others_R_model(more_features)
-        R_feats = R_feats.view(
-            batch_size, self.n_master2other_pairs, -1
+    def _forward_master(self, features):
+        return self._forward_cam(
+            self.master_R,
+            self.master_t,
+            features,
+            self.scale_t
         )
-        Rs = torch.cat([
-            self.master2others_R_param(R_feats[i]).unsqueeze(0)
-            for i in range(batch_size)
-        ])  # ~ batch_size, | others pairs |, (3 x 3)
 
-        t_feats = self.master2others_t_model(more_features)
-        t_feats = t_feats.view(
-            batch_size, self.n_master2other_pairs, -1
+    def _forward_master2other(self, x_master, x_other, features):
+        master2other_features = self.master2other_bb(
+            torch.cat([
+                x_master, x_other
+            ], dim=1)
         )
-        ts = t_feats * self.scale_t
+        final_features = features + master2other_features
+        return self._forward_cam(
+            self.master2other_R,
+            self.master2other_t,
+            final_features,
+            self.scale_t
+        )
 
-        return self.combiner(
-            Rs,
-            ts,
-        ).view(batch_size, self.n_master2other_pairs, 4, 4)  # master 2 others
+    def _forward_master2others(self, x, features):
+        return torch.cat([
+            self._forward_master2other(
+                x[:, 0],  # master's view
+                x[:, other_i],  # other's view
+                features
+            ).unsqueeze(1)
+            for other_i in range(1, self.n_views)
+        ], dim=1)
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
-        features = self.backbone(x)  # batch_size, ...
-
-        masters = self._forward_masters(features)
-        master2others = self._forward_master2others(features)
+        features = self.bb(x)  # batch_size, ...
+        masters = self._forward_master(features)
+        master2others = self._forward_master2others(x, features)
 
         return torch.cat([
-            masters.unsqueeze(1),
+            masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4
             master2others
         ], dim=1)

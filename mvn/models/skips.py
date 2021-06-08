@@ -44,7 +44,7 @@ class MLSkipper(nn.Module):
                 nn.init.normal_(m.weight, 0, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
+                nn.init.normal_(m.weight, 0, 1)
                 nn.init.constant_(m.bias, 0)
 
     def _encode_layer(self, i, x):

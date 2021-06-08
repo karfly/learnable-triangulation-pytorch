@@ -161,7 +161,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     batch_size = cam_preds.shape[0]
     n_cameras = cam_preds.shape[1]
-    loss_weights = config.cam2cam.loss
+    loss_weights = config.cam2cam.loss  # todo normalize | sum = 1
 
     # using supervision ...
     loss_R = GeodesicLoss()(
@@ -230,7 +230,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
         keypoints_3d_binary_validity_gt,
     ) + MSESmoothLoss(threshold=4e2)(
-        kps_world_pred[:, PELVIS_I] / config.cam2cam.postprocess.scale_t,
+        kps_world_pred[:, PELVIS_I] / 1e1,
         torch.zeros(3).unsqueeze(0)\
             .repeat(batch_size, 1).to(kps_world_pred.device)
     )

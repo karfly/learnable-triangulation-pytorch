@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 
+from mvn.models.skips import MLSkipper
 from mvn.models.resnet import MLPResNet
 from mvn.models.layers import R6DBlock, RodriguesBlock
 
@@ -133,10 +134,11 @@ class Cam2camNet(nn.Module):
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
         n_features = config.cam2cam.model.n_features
+        make_mlp_with = self._make_mlp(config.cam2cam.model.name)
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
-            MLPResNet(
+            make_mlp_with(
                 in_features=self.n_views * n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.inner_size,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
@@ -159,7 +161,7 @@ class Cam2camNet(nn.Module):
             n_params_per_R, self.master_R_param = None, None
 
         self.master_R_model = nn.Sequential(*[
-            MLPResNet(
+            make_mlp_with(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master.R.n_layers,
@@ -172,7 +174,7 @@ class Cam2camNet(nn.Module):
 
         t_params = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
         self.master_t_model = nn.Sequential(*[
-            MLPResNet(
+            make_mlp_with(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master.t.n_layers,
@@ -184,7 +186,7 @@ class Cam2camNet(nn.Module):
         ])
 
         self.cam2cam_backbone = nn.Sequential(*[
-            MLPResNet(
+            make_mlp_with(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master2others.backbone.n_layers,
@@ -208,7 +210,7 @@ class Cam2camNet(nn.Module):
 
         out_features = n_params_per_R * self.n_master2other_pairs
         self.master2others_R_model = nn.Sequential(*[
-            MLPResNet(
+            make_mlp_with(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
@@ -221,7 +223,7 @@ class Cam2camNet(nn.Module):
 
         out_features = 3 * self.n_master2other_pairs
         self.master2others_t_model = nn.Sequential(*[
-            MLPResNet(
+            make_mlp_with(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
@@ -233,6 +235,27 @@ class Cam2camNet(nn.Module):
         ])
 
         self.combiner = RotoTransCombiner()  # what else ???
+
+    @staticmethod  # todo outside of this class
+    def _make_mlp(name):
+        if name == 'mlp':
+            base_class = MLPResNet
+        elif name == 'skip':
+            base_class = MLSkipper
+
+        def _f(in_features, inner_size, n_inner_layers, out_features, batch_norm, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None):
+            return base_class(
+                in_features=in_features,
+                inner_size=inner_size,
+                n_inner_layers=n_inner_layers,
+                out_features=out_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,  # todo as param
+                final_activation=final_activation,
+            )
+
+        return _f
 
     def _forward_masters(self, features):
         batch_size = features.shape[0]

@@ -20,8 +20,12 @@ class MLSkipper(nn.Module):
             for _ in range(n_inner_layers)
         ])
 
-        self.encode_bns = self._make_bn_layers(inner_size, n_inner_layers, batch_norm)
-        self.decode_bns = self._make_bn_layers(inner_size, n_inner_layers, batch_norm)
+        self.encode_bns = self._make_bn_layers(
+            inner_size, n_inner_layers, batch_norm
+        )
+        self.decode_bns = self._make_bn_layers(
+            inner_size, n_inner_layers, batch_norm
+        )
 
         # todo dropout
         self.activation = activation()

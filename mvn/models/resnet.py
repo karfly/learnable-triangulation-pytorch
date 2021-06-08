@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 
@@ -8,33 +9,40 @@ class MLPResNet(nn.Module):
         super().__init__()
 
         self.up = nn.Linear(in_features, inner_size, bias=True)
-        sizes = (n_inner_layers + 1) * [inner_size]
 
         self.linears = nn.ModuleList([
-            nn.Linear(sizes[i], sizes[i + 1], bias=True)
-            for i in range(len(sizes) - 1)
+            nn.Linear(inner_size, inner_size, bias=True),
+        ] + [
+            nn.Linear(inner_size * 2, inner_size, bias=True)
+            for _ in range(1, n_inner_layers - 1)
         ])
         self.second_linears = nn.ModuleList([
-            nn.Linear(sizes[i + 1], sizes[i + 1], bias=True)
-            for i in range(len(sizes) - 1)
+            nn.Linear(inner_size, inner_size, bias=True),
+        ] + [
+            nn.Linear(inner_size, inner_size, bias=True)
+            for _ in range(1, n_inner_layers - 1)
         ])
 
-        self.bns = self._make_bn_layers(sizes, batch_norm)
-        self.second_bns = self._make_bn_layers(sizes, batch_norm)
+        self.bns = self._make_bn_layers(
+            inner_size, n_inner_layers, batch_norm
+        )
+        self.second_bns = self._make_bn_layers(
+            inner_size, n_inner_layers, batch_norm
+        )
 
         # todo dropout
         self.activation = activation()
 
-        self.head = nn.Linear(inner_size, out_features, bias=True)
+        self.head = nn.Linear(inner_size * 2, out_features, bias=True)
         self.final_activation = final_activation() if (not final_activation is None) else None
 
         if init_weights:
             self._init_weights()
 
-    def _make_bn_layers(self, sizes, batch_norm=True):
+    def _make_bn_layers(self, inner_size, n_inner_layers, batch_norm=True):
         return nn.ModuleList([
-            nn.BatchNorm1d(sizes[i + 1]) if batch_norm else None
-            for i in range(len(sizes) - 1)
+            nn.BatchNorm1d(inner_size) if batch_norm else None
+            for _ in range(n_inner_layers)
         ])
 
     def _init_weights(self):   # todo very stupid, can do better
@@ -59,7 +67,9 @@ class MLPResNet(nn.Module):
         if not (b2 is None):
             x = b2(x)
 
-        x = x + residual
+        x = torch.cat([
+            x, residual
+        ], dim=1)
         x = self.activation(x)  # activation AFTER residual
 
         return x

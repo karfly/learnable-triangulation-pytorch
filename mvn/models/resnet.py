@@ -11,14 +11,10 @@ class MLPResNet(nn.Module):
         self.up = nn.Linear(in_features, inner_size, bias=True)
 
         self.linears = nn.ModuleList([
-            nn.Linear(inner_size, inner_size, bias=True),
-        ] + [
-            nn.Linear(inner_size * 2, inner_size, bias=True)
+            nn.Linear(inner_size, inner_size, bias=True)
             for _ in range(1, n_inner_layers - 1)
         ])
         self.second_linears = nn.ModuleList([
-            nn.Linear(inner_size, inner_size, bias=True),
-        ] + [
             nn.Linear(inner_size, inner_size, bias=True)
             for _ in range(1, n_inner_layers - 1)
         ])
@@ -33,7 +29,7 @@ class MLPResNet(nn.Module):
         # todo dropout
         self.activation = activation()
 
-        self.head = nn.Linear(inner_size * 2, out_features, bias=True)
+        self.head = nn.Linear(inner_size, out_features, bias=True)
         self.final_activation = final_activation() if (not final_activation is None) else None
 
         if init_weights:
@@ -67,9 +63,7 @@ class MLPResNet(nn.Module):
         if not (b2 is None):
             x = b2(x)
 
-        x = torch.cat([
-            x, residual
-        ], dim=1)
+        x = x + residual
         x = self.activation(x)  # activation AFTER residual
 
         return x

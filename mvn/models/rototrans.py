@@ -294,7 +294,7 @@ class Cam2camNet(nn.Module):
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
-        features = self.bb(x)  # batch_size, ...
+        features = self.bb(x)
         masters = self._forward_master(
             x[:, 0],  # master's view
             features

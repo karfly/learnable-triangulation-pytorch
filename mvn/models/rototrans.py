@@ -190,18 +190,18 @@ class Cam2camNet(nn.Module):
                 in_features=2 * n_joints * 2,  # 2 views (master and other)
                 inner_size=config.cam2cam.model.backbone.inner_size,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
-                out_features=config.cam2cam.model.master2others.n_features,
+                out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(config.cam2cam.model.master2others.n_features),
+            nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
         self.master2other_R, self.master2other_t = self._make_Rt_model(
             make_mlp_with,
-            in_features=config.cam2cam.model.master2others.n_features,
-            inner_size=config.cam2cam.model.master2others.n_features,
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
             R_param=config.cam2cam.model.master2others.R.parametrization,
             R_layers=config.cam2cam.model.master2others.R.n_layers,
             t_param=3,

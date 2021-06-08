@@ -345,7 +345,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
                 keypoints_2d_pred,
                 config.cam2cam.preprocess.pelvis_center_kps,
                 config.cam2cam.preprocess.normalize_kps
-            ).to('cuda:0') * 10.0
+            ).to('cuda:0')  # todo device
             if config.debug.dump_tensors:
                 _save_stuff(detections, 'detections')
         else:

@@ -173,7 +173,7 @@ class Cam2camNet(nn.Module):
 
         self.master_R, self.master_t = self._make_Rt_model(
             make_mlp_with,
-            in_features=config.cam2cam.model.master.n_features,
+            in_features=config.cam2cam.model.master.n_features + n_joints * 2,
             inner_size=config.cam2cam.model.master.n_features,
             R_param=config.cam2cam.model.master.R.parametrization,
             R_layers=config.cam2cam.model.master.R.n_layers,
@@ -189,7 +189,7 @@ class Cam2camNet(nn.Module):
             make_mlp_with(
                 in_features=2 * n_joints * 2,  # 2 views (master and other)
                 inner_size=config.cam2cam.model.backbone.inner_size,
-                n_inner_layers=config.cam2cam.model.backbone.n_layers // 2,
+                n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
@@ -257,11 +257,12 @@ class Cam2camNet(nn.Module):
             ts.unsqueeze(1),
         ).view(-1, 4, 4)
 
-    def _forward_master(self, features):
+    def _forward_master(self, x_master, features):
+        master_features = torch.cat([nn.Flatten()(x_master), features], dim=1)
         return self._forward_cam(
             self.master_R,
             self.master_t,
-            features,
+            master_features,
             self.scale_t
         )
 
@@ -293,7 +294,10 @@ class Cam2camNet(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
         features = self.bb(x)  # batch_size, ...
-        masters = self._forward_master(features)
+        masters = self._forward_master(
+            x[:, 0],  # master's view
+            features
+        )
         master2others = self._forward_master2others(x, features)
 
         return torch.cat([

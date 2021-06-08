@@ -189,7 +189,7 @@ class Cam2camNet(nn.Module):
             make_mlp_with(
                 in_features=2 * n_joints * 2,  # 2 views (master and other)
                 inner_size=config.cam2cam.model.backbone.inner_size,
-                n_inner_layers=config.cam2cam.model.backbone.n_layers,
+                n_inner_layers=config.cam2cam.model.backbone.n_layers // 2,
                 out_features=config.cam2cam.model.master2others.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,

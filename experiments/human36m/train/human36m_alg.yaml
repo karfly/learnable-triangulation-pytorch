@@ -77,14 +77,14 @@ cam2cam:
       n_layers: 6
 
     master:
-      n_features: 512
+      n_features: 256
 
       R:
-        n_layers: 2
+        n_layers: 1
         parametrization: "6d"
 
       t:
-        n_layers: 2
+        n_layers: 1
 
     master2others:
       n_features: 512

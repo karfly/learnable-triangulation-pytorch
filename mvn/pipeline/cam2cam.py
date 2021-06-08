@@ -244,7 +244,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
-    loss_self_separation = SeparationLoss(3e1, 7e3)(kps_world_pred)
+    loss_self_separation = SeparationLoss(3e1, 6e3)(kps_world_pred)
     if loss_weights.self_consistency.separation > 0:
         total_loss += loss_self_separation * loss_weights.self_consistency.separation
 

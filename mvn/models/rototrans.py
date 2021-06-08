@@ -173,7 +173,7 @@ class Cam2camNet(nn.Module):
 
         self.master_R, self.master_t = self._make_Rt_model(
             make_mlp_with,
-            in_features=config.cam2cam.model.master.n_features + n_joints * 2,
+            in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
             R_param=config.cam2cam.model.master.R.parametrization,
             R_layers=config.cam2cam.model.master.R.n_layers,
@@ -187,21 +187,21 @@ class Cam2camNet(nn.Module):
         self.master2other_bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
-                in_features=config.cam2cam.model.master.n_features + n_joints * 2,  # 1 view (other)
+                in_features=2 * n_joints * 2,  # 2 views (master and other)
                 inner_size=config.cam2cam.model.backbone.inner_size,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
-                out_features=config.cam2cam.model.master.n_features,
+                out_features=config.cam2cam.model.master2others.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(config.cam2cam.model.master.n_features),
+            nn.BatchNorm1d(config.cam2cam.model.master2others.n_features),
         ])
 
         self.master2other_R, self.master2other_t = self._make_Rt_model(
             make_mlp_with,
-            in_features=config.cam2cam.model.master.n_features + 2 * n_joints * 2,  # 2 views (master and other),
-            inner_size=config.cam2cam.model.master.n_features,
+            in_features=config.cam2cam.model.master2others.n_features,
+            inner_size=config.cam2cam.model.master2others.n_features,
             R_param=config.cam2cam.model.master2others.R.parametrization,
             R_layers=config.cam2cam.model.master2others.R.n_layers,
             t_param=3,
@@ -257,23 +257,21 @@ class Cam2camNet(nn.Module):
             ts.unsqueeze(1),
         ).view(-1, 4, 4)
 
-    def _forward_master(self, x_master, features):
-        master_features = torch.cat([nn.Flatten()(x_master), features], dim=1)
+    def _forward_master(self, features):
         return self._forward_cam(
             self.master_R,
             self.master_t,
-            master_features,
+            features,
             self.scale_t
         )
 
     def _forward_master2other(self, x_master, x_other, features):
-        other_features = torch.cat([nn.Flatten()(x_other), features], dim=1)
-        extr_features = self.master2other_bb(other_features)
-        final_features = torch.cat([
-            nn.Flatten()(x_master),
-            nn.Flatten()(x_other),
-            extr_features
-        ], dim=1)
+        master2other_features = self.master2other_bb(
+            torch.cat([
+                x_master, x_other
+            ], dim=1)
+        )
+        final_features = features + master2other_features
         return self._forward_cam(
             self.master2other_R,
             self.master2other_t,
@@ -294,11 +292,8 @@ class Cam2camNet(nn.Module):
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
-        features = self.bb(x)
-        masters = self._forward_master(
-            x[:, 0],  # master's view
-            features
-        )
+        features = self.bb(x)  # batch_size, ...
+        masters = self._forward_master(features)
         master2others = self._forward_master2others(x, features)
 
         return torch.cat([

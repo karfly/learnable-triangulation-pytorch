@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "master"
+  triangulate: "world"
 # todo config for the 2 variants: I) predict all Es "world" II) predict "master" E and the 3 cam_0_i
 
   cams:
@@ -56,6 +56,7 @@ cam2cam:
     using_gt: true
     using_noise: false
     using_heatmaps: false
+    head_normal: true
 
   preprocess:
     pelvis_center_kps: true
@@ -101,14 +102,14 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 0.0
+    world: 1.0
     self_consistency:
       proj: 2.0
       world: 0.0
       separation: 0.01
 
   opt:
-    grad_clip: 10.0
+    grad_clip: 50.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.0002

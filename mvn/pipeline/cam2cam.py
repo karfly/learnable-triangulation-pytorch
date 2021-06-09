@@ -232,7 +232,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
-        criterion=HuberLoss(threshold=1e-1),
+        criterion=HuberLoss(threshold=1e-1),  # KeypointsMSESmoothLoss(threshold=20*np.sqrt(2))
         where=config.cam2cam.triangulate
     )(
         K,
@@ -266,7 +266,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss
 
 
-def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
+def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
     iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
 
@@ -278,7 +278,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
 
     def _forward_kp():
         if config.cam2cam.data.using_gt:
-            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, batch['cameras'], config.cam2cam.data.using_noise)
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, cameras, config.cam2cam.data.using_noise)
         else:
             keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                 images_batch, None, minimon
@@ -297,7 +297,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
             kps_world_pred,
             kps_world_gt,
             keypoints_3d_binary_validity_gt,
-            batch['cameras'],
+            cameras,
             config,
         )
         minimon.leave('compute loss')
@@ -328,12 +328,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('backward pass')
 
-    def _only_head_on_pelvis():
-        # 1. find those samples | cos_simil(head <-> pelvis) = 0 and ~ aligned up
-        # 2. (pre-)train only on those so that cams get a good (pre-)positioning
-
-        pass
-
     minimon.enter()
     keypoints_2d_pred, _, confidences_pred = _forward_kp()
     if config.debug.dump_tensors:
@@ -341,7 +335,7 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     minimon.leave('BB forward')
 
     cam_gts = _get_cams_gt(
-        batch['cameras'],
+        cameras,
         config.cam2cam.triangulate
     )
     if config.cam2cam.data.using_heatmaps:
@@ -368,7 +362,6 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
     )
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')
-
     minimon.leave('forward')
 
     minimon.enter()
@@ -376,13 +369,13 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         cam_preds,
         keypoints_2d_pred,
         confidences_pred,
-        torch.cuda.DoubleTensor(batch['cameras'][0][0].intrinsics_padded),
+        torch.cuda.DoubleTensor(cameras[0][0].intrinsics_padded),
         master_i,
         where=config.cam2cam.triangulate
     )
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
-        _save_stuff(batch['indexes'], 'batch_indexes')
+        _save_stuff(indices, 'batch_indexes')
         _save_stuff(kps_world_gt, 'kps_world_gt')
 
     minimon.leave('triangulate')

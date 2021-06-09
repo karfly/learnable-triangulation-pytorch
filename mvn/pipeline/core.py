@@ -24,25 +24,23 @@ def set_model_state(model, is_train):
 
 
 def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train, cam2cam_model=None, experiment_dir=None):
-    images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = prepare_batch(
-        batch, device, config
+    indices, cameras, images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = prepare_batch(
+        batch, device, config, is_train=is_train
     )
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(
-            epoch, batch, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
+            epoch, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
         )
     else:  # usual KP estimation
         if config.model.triangulate_in_world_space:  # predict KP in world
-            # todo use scheduler
             results = original_iter(
-                batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon
+                indices, cameras, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon
             )
         elif config.model.triangulate_in_cam_space:  # predict KP in camspace
-            # todo use scheduler
             results = triangulate_in_cam_iter(
-                batch, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
+                indices, cameras, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon
             )
         else:
             results = None
@@ -84,7 +82,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
             with_originals=False
         )
 
-    return results
+    return indices, results
 
 
 def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None, cam2cam_model=None):
@@ -112,19 +110,19 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
             if config.opt.torch_anomaly_detection:
                 torch.autograd.set_detect_anomaly(True)
                 with detect_anomaly():  # about x2s time
-                    results_pred = iter_batch(
+                    indices_pred, results_pred = iter_batch(
                         batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
                         epoch, minimon, is_train, cam2cam_model=cam2cam_model, experiment_dir=experiment_dir
                     )
             else:
-                results_pred = iter_batch(
+                indices_pred, results_pred = iter_batch(
                     batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
                     epoch, minimon, is_train, cam2cam_model=cam2cam_model, experiment_dir=experiment_dir
                 )
 
             if not (results_pred is None):
                 results['preds'].append(results_pred)  # save answers for evaluation
-                results['indexes'] += batch['indexes']
+                results['indexes'] += list(indices_pred)
 
     if master and len(results['preds']) > 0:  # calculate evaluation metrics
         minimon.enter()

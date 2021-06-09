@@ -98,7 +98,7 @@ class RotoTransNet(nn.Module):
             self.R_param = RodriguesBlock()
         
         self.R_model = MLPResNet(
-            in_features=n_features,
+            in_features=n_features,  # todo concat view KPs
             inner_size=n_features,
             n_inner_layers=config.cam2cam.model.master.R.n_layers,
             out_features=n_params_per_R * self.n_views_comparing,

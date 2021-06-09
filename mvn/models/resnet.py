@@ -12,11 +12,11 @@ class MLPResNet(nn.Module):
 
         self.linears = nn.ModuleList([
             nn.Linear(inner_size, inner_size, bias=True)
-            for _ in range(1, n_inner_layers - 1)
+            for _ in range(n_inner_layers)
         ])
         self.second_linears = nn.ModuleList([
             nn.Linear(inner_size, inner_size, bias=True)
-            for _ in range(1, n_inner_layers - 1)
+            for _ in range(n_inner_layers)
         ])
 
         self.bns = self._make_bn_layers(

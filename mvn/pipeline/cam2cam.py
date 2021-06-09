@@ -315,6 +315,9 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         )
         minimon.leave('backward pass')
 
+    def _only_head_on_pelvis():
+        .
+
     minimon.enter()
     keypoints_2d_pred, _, confidences_pred = _forward_kp()
     if config.debug.dump_tensors:

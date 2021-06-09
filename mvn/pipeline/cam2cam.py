@@ -232,7 +232,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
-        criterion=HuberLoss(threshold=20.0),  # KeypointsMSESmoothLoss(threshold=20*np.sqrt(2))
+        #criterion=HuberLoss(threshold=20.0),
+        criterion=KeypointsMSESmoothLoss(threshold=20.0),
         where=config.cam2cam.triangulate
     )(
         K,

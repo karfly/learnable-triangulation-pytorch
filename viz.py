@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous, build_intrinsics
+from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous, build_intrinsics, Camera
 from mvn.utils.tred import get_cam_location_in_world, get_cam_orientation_in_world
 from mvn.pipeline.cam2cam import PELVIS_I
 
@@ -312,6 +312,12 @@ def plot_vector(axis, vec, from_origin=True, color='black'):
 
 
 def debug_live_training():
+    K = build_intrinsics(
+        translation=(0, 0),
+        f=(1e2, 1e2),
+        shear=0
+    )
+
     cam_pred = torch.tensor([
         [[ 1.5227e-01,  5.9660e-02,  9.8654e-01,  0.0000e+00],
          [ 7.7107e-01, -6.3161e-01, -8.0818e-02,  0.0000e+00],
@@ -330,23 +336,23 @@ def debug_live_training():
          [-1.2272e-01, -9.9156e-01,  4.1788e-02, -3.7292e+03]]
     ]).float()
     pred = torch.tensor([
-        [-2.1803e+02, -5.7603e+01, -2.6499e+02],
-        [-1.7177e+02, -2.8113e+01, -9.8752e+01],
-        [-2.4564e+01,  5.1400e+01,  8.6318e+00],
-        [ 2.4465e+01, -5.0924e+01, -8.7513e+00],
-        [-1.3977e+02, -1.6307e+02, -5.0632e+01],
-        [-1.8916e+02, -1.3937e+02, -2.1824e+02],
-        [-5.2942e-15,  5.9410e-15,  4.9755e-16],
-        [ 9.4007e+01,  3.2671e+01,  4.1639e+01],
-        [ 1.7606e+02,  5.2860e+01,  1.0595e+02],
-        [ 2.0636e+02,  7.5315e+01,  1.6311e+02],
-        [ 1.0251e+02,  8.6864e+01,  1.9939e+02],
-        [ 4.1311e+01,  1.4898e+02,  1.4567e+02],
-        [ 1.4222e+02,  1.0175e+02,  1.0003e+02],
-        [ 1.7560e+02, -4.3467e+00,  8.9841e+01],
-        [ 1.3333e+02, -9.6172e+01,  1.4259e+02],
-        [ 1.5184e+02, -9.0876e+00,  2.0043e+02],
-        [ 1.7049e+02,  4.8572e+01,  1.4707e+02]
+        [-1.2533e+02, -1.2728e+01, -4.5531e+02],
+        [-2.8125e+01, -5.3130e-02, -2.3593e+02],
+        [ 1.3403e+01, -5.5529e+01, -2.3777e+01],
+        [-1.3342e+01,  5.5382e+01,  2.3651e+01],
+        [-8.2699e+01,  6.5502e+01, -2.0249e+02],
+        [-1.6964e+02,  7.9727e+01, -4.4351e+02],
+        [-2.4761e-14, -6.8778e-15,  5.4254e-15],
+        [ 3.0785e+01, -3.6346e+01,  1.0449e+02],
+        [ 6.9436e+01, -3.7748e+01,  2.2858e+02],
+        [ 1.0380e+02, -5.9078e+01,  3.1377e+02],
+        [ 5.6485e+01, -1.0257e+02, -7.3413e+01],
+        [ 5.1128e+01, -1.0528e+02,  4.3500e+01],
+        [ 7.3605e+01, -8.8712e+01,  1.7954e+02],
+        [ 4.2631e+01,  2.0175e+01,  2.0226e+02],
+        [ 2.2397e+00,  7.6305e+01,  8.7932e+01],
+        [ 2.0100e+00,  1.1743e+02, -2.4785e+00],
+        [ 9.7239e+01, -4.6958e+01,  2.6917e+02]
     ]).float()
     
     cam_gt = torch.tensor([
@@ -367,23 +373,23 @@ def debug_live_training():
          [ 3.8698e-01,  8.5493e-01, -3.4546e-01,  4.4827e+03]]
     ]).float()
     gt = torch.tensor([
-        [  37.4991, -144.7940, -871.4387],
-        [ 129.3202,   54.0021, -465.2055],
-        [ 138.2558,  -32.2440,   13.5774],
-        [-138.2538,   32.2435,  -13.5772],
-        [-140.5757,  297.0284, -421.7780],
-        [-135.5292,   27.7523, -796.5333],
+        [-170.1615,   32.1489, -845.8221],
+        [ -96.7913, -140.3269, -432.0922],
+        [-131.5567,    9.4015,  -16.7268],
+        [ 131.5569,   -9.4015,   16.7268],
+        [  80.0030,    6.4952, -422.8695],
+        [  40.1287,   65.7422, -871.4266],
         [   0.0000,    0.0000,    0.0000],
-        [ -45.3304,  -75.7998,  246.8953],
-        [ -82.1804,  -68.0094,  504.1621],
-        [ -44.4716,  -11.2745,  663.8755],
-        [ 146.7015,  168.1520,  560.7039],
-        [ 312.8317,   29.3780,  420.4814],
-        [  55.7141, -117.3896,  474.8474],
-        [-201.8953,  -12.5610,  434.1146],
-        [-274.3504,  275.3397,  384.4215],
-        [ -98.4383,  254.2147,  571.8475],
-        [ -54.6237,   34.4836,  558.8606]
+        [ -40.6688,   61.3262,  221.5786],
+        [  -5.4884,   47.9403,  475.8856],
+        [ -28.3539,   36.5607,  666.1389],
+        [-259.0923, -110.9618,  -75.9137],
+        [-223.7264,   10.1488,  141.9137],
+        [-138.6906,   48.7752,  404.7029],
+        [ 117.5744,   37.9555,  388.8961],
+        [ 198.7848,  -38.3537,  133.2452],
+        [ 221.5172, -202.4289,  -56.3129],
+        [ -21.2917,  -26.4346,  570.1847]
     ]).float()
 
     def _compare_in_world(gt, pred, force_pelvis_in_origin=True):
@@ -406,50 +412,30 @@ def debug_live_training():
     def _compare_in_camspace(cam_i):
         fig = plt.figure(figsize=plt.figaspect(1.5))
         axis = fig.add_subplot(1, 1, 1, projection='3d')
-        K = build_intrinsics(
-            translation=(0, 0),
-            f=(1e2, 1e2),
-            shear=0
-        )
 
-        cam = torch.cat([
-            cam_gt[cam_i],
-            torch.tensor([0.0, 0.0, 0.0, 1.0]).unsqueeze(0)
-        ], dim=0)
-        in_cam = homogeneous_to_euclidean(
-            euclidean_to_homogeneous(
-                gt  # [x y z] -> [x y z 1]
-            ) @ cam.T
+        cam = Camera(
+            cam_gt[cam_i, :3, :3],
+            cam_gt[cam_i, :3, 3],
+            K
         )
-        print(in_cam)
-        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
-        print(in_proj)
-        print(homogeneous_to_euclidean(in_proj))
-
+        in_cam = cam.world2cam()(gt.detach().cpu())
         draw_kps_in_3d(
             axis, in_cam.detach().cpu().numpy(), label='gt',
             marker='^', color='blue'
         )
 
-        cam = torch.cat([
-            cam_pred[cam_i],
-            torch.tensor([0.0, 0.0, 0.0, 1.0]).unsqueeze(0)
-        ], dim=0)
-        in_cam = homogeneous_to_euclidean(
-            euclidean_to_homogeneous(
-                pred  # [x y z] -> [x y z 1]
-            ) @ cam.T
+        cam = Camera(
+            cam_pred[cam_i, :3, :3],
+            cam_pred[cam_i, :3, 3],
+            K
         )
-        print(in_cam)
-        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
-        print(in_proj)
-        print(homogeneous_to_euclidean(in_proj))
+        in_cam = cam.world2cam()(pred.detach().cpu())
         draw_kps_in_3d(
             axis, in_cam.detach().cpu().numpy(), label='pred',
             marker='^', color='red'
         )
 
-    def _compare_in_proj(cam_i):
+    def _compare_in_proj(cam_i, norm=True):
         _, axis = get_figa(1, 1, heigth=10, width=5)
         K = build_intrinsics(
             translation=(0, 0),
@@ -457,34 +443,30 @@ def debug_live_training():
             shear=0
         )
 
-        cam = torch.cat([
-            cam_gt[cam_i],
-            torch.tensor([0.0, 0.0, 0.0, 1.0]).unsqueeze(0)
-        ], dim=0)
-        in_cam = homogeneous_to_euclidean(
-            euclidean_to_homogeneous(
-                gt  # [x y z] -> [x y z 1]
-            ) @ cam.T
+        cam = Camera(
+            cam_gt[cam_i, :3, :3],
+            cam_gt[cam_i, :3, 3],
+            K
         )
-        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
+        in_proj = cam.world2proj()(gt.detach().cpu())
+        if norm:
+            in_proj /= torch.pow(torch.norm(in_proj, p='fro'), 0.1)
 
         draw_kps_in_2d(axis, in_proj.cpu().numpy(), label='gt', color='blue')
 
-        cam = torch.cat([
-            cam_pred[cam_i],
-            torch.tensor([0.0, 0.0, 0.0, 1.0]).unsqueeze(0)
-        ], dim=0)
-        in_cam = homogeneous_to_euclidean(
-            euclidean_to_homogeneous(
-                pred  # [x y z] -> [x y z 1]
-            ) @ cam.T
+        cam = Camera(
+            cam_pred[cam_i, :3, :3],
+            cam_pred[cam_i, :3, 3],
+            K
         )
-        in_proj = torch.mm(in_cam, torch.tensor(K.T).float())  # just apply intrinsic
+        in_proj = cam.world2proj()(pred.detach().cpu())
+        if norm:
+            in_proj /= torch.pow(torch.norm(in_proj, p='fro'), 0.1)
 
         draw_kps_in_2d(axis, in_proj.cpu().numpy(), label='pred', color='red')
 
         axis.set_ylim(axis.get_ylim()[::-1])  # invert
-        # axis.legend(loc='lower right')
+        #axis.legend(loc='lower right')
 
     def _plot_cam_config():
         fig = plt.figure(figsize=plt.figaspect(1.5))
@@ -521,9 +503,9 @@ def debug_live_training():
         axis.legend()
 
     _compare_in_world(gt, pred)
-    # _compare_in_camspace(cam_i=1)
-    # _compare_in_proj(cam_i=1)
-    # _plot_cam_config()
+    #_compare_in_camspace(cam_i=1)
+    #_compare_in_proj(cam_i=0)
+    #_plot_cam_config()
 
     # axis.legend(loc='lower left')
     plt.tight_layout()

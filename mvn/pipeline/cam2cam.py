@@ -56,7 +56,9 @@ def normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     elif normalization == 'fro':
         scaling = torch.cat([
             torch.cat([
-                torch.norm(kps[batch_i, view_i], p='fro').unsqueeze(0)
+                torch.sqrt(
+                    torch.norm(kps[batch_i, view_i], p='fro')
+                ).unsqueeze(0)
                 for view_i in range(n_views)
             ]).unsqueeze(0)
             for batch_i in range(batch_size)
@@ -354,19 +356,11 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         cameras,
         config.cam2cam.triangulate
     )
-    if config.cam2cam.data.using_heatmaps:
-        pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
-    else:
-        if hasattr(config.cam2cam.preprocess, 'normalize_kps'):
-            detections = normalize_keypoints(
-                keypoints_2d_pred,
-                config.cam2cam.preprocess.pelvis_center_kps,
-                config.cam2cam.preprocess.normalize_kps
-            ).to('cuda:0')  # todo device
-            if config.debug.dump_tensors:
-                _save_stuff(detections, 'detections')
-        else:
-            pass  # todo detections = _prepare_cam2cam_keypoints_batch
+    detections = normalize_keypoints(
+        keypoints_2d_pred,
+        config.cam2cam.preprocess.pelvis_center_kps,
+        config.cam2cam.preprocess.normalize_kps
+    ).to('cuda:0')  # todo device
 
     minimon.enter()
     master_i = 0  # views are randomly sorted => no need for a random master within batch

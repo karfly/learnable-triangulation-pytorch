@@ -156,7 +156,7 @@ def prepare_batch(batch, device, config, is_train=True):
         mask = _get_head_normal(threshold)
         while len(mask) < 2:  # avoid empty batches
             threshold *= 0.95
-            mask = _get_head_normal()
+            mask = _get_head_normal(threshold)
 
         return _resample(
             mask, indices, cameras, images_batch,\

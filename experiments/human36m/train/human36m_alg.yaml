@@ -102,19 +102,19 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 1.0
+    world: 0.0
     self_consistency:
-      proj: 2.0
+      proj: 10.0
       world: 0.0
       separation: 0.01
 
   opt:
-    grad_clip: 50.0
+    grad_clip: 10.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
-    lr: 0.0002
+    lr: 0.0003
 # todo https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.CosineAnnealingLR
-    weight_decay: 0.01
+    weight_decay: 0.03
     scheduler:
       factor: 0.7
       patience: 500

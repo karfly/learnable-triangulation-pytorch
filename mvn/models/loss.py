@@ -228,7 +228,7 @@ class ScaleDependentProjectionLoss(nn.Module):
         self.criterion = criterion
         self.scale_free = lambda x: torch.cat([
             (
-                x[i] / torch.pow(torch.norm(x[i], p='fro'), 0.2)
+                x[i] / torch.pow(torch.norm(x[i], p='fro'), 0.1)
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
@@ -246,7 +246,7 @@ class ScaleDependentProjectionLoss(nn.Module):
         projections = project2weak_views(
             K, cam_preds, kps_pred, self.where
         )
-        return torch.mean(torch.cat([
+        return torch.max(torch.cat([
             self.calc_loss(
                 projections[batch_i].to(dev),
                 initial_keypoints[batch_i].to(dev)

@@ -83,7 +83,7 @@ def normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
     ])
 
 
-def _get_cams_gt(cameras):
+def _get_cams_gt(cameras, where='world'):
     """ master is 0 """
 
     n_cameras = len(cameras)
@@ -91,12 +91,25 @@ def _get_cams_gt(cameras):
 
     cam_gts = torch.zeros(batch_size, n_cameras, 4, 4)
     for batch_i in range(batch_size):
-        cam_gts[batch_i] = torch.cat([
-            torch.DoubleTensor(
-                cameras[i][batch_i].extrinsics_padded
-            ).unsqueeze(0)
-            for i in range(n_cameras)
-        ])
+        if where == 'world':
+            cam_gts[batch_i] = torch.cat([
+                torch.DoubleTensor(
+                    cameras[i][batch_i].extrinsics_padded
+                ).unsqueeze(0)
+                for i in range(n_cameras)
+            ])
+        elif where == 'master':
+            master = torch.DoubleTensor(cameras[0][batch_i].extrinsics_padded)
+            from_master = torch.inverse(master)
+
+            cam_gts[batch_i, 0] = master.clone()
+            cam_gts[batch_i, 1:] = torch.cat([
+                torch.mm(
+                    torch.DoubleTensor(cameras[i][batch_i].extrinsics_padded),
+                    from_master.clone()
+                ).unsqueeze(0)
+                for i in range(1, n_cameras)
+            ])
 
     return cam_gts.cuda()
 
@@ -174,7 +187,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     K = torch.DoubleTensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss(
-        criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),
+        criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),  # HuberLoss(threshold=1e-1),
         where=config.cam2cam.triangulate
     )(
         K,
@@ -316,7 +329,10 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         minimon.leave('backward pass')
 
     def _only_head_on_pelvis():
-        .
+        # 1. find those samples | cos_simil(head <-> pelvis) = 0 and ~ aligned up
+        # 2. (pre-)train only on those so that cams get a good (pre-)positioning
+
+        pass
 
     minimon.enter()
     keypoints_2d_pred, _, confidences_pred = _forward_kp()
@@ -324,7 +340,10 @@ def batch_iter(epoch_i, batch, iter_i, model, cam2cam_model, opt, scheduler, ima
         _save_stuff(keypoints_2d_pred, 'keypoints_2d_pred')
     minimon.leave('BB forward')
 
-    cam_gts = _get_cams_gt(batch['cameras'])
+    cam_gts = _get_cams_gt(
+        batch['cameras'],
+        config.cam2cam.triangulate
+    )
     if config.cam2cam.data.using_heatmaps:
         pass  # todo detections = _prepare_cam2cam_heatmaps_batch(heatmaps_pred, pairs)
     else:

@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 # todo config for the 2 variants: I) predict all Es "world" II) predict "master" E and the 3 cam_0_i
 
   cams:
@@ -86,26 +86,26 @@ cam2cam:
       t:
         n_layers: 2
 
-#    master2others:
-#      R:
-#        n_layers: 2
-#        parametrization: "6d"
+    master2others:
+      R:
+        n_layers: 2
+        parametrization: "6d"
 
-#      t:
-#        n_layers: 2
+      t:
+        n_layers: 2
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 20.0
-    t: 10.0
+    R: 0.0
+    t: 0.0
     proj: 0.0
-    world: 1.0
+    world: 0.0
     self_consistency:
-      proj: 0.0
+      proj: 2.0
       world: 0.0
-      separation: 0.1
+      separation: 0.01
 
   opt:
     grad_clip: 10.0

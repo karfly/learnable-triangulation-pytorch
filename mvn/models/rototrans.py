@@ -39,7 +39,7 @@ class RotoTransCombiner(nn.Module):
         if translations.shape[-1] == 1:  # predicted just distance
             trans = torch.cat([  # ext.t in each view
                 torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
-                torch.abs(translations).unsqueeze(-1),  # ~ batch_size, | comparisons |, 1, 1
+                translations.unsqueeze(-1)  # massively helps to NOT use |.|
             ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
         else:
             trans = translations.unsqueeze(-1)
@@ -86,7 +86,7 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(n_features),
+            # CAN be beneficial nn.BatchNorm1d(n_features),
         ])
 
         n_params_per_R, self.R_param = None, None
@@ -159,7 +159,7 @@ class Cam2camNet(nn.Module):
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
                 in_features=self.n_views * n_joints * 2,
-                inner_size=config.cam2cam.model.backbone.inner_size,
+                inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
@@ -186,7 +186,7 @@ class Cam2camNet(nn.Module):
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
                 in_features=2 * n_joints * 2,  # 2 views (master and other)
-                inner_size=config.cam2cam.model.backbone.inner_size,
+                inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,

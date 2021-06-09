@@ -1,8 +1,6 @@
-import torch
 from torch import nn
 
 
-# todo refactor
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
     batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
@@ -23,7 +21,7 @@ class MLPResNet(nn.Module):
             inner_size, n_inner_layers, batch_norm
         )
         self.second_bns = self._make_bn_layers(
-            inner_size, n_inner_layers, batch_norm
+            inner_size, n_inner_layers, False  # CAN be beneficial batch_norm
         )
 
         # todo dropout

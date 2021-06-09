@@ -121,8 +121,7 @@ class GeodesicLoss(nn.Module):
         return torch.acos(cos)
 
     def forward(self, m1, m2):
-        theta = self._criterion(m1, m2)
-        return theta.mean()
+        return self._criterion(m1, m2).mean()
 
 
 class HuberLoss(nn.Module):

@@ -5,12 +5,10 @@ from collections import defaultdict
 import numpy as np
 import cv2
 
-import torch
 from torch.utils.data import Dataset
 
 from mvn.utils.multiview import Camera, build_intrinsics
 from mvn.utils.img import scale_bbox, rotation_matrix_from_vectors_rodrigues
-from mvn.utils.tred import euler_angles_to_matrix, matrix_to_euler_angles, rotx, rotz
 
 
 # todo refactor diocan

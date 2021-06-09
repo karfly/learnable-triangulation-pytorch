@@ -38,15 +38,15 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.cam2cam.model.init_weights = False
     # config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
 
-    config.cam2cam.model.backbone.inner_size = 16
+    config.cam2cam.model.backbone.n_features = 16
     config.cam2cam.model.backbone.n_layers = 3
     
     config.cam2cam.model.master.n_features = 16
     config.cam2cam.model.master.R.n_layers = 1
     config.cam2cam.model.master.t.n_layers = 1
 
-    config.cam2cam.model.master2others.R.n_layers = 1
-    config.cam2cam.model.master2others.t.n_layers = 1
+    # config.cam2cam.model.master2others.R.n_layers = 1
+    # config.cam2cam.model.master2others.t.n_layers = 1
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

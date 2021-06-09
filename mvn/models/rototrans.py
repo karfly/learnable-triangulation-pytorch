@@ -68,19 +68,18 @@ class RotoTransNet(nn.Module):
         super().__init__()
 
         self.n_views_comparing = 4
-        self.n_pairs = self.n_views_comparing - 1
         self.scale_t = config.cam2cam.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
-        n_features = config.cam2cam.model.n_features
+        n_features = config.cam2cam.model.master.n_features
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=self.n_views_comparing * n_joints * 2,
-                inner_size=config.cam2cam.model.backbone.inner_size,
+                inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=n_features,
                 batch_norm=batch_norm,
@@ -91,17 +90,17 @@ class RotoTransNet(nn.Module):
         ])
 
         n_params_per_R, self.R_param = None, None
-        if config.cam2cam.model.R.parametrization == '6d':
+        if config.cam2cam.model.master.R.parametrization == '6d':
             n_params_per_R = 6
             self.R_param = R6DBlock()
-        elif config.cam2cam.model.R.parametrization == 'rodrigues':
+        elif config.cam2cam.model.master.R.parametrization == 'rod':
             n_params_per_R = 3
             self.R_param = RodriguesBlock()
         
         self.R_model = MLPResNet(
             in_features=n_features,
             inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.R.n_layers,
+            n_inner_layers=config.cam2cam.model.master.R.n_layers,
             out_features=n_params_per_R * self.n_views_comparing,
             batch_norm=batch_norm,
             drop_out=drop_out,
@@ -112,15 +111,14 @@ class RotoTransNet(nn.Module):
         self.t_model = MLPResNet(
             in_features=n_features,
             inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.t.n_layers,
+            n_inner_layers=config.cam2cam.model.master.t.n_layers,
             out_features=self.td * self.n_views_comparing,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=nn.LeakyReLU,
         )
 
-        self.combiner = RotoTransCombiner()
-
+    # todo refactor like in `Cam2camNet`
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
 
@@ -141,7 +139,7 @@ class RotoTransNet(nn.Module):
         trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | n_predictions |, 1 = ext.d for each view
         trans = trans * self.scale_t
 
-        return self.combiner(rots, trans)
+        return RotoTransCombiner()(rots, trans)
 
 
 class Cam2camNet(nn.Module):

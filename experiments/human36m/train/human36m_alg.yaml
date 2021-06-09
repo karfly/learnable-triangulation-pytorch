@@ -44,8 +44,8 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "master"
-# todo config for the 2 variants: I) predict all Es II) predict "master" E and the 3 cam_0_i
+  triangulate: "world"
+# todo config for the 2 variants: I) predict all Es "world" II) predict "master" E and the 3 cam_0_i
 
   cams:
     using_gt: false
@@ -71,9 +71,9 @@ cam2cam:
 
     drop_out: 0
 
-# used by master and others
     backbone:
-      inner_size: 512
+# used by master and others
+      n_features: 512
       n_layers: 6
 
     master:
@@ -86,32 +86,33 @@ cam2cam:
       t:
         n_layers: 2
 
-    master2others:
-      R:
-        n_layers: 2
-        parametrization: "6d"
+#    master2others:
+#      R:
+#        n_layers: 2
+#        parametrization: "6d"
 
-      t:
-        n_layers: 2
+#      t:
+#        n_layers: 2
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 0.0
-    t: 0.0
+    R: 20.0
+    t: 10.0
     proj: 0.0
-    world: 0.0
+    world: 1.0
     self_consistency:
-      world: 0.5
-      proj: 1.0
-      separation: 0.01
+      world: 0.50
+      proj: 0.0
+      separation: 0.0
 
   opt:
     grad_clip: 0.25
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.002
+# todo https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.CosineAnnealingLR
     weight_decay: 1.0
     scheduler:
       factor: 0.7

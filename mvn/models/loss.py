@@ -226,16 +226,16 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.scale2 = lambda x, y: torch.cat([
+        self.scale2 = lambda x: torch.cat([
             (
-                x[i] / torch.pow(torch.norm(y[i], p='fro'), 0.1)
+                x[i] / torch.pow(torch.norm(x[i], p='fro'), 0.1)
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
         self.calc_loss = lambda projections, initials:\
             self.criterion(
-                self.scale2(projections, initials),
-                self.scale2(initials, initials)
+                self.scale2(projections),
+                self.scale2(initials)
             )
         self.where = where
 

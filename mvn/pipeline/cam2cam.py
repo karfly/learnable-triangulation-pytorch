@@ -232,8 +232,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
-        #criterion=HuberLoss(threshold=20.0),
-        criterion=KeypointsMSESmoothLoss(threshold=20.0),
+        criterion=HuberLoss(threshold=20.0),
+        #criterion=KeypointsMSESmoothLoss(threshold=20.0),
         where=config.cam2cam.triangulate
     )(
         K,
@@ -302,6 +302,21 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             config,
         )
         minimon.leave('compute loss')
+
+        # todo force head -| pelvis
+        batch_size = kps_world_pred.shape[0]
+        Z_axis = torch.tensor([0., 0., 1.0])\
+            .to(kps_world_pred.device)
+        head_aligned_Z = torch.nn.CosineSimilarity(dim=1, eps=1e-08)(
+            Z_axis.unsqueeze(0).repeat(batch_size, 1),
+            kps_world_pred[:, 9],
+        )
+        head_aligned_Z_loss = MSESmoothLoss(threshold=0.9)(
+            head_aligned_Z.unsqueeze(0),
+            torch.ones(batch_size).to(kps_world_pred.device).unsqueeze(0)
+        )
+        print(head_aligned_Z, head_aligned_Z_loss)
+        total_loss += 10.0 * head_aligned_Z_loss
 
         message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF PROJ ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',

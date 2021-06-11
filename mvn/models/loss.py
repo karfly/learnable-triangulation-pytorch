@@ -133,7 +133,9 @@ class BerHuLoss(nn.Module):
         self.c = np.float64(threshold)
 
     def _criterion(self, diff):
-        diff[torch.abs(diff) <= self.c] = nn.L1Loss(diff[torch.abs(diff) <= self.c])  # L1 norm within threshold
+        diff[torch.abs(diff) <= self.c] = torch.abs(
+            diff[torch.abs(diff) <= self.c]
+        )  # L1 norm within threshold
         
         diff[torch.abs(diff) > self.c] =\
             (torch.square(diff[torch.abs(diff) > self.c]) + np.square(self.c)) / (2 * self.c)

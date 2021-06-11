@@ -115,7 +115,7 @@ cam2cam:
 
     lr: 0.001
 # todo https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.CosineAnnealingLR
-    weight_decay: 0.01
+    weight_decay: 0.001
     scheduler:
       factor: 0.7
       patience: 500

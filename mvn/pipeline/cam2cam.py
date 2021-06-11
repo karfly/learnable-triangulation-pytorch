@@ -8,6 +8,7 @@ from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, HuberLoss
+from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'
 PELVIS_I = 6
@@ -368,6 +369,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         master_i,
         where=config.cam2cam.triangulate
     )
+
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
         _save_stuff(indices, 'batch_indexes')
@@ -377,5 +379,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     if is_train:
         _backprop()
+
+    if config.cam2cam.postprocess.try2align:
+        # todo also for mastercam ...
+        kps_world_pred = apply_umeyama(
+            kps_world_gt.to(kps_world_pred.device).double(),
+            kps_world_pred
+        )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

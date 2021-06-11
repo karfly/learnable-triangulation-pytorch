@@ -259,6 +259,34 @@ def rotate_points(points, R):
     )  # R * points ...
 
 
+def get_centroid(points):
+    return points.mean(axis=0)
+
+
+def apply_umeyama(batch_gt, batch_pred):  # todo really batched
+    def _f(gt, pred):
+        pred_centered = pred - get_centroid(pred)
+        gt_centered = gt - get_centroid(gt)
+
+        H = torch.mm(
+            pred_centered.T,
+            gt_centered
+        )
+        u, _, v = torch.svd(H)  # Kabsch algorithm
+        R = torch.mm(v, u.T)
+
+        c = torch.norm(gt_centered, p='fro') / torch.norm(pred_centered, p='fro')  # ~ Umeyama approach
+
+        # todo t
+
+        return rotate_points(pred, R) * c
+
+    return torch.cat([
+        _f(batch_gt[i], batch_pred[i]).unsqueeze(0)
+        for i in range(batch_gt.shape[0])
+    ])
+
+
 # todo separate f
 def _rotate_points_based_on_joint_align(points, ref_points, joint_i):
     return rotate_points(

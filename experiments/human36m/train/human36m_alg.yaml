@@ -64,6 +64,7 @@ cam2cam:
 
   postprocess:
     scale_t: 100.0
+    try2align: true
 
   model:
     name: "mlp"
@@ -99,12 +100,12 @@ cam2cam:
     checkpoint: "/cam2cam_model.pth"
 
   loss:
-    R: 20.0
-    t: 10.0
+    R: 0.0
+    t: 0.0
     proj: 0.0
-    world: 1.0
+    world: 0.0
     self_consistency:
-      proj: 0.0
+      proj: 10.0
       world: 0.0
       separation: 0.0
 

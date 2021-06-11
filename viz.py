@@ -10,9 +10,10 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.multiview import homogeneous_to_euclidean, euclidean_to_homogeneous, build_intrinsics, Camera
-from mvn.utils.tred import get_cam_location_in_world, get_cam_orientation_in_world
+from mvn.utils.multiview import build_intrinsics, Camera
+from mvn.utils.tred import get_cam_location_in_world, rotate_points, get_centroid, apply_umeyama
 from mvn.pipeline.cam2cam import PELVIS_I
+from mvn.models.loss import KeypointsMSESmoothLoss
 
 
 def get_joints_connections():
@@ -336,23 +337,23 @@ def debug_live_training():
          [-1.2272e-01, -9.9156e-01,  4.1788e-02, -3.7292e+03]]
     ]).float()
     pred = torch.tensor([
-        [ 3.0199e+02,  7.6386e+02, -9.2095e+01],
-        [ 1.0529e+02,  4.1058e+02, -4.9939e+01],
-        [-2.7263e+02, -4.7887e+02, -1.5107e+02],
-        [ 2.4897e+02,  3.9613e+02,  1.0713e+02],
-        [ 2.3768e+02,  3.5662e+02, -2.1629e+01],
-        [ 5.3573e+02,  6.8047e+02, -2.2865e+01],
-        [-8.5691e-15, -1.0091e-14, -2.1759e-15],
-        [-7.5353e+01, -1.9021e+02,  2.3001e+01],
-        [-1.8850e+02, -3.8088e+02,  3.5248e+01],
-        [-2.4808e+02, -5.0466e+02,  4.8244e+01],
-        [-1.4677e+02, -1.4248e+02, -8.3318e+00],
-        [-1.0769e+02, -1.6977e+02,  2.7031e+01],
-        [-1.8112e+02, -3.3171e+02,  3.7816e+01],
-        [-1.4145e+02, -3.4318e+02,  2.7022e+01],
-        [-3.8897e+01, -1.9216e+02, -2.2829e+00],
-        [-1.5005e+02, -1.7548e+02, -9.3250e+00],
-        [-2.5141e+02, -4.2768e+02,  2.8653e+01]
+        [ 2.5268e+00,  1.0658e+02, -1.5335e+02],
+        [ 2.1525e+01,  6.2747e+01, -7.4802e+01],
+        [ 3.0199e+01, -9.3599e+00, -9.7415e+00],
+        [-3.0106e+01,  9.5660e+00,  9.3942e+00],
+        [-2.4891e+01,  8.6474e+01, -5.1346e+01],
+        [-4.2937e+01,  1.3697e+02, -1.2766e+02],
+        [-7.0193e-15,  1.0485e-15,  5.4697e-15],
+        [-1.6657e+00, -4.2573e+01,  2.7528e+01],
+        [-8.7589e+00, -8.6447e+01,  6.5320e+01],
+        [-3.7841e+00, -1.1567e+02,  8.6816e+01],
+        [ 4.7347e+01, -9.3373e+01,  1.0550e+02],
+        [ 6.4868e+01, -5.0244e+01,  7.1611e+01],
+        [ 1.9747e+01, -8.8779e+01,  5.2620e+01],
+        [-3.4625e+01, -6.9464e+01,  5.8752e+01],
+        [-5.6127e+01, -2.3745e+01,  1.9699e+01],
+        [-6.4762e+01,  2.7373e+01, -4.0060e+00],
+        [ 1.0279e+01, -9.7189e+01,  7.4316e+01]
     ]).float()
     
     cam_gt = torch.tensor([
@@ -373,41 +374,63 @@ def debug_live_training():
          [ 3.8698e-01,  8.5493e-01, -3.4546e-01,  4.4827e+03]]
     ]).float()
     gt = torch.tensor([
-        [ 218.2898, -156.6467, -852.9685],
-        [ 195.9178, -127.7015, -416.4887],
-        [  10.4303, -135.2365,   -8.0861],
-        [ -10.4303,  135.2364,    8.0861],
-        [ -79.2696,   96.6730, -433.5346],
-        [-294.3813,  103.3477, -815.0237],
+        [-123.5816,  -63.1810, -864.4102],
+        [  23.1837,  -74.3185, -451.8706],
+        [  32.6581, -131.7078,   -7.0428],
+        [ -32.6581,  131.7076,    7.0428],
+        [  19.8084,  157.5186, -437.7446],
+        [ -98.6799,  185.7531, -858.4759],
         [   0.0000,    0.0000,    0.0000],
-        [ -46.1340,  -31.0803,  219.3000],
-        [ -15.2406,  -23.8177,  472.7282],
-        [ -19.5752,  -34.9721,  629.8514],
-        [ 129.8035,  -27.2173,  171.7486],
-        [   3.0058, -237.9564,  145.9086],
-        [   5.7934, -144.2112,  405.0301],
-        [ -57.0594,   95.9318,  414.1426],
-        [ -76.4798,  214.5007,  166.1516],
-        [ 111.2382,   62.3681,  218.8224],
-        [  59.5684,  -14.7534,  548.8994]
+        [ -40.0030,  -28.9358,  220.7925],
+        [ -71.0292,  -23.5397,  474.2511],
+        [ -74.5952,  -62.3802,  627.2699],
+        [ 161.1007, -191.2156,  611.1978],
+        [ 228.8489, -214.3185,  374.4852],
+        [ -32.2064, -152.6614,  437.6392],
+        [-115.1191,   90.9162,  407.3412],
+        [-158.4828,  178.7477,  149.7747],
+        [-114.1517,  251.6376,  -82.3426],
+        [ -23.7438, -100.7664,  531.5288]
     ]).float()
 
-    def _compare_in_world(gt, pred, force_pelvis_in_origin=True):
+    def _compare_in_world(try2align=True, show_metrics=True):
         fig = plt.figure(figsize=plt.figaspect(1.5))
         axis = fig.add_subplot(1, 1, 1, projection='3d')
-        
-        draw_kps_in_3d(
-            axis, gt.detach().cpu().numpy() * 5, label='gt',
-            marker='o', color='blue'
-        )
-        
-        if force_pelvis_in_origin:
-            pred = pred - pred[PELVIS_I].unsqueeze(0).repeat(17, 1)
 
-        draw_kps_in_3d(
-            axis, pred.detach().cpu().numpy() * 5, label='pred',
-            marker='^', color='red'
-        )
+        def _f(gt, pred):
+            draw_kps_in_3d(
+                axis, gt.detach().cpu().numpy(), label='gt',
+                marker='o', color='blue'
+            )
+
+            if try2align:
+                pred = apply_umeyama(gt.unsqueeze(0), pred.unsqueeze(0))[0]
+                pred - pred[PELVIS_I].unsqueeze(0).repeat(17, 1)
+
+            draw_kps_in_3d(
+                axis, pred.detach().cpu().numpy(), label='pred',
+                marker='^', color='red'
+            )
+
+            if show_metrics:
+                criterion = KeypointsMSESmoothLoss(threshold=20*20)
+                loss = criterion(pred.unsqueeze(0), gt.unsqueeze(0))
+                print(
+                    'loss ({}) = {:.3f}'.format(
+                        str(criterion), loss
+                    )
+                )
+
+                per_pose_error_relative = torch.sqrt(
+                    ((gt - pred) ** 2).sum(1)
+                ).mean(0)
+                print(
+                    'MPJPE (relative 2 pelvis) = {:.3f} mm'.format(
+                        per_pose_error_relative
+                    )
+                )
+
+        return _f
 
     def _compare_in_camspace(cam_i):
         fig = plt.figure(figsize=plt.figaspect(1.5))
@@ -502,9 +525,9 @@ def debug_live_training():
 
         axis.legend()
 
-    #_compare_in_world(gt, pred)
+    _compare_in_world()(gt, pred)
     #_compare_in_camspace(cam_i=1)
-    _compare_in_proj(cam_i=0, norm=True)
+    #_compare_in_proj(cam_i=0, norm=True)
     #_plot_cam_config()
 
     # axis.legend(loc='lower left')

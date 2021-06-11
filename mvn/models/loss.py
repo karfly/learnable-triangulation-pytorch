@@ -272,8 +272,8 @@ class ScaleDependentProjectionLoss(nn.Module):
         )
         return torch.mean(torch.cat([
             self.calc_loss(
-                projections[batch_i].to(dev),
-                initial_keypoints[batch_i].to(dev)
+                projections[batch_i, 1:].to(dev),
+                initial_keypoints[batch_i, 1:].to(dev)
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ]))

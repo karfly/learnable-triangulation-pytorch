@@ -3,7 +3,7 @@ import torch
 
 from mvn.models.skips import MLSkipper
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, DepthBlock
 
 
 def make_mlp_by_name(name):
@@ -107,12 +107,12 @@ class RotoTransNet(nn.Module):
             activation=nn.LeakyReLU,
         )
 
-        self.td = 1 if config.cam2cam.data.pelvis_in_origin else 3  # just d
-        self.t_model = MLPResNet(
+        # todo assuming predicting just depth
+        self.t_model = DepthBlock(
             in_features=n_features,
             inner_size=n_features,
             n_inner_layers=config.cam2cam.model.master.t.n_layers,
-            out_features=self.td * self.n_views_comparing,
+            n2predict=self.n_views_comparing,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=nn.LeakyReLU,
@@ -136,7 +136,7 @@ class RotoTransNet(nn.Module):
         ])  # ~ batch_size, | n_predictions |, (3 x 3)
 
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
-        trans = t_feats.view(batch_size, self.n_views_comparing, self.td)  # ~ batch_size, | n_predictions |, 1 = ext.d for each view
+        trans = t_feats.view(batch_size, self.n_views_comparing, 1)  # ~ batch_size, | n_predictions |, 1 = ext.d for each view
         trans = trans * self.scale_t
 
         return RotoTransCombiner()(rots, trans)
@@ -166,7 +166,7 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(config.cam2cam.model.master.n_features),
+            # CAN be beneficial nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
         self.master_R, self.master_t = self._make_Rt_model(
@@ -193,10 +193,10 @@ class Cam2camNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
-            nn.BatchNorm1d(config.cam2cam.model.master.n_features),
+            # CAN be beneficial nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
-        self.master2other_R, self.master2other_t = self._make_Rt_model(
+        self.master2other_R, _ = self._make_Rt_model(
             make_mlp_with,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
@@ -208,6 +208,18 @@ class Cam2camNet(nn.Module):
             drop_out=drop_out,
             activation=nn.LeakyReLU,
         )
+
+        self.master2other_t = nn.Sequential(*[
+            make_mlp_with(
+                in_features=config.cam2cam.model.master.n_features,
+                inner_size=config.cam2cam.model.master.n_features,
+                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
+                out_features=3,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            ),
+        ])
 
     @staticmethod  # todo out of this class
     def _make_Rt_model(make_mlp, in_features, inner_size, R_param, R_layers, t_param, t_layers, batch_norm, drop_out, activation):
@@ -231,17 +243,15 @@ class Cam2camNet(nn.Module):
             R_param
         ])
 
-        t_model = nn.Sequential(*[
-            make_mlp(
-                in_features=in_features,
-                inner_size=inner_size,
-                n_inner_layers=t_layers,
-                out_features=t_param,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=activation,
-            ),
-        ])
+        t_model = make_mlp(
+            in_features=in_features,
+            inner_size=inner_size,
+            n_inner_layers=t_layers,
+            out_features=t_param,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+        )
 
         return R_model, t_model
 

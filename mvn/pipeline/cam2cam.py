@@ -382,7 +382,6 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         _backprop()
 
     if config.cam2cam.postprocess.try2align:
-        # todo also for mastercam ...
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).double(),
             kps_world_pred

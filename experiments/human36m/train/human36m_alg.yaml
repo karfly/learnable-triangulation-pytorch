@@ -106,7 +106,7 @@ cam2cam:
     world: 0.0
     self_consistency:
       proj: 10.0
-      world: 0.0
+      world: 2.0
       separation: 0.0
 
   opt:

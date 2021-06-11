@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from mvn.models.resnet import MLPResNet
+
 
 # todo batched
 class R6DBlock(nn.Module):
@@ -104,6 +106,26 @@ class RodriguesBlock(nn.Module):
             mask_pos * rotation_matrix_normal + mask_neg * rotation_matrix_taylor
 
         return rotation_matrix[:, :3, :3]  # remove 0, 0, 0, 1 and 0s on the right => Nx3x3
+
+
+class DepthBlock(nn.Module):
+    def __init__(self, in_features, inner_size, n_inner_layers, n2predict, batch_norm, drop_out, activation):
+        super().__init__()
+
+        self.bb = MLPResNet(
+            in_features=in_features,
+            inner_size=inner_size,
+            n_inner_layers=n_inner_layers,
+            out_features=1 * n2predict,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+            final_activation=None,
+            init_weights=False
+        )
+
+    def forward(self, x):
+        return self.bb(x)
 
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP

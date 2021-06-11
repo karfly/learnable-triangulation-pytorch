@@ -1,42 +1,61 @@
 import torch
 from torch import nn
 
+from mvn.utils.tred import matrix_to_euler_angles
 from mvn.models.resnet import MLPResNet
 
 
-# todo batched
 class R6DBlock(nn.Module):
     """ https://arxiv.org/abs/1812.07035 """
 
     def __init__(self):
         super().__init__()
 
-    @staticmethod
-    def cross_product(u, v):
-        batch = u.shape[0]
-        i = u[:, 1] * v[:, 2] - u[:, 2] * v[:, 1]
-        j = u[:, 2] * v[:, 0] - u[:, 0] * v[:, 2]
-        k = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
-        return torch.cat([
-            i.view(batch, 1),
-            j.view(batch, 1),
-            k.view(batch, 1)
-        ], 1)
-
     def forward(self, x):
         x_raw = x[:, 0: 3]
         y_raw = x[:, 3: 6]
 
-        x = nn.functional.normalize(x_raw)
-        z = self.cross_product(x, y_raw)
-        z = nn.functional.normalize(z)
+        x = nn.functional.normalize(x_raw)  # b1
+        z = nn.functional.normalize(torch.cross(x, y_raw))  # b2
+        y = torch.cross(z, x)  # b1 x b2
 
-        y = self.cross_product(z, x)
         x = x.view(-1, 3, 1)
         y = y.view(-1, 3, 1)
         z = z.view(-1, 3, 1)
 
         return torch.cat([x, y, z], 2)  # 3 x 3
+
+
+class R2DBlock(nn.Module):
+    """ https://arxiv.org/abs/1812.07035 """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        x_raw = x[:, 0: 2]
+        y_raw = x[:, 2: 4]
+
+        x = nn.functional.normalize(x_raw)  # b1
+
+        dot = torch.cat([
+            torch.dot(x[i], y_raw[i]).unsqueeze(0)
+            for i in range(x.shape[0])
+        ])
+        y = nn.functional.normalize(
+            y_raw -\
+                torch.cat([
+                    (
+                        x[i] * dot[i]
+                    ).unsqueeze(0)
+                    for i in range(x.shape[0])
+                ])
+        )  # b2
+
+        x = x.view(-1, 2, 1)
+        y = y.view(-1, 2, 1)
+
+        return torch.cat([x, y], 2)  # 2 x 2
 
 
 class RodriguesBlock(nn.Module):
@@ -126,6 +145,44 @@ class DepthBlock(nn.Module):
 
     def forward(self, x):
         return self.bb(x)
+
+
+class TranslationFromAnglesBlock(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.param = R2DBlock()
+
+    def forward(self, batched_features):
+        dev = batched_features.device
+
+        batched_Rx = self.param(batched_features[:, :4])
+        batched_Rz = self.param(batched_features[:, 4: 8])
+        batched_d = batched_features[:, -1].view(-1, 1)
+
+        batched_Rz_in_3D = torch.eye(3)\
+            .repeat(batched_features.shape[0], 1)\
+            .view(batched_features.shape[0], 3, 3).to(dev)
+        batched_Rz_in_3D[:, :2, :2] = batched_Rz
+
+        batched_Rx_in_3D = torch.eye(3)\
+            .repeat(batched_features.shape[0], 1)\
+            .view(batched_features.shape[0], 3, 3).to(dev)
+        batched_Rx_in_3D[:, 1:, 1:] = batched_Rx
+
+        batched_R_in_3D = torch.bmm(
+            batched_Rz_in_3D,  # first turn around Z ...
+            batched_Rx_in_3D  # ... then around X
+        )
+
+        batched_d_in_3D = torch.zeros(3)\
+            .repeat(batched_features.shape[0], 1)\
+            .view(batched_features.shape[0], 3, 1).to(dev)
+        batched_d_in_3D[:, 2] = batched_d  # as Z
+
+        return torch.bmm(
+            batched_R_in_3D, batched_d_in_3D
+        ).view(-1, 1, 3)
 
 
 # modified version of https://arxiv.org/abs/1709.01507, suitable for MLP

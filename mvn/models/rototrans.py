@@ -3,7 +3,7 @@ import torch
 
 from mvn.models.skips import MLSkipper
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock, DepthBlock
+from mvn.models.layers import R6DBlock, RodriguesBlock, DepthBlock, TranslationFromAnglesBlock
 
 
 def make_mlp_by_name(name):
@@ -196,7 +196,7 @@ class Cam2camNet(nn.Module):
             # CAN be beneficial nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
-        self.master2other_R, _ = self._make_Rt_model(
+        self.master2other_R, _ = self._make_Rt_model(  # todo refactor
             make_mlp_with,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
@@ -214,11 +214,12 @@ class Cam2camNet(nn.Module):
                 in_features=config.cam2cam.model.master.n_features,
                 inner_size=config.cam2cam.model.master.n_features,
                 n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
-                out_features=3,
+                out_features=2 * 4 + 1,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             ),
+            TranslationFromAnglesBlock()
         ])
 
     @staticmethod  # todo out of this class
@@ -259,10 +260,9 @@ class Cam2camNet(nn.Module):
     def _forward_cam(R_model, t_model, base_features, scale_t):
         Rs = R_model(base_features)  # ~ batch_size, (3 x 3)
         ts = t_model(base_features) * scale_t
-
         return RotoTransCombiner()(
             Rs.unsqueeze(1),
-            ts.unsqueeze(1),
+            ts.unsqueeze(1) if len(ts.shape) == 2 else ts,
         ).view(-1, 4, 4)
 
     def _forward_master(self, features):

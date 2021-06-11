@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 # todo config for the 2 variants: I) predict all Es "world" II) predict "master" E and the 3 cam_0_i
 
   cams:

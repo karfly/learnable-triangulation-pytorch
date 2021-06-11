@@ -275,7 +275,12 @@ def apply_umeyama(batch_gt, batch_pred):  # todo really batched
         u, _, v = torch.svd(H)  # Kabsch algorithm
         R = torch.mm(v, u.T)
 
-        c = torch.norm(gt_centered, p='fro') / torch.norm(pred_centered, p='fro')  # ~ Umeyama approach
+        c = torch.mean(torch.cat([
+            (
+                torch.norm(gt_centered[i], p='fro') / torch.norm(pred_centered[i], p='fro')
+            ).unsqueeze(0)
+            for i in range(pred_centered.shape[0])
+        ]))  # ~ Umeyama approach
 
         # todo t
 

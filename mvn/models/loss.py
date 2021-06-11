@@ -124,19 +124,41 @@ class GeodesicLoss(nn.Module):
         return self._criterion(m1, m2).mean()
 
 
-class HuberLoss(nn.Module):
+class BerHuLoss(nn.Module):
+    """ from https://arxiv.org/abs/1606.00373 """
+
     def __init__(self, threshold):
         super().__init__()
 
         self.c = np.float64(threshold)
 
     def _criterion(self, diff):
-        diff[torch.abs(diff) <= self.c] = torch.abs(diff[torch.abs(diff) <= self.c])  # L1 norm within threshold
+        diff[torch.abs(diff) <= self.c] = nn.L1Loss(diff[torch.abs(diff) <= self.c])  # L1 norm within threshold
         
         diff[torch.abs(diff) > self.c] =\
             (torch.square(diff[torch.abs(diff) > self.c]) + np.square(self.c)) / (2 * self.c)
 
         return diff.mean()
+
+    def forward(self, pred, gt):
+        dev = pred.device
+
+        diff = pred.to(dev) - gt.to(dev)
+        return self._criterion(diff)
+
+
+class PseudoHuberLoss(nn.Module):
+    """ https://en.wikipedia.org/wiki/Huber_loss """
+
+    def __init__(self, threshold):
+        super().__init__()
+
+        self.delta_squared = np.square(np.float64(threshold))
+
+    def _criterion(self, diff):
+        return self.delta_squared * (
+            torch.sqrt(1.0 + torch.square(diff) / self.delta_squared) - 1.0
+        ).mean()
 
     def forward(self, pred, gt):
         dev = pred.device

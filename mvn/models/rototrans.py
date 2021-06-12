@@ -185,7 +185,7 @@ class Cam2camNet(nn.Module):
         self.master2other_bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
-                in_features=2 * n_joints * 2,  # 2 views (master and other)
+                in_features=4 * n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=config.cam2cam.model.master.n_features,
@@ -273,28 +273,16 @@ class Cam2camNet(nn.Module):
             self.scale_t
         )
 
-    def _forward_master2other(self, x_master, x_other, features):
-        master2other_features = self.master2other_bb(
-            torch.cat([
-                x_master, x_other
-            ], dim=1)
-        )
-        final_features = features + master2other_features
-        return self._forward_cam(
-            self.master2other_R,
-            self.master2other_t,
-            final_features,
-            self.scale_t
-        )
-
-    def _forward_master2others(self, x, features):
+    def _forward_master2others(self, x):
+        features = self.master2other_bb(x)
         return torch.cat([
-            self._forward_master2other(
-                x[:, 0],  # master's view
-                x[:, other_i],  # other's view
-                features
+            self._forward_cam(
+                self.master2other_R,
+                self.master2other_t,
+                features,
+                self.scale_t
             ).unsqueeze(1)
-            for other_i in range(1, self.n_views)
+            for _ in range(1, self.n_views)
         ], dim=1)
 
     def forward(self, x):
@@ -302,7 +290,7 @@ class Cam2camNet(nn.Module):
 
         features = self.bb(x)  # batch_size, ...
         masters = self._forward_master(features)
-        master2others = self._forward_master2others(x, features)
+        master2others = self._forward_master2others(x)
 
         return torch.cat([
             masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4

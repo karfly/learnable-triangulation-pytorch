@@ -149,6 +149,45 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
         print(label, 'pelvis ~', keypoints_3d[get_joints_index('pelvis')])
 
 
+def compare_in_world(try2align=True, force_pelvis_in_origin=True, show_metrics=True):
+    def _f(axis, gt, pred):
+        if try2align:
+            pred = apply_umeyama(gt.unsqueeze(0), pred.unsqueeze(0))[0]
+
+        if force_pelvis_in_origin:
+            pred = pred - pred[PELVIS_I].unsqueeze(0).repeat(17, 1)
+
+        draw_kps_in_3d(
+            axis, gt.detach().cpu().numpy(), label='gt',
+            marker='o', color='blue'
+        )
+
+        draw_kps_in_3d(
+            axis, pred.detach().cpu().numpy(), label='pred',
+            marker='^', color='red'
+        )
+
+        if show_metrics:
+            criterion = KeypointsMSESmoothLoss(threshold=20*20)
+            loss = criterion(pred.unsqueeze(0), gt.unsqueeze(0))
+            print(
+                'loss ({}) = {:.3f}'.format(
+                    str(criterion), loss
+                )
+            )
+
+            per_pose_error_relative = torch.sqrt(
+                ((gt - pred) ** 2).sum(1)
+            ).mean(0)
+            print(
+                'MPJPE (relative 2 pelvis) = {:.3f} mm'.format(
+                    per_pose_error_relative
+                )
+            )
+
+    return _f
+
+
 def viz_experiment_samples():
     def load_data(config, dumps_folder):
         def _load(file_name):
@@ -187,53 +226,52 @@ def viz_experiment_samples():
     args = parse_args()
     milestone, experiment_name = args.milestone, args.exp
     config = get_config('experiments/human36m/train/human36m_alg.yaml')
+    dumps_folder = get_dump_folder(milestone, experiment_name)
+    gts, pred, _, dataloader = load_data(config, dumps_folder)
 
-    try:
-        dumps_folder = get_dump_folder(milestone, experiment_name)
-        gts, pred, indices, dataloader = load_data(config, dumps_folder)
+    per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
+        pred,
+        split_by_subject=True,
+        keypoints_gt_provided=gts,
+    )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
 
-        per_pose_error_relative, per_pose_error_absolute, _ = dataloader.dataset.evaluate(
-            pred,
-            split_by_subject=True,
-            keypoints_gt_provided=gts,
-        )  # (average 3D MPJPE (relative to pelvis), all MPJPEs)
+    message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
+        per_pose_error_relative,
+        per_pose_error_absolute
+    )  # just a little bit of live debug
+    print(message)
 
-        message = 'MPJPE relative to pelvis: {:.1f} mm, absolute: {:.1f} mm'.format(
-            per_pose_error_relative,
-            per_pose_error_absolute
-        )  # just a little bit of live debug
-        print(message)
+    max_plots = 6
+    n_samples = gts.shape[0]
+    n_plots = min(max_plots, n_samples)
+    samples_to_show = np.random.permutation(np.arange(n_samples))[:n_plots]
 
-        max_plots = 6
-        n_samples = gts.shape[0]
-        n_plots = min(max_plots, n_samples)
-        samples_to_show = np.random.permutation(np.arange(n_samples))[:n_plots]
+    print('found {} samples but plotting {}'.format(n_samples, n_plots))
 
-        print('found {} samples but plotting {}'.format(n_samples, n_plots))
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    fig.set_facecolor('white')
+    for i, sample_i in enumerate(samples_to_show):
+        axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
-        fig = plt.figure(figsize=plt.figaspect(1.5))
-        fig.set_facecolor('white')
-        for i, sample_i in enumerate(samples_to_show):
-            axis = fig.add_subplot(2, 3, i + 1, projection='3d')
-
-            draw_kps_in_3d(axis, gts[sample_i], 'GT (resampled)', 'o', 'blue')
-            draw_kps_in_3d(axis, pred[sample_i], 'prediction', '^', 'red')
-            print(
-                'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
-                    i,
-                    sample_i,
-                    pred[sample_i, 6, 0],
-                    pred[sample_i, 6, 1],
-                    pred[sample_i, 6, 2],
-                )
+        compare_in_world()(
+            axis,
+            torch.FloatTensor(gts[sample_i]),
+            torch.FloatTensor(pred[sample_i])
+        )
+        print(
+            'sample #{} (#{}): pelvis predicted @ ({:.1f}, {:.1f}, {:.1f})'.format(
+                i,
+                sample_i,
+                pred[sample_i, 6, 0],
+                pred[sample_i, 6, 1],
+                pred[sample_i, 6, 2],
             )
+        )
 
-            # axis.legend(loc='lower left')
+        # axis.legend(loc='lower left')
 
-        plt.tight_layout()
-        plt.show()
-    except ZeroDivisionError:
-        print('Have you forgotten a breakpoint?')
+    plt.tight_layout()
+    plt.show()
 
 
 def viz_2ds():
@@ -336,26 +374,6 @@ def debug_live_training():
          [ 9.6618e-01, -1.2899e-01, -2.2328e-01,  0.0000e+00],
          [-1.2272e-01, -9.9156e-01,  4.1788e-02, -3.7292e+03]]
     ]).float()
-    pred = torch.tensor([
-        [-22894.7162,  -7040.5361,   4873.0786],
-        [-20782.0859,  -5025.2403,   5194.7860],
-        [-18613.2416,  -2968.9544,   5598.5752],
-        [-18642.7776,  -3112.6617,   4613.1721],
-        [-20807.1629,  -5077.4762,   4393.7083],
-        [-22922.7904,  -7043.6271,   4173.8690],
-        [-18553.1059,  -3061.0909,   5157.4460],
-        [-18081.9943,  -2643.3666,   4818.1283],
-        [-18006.8182,  -2490.0550,   4200.2705],
-        [-17610.0372,  -2073.2742,   4179.5446],
-        [-19808.1599,  -3244.5694,   3525.1989],
-        [-19706.5154,  -3273.5210,   4579.5134],
-        [-18206.5514,  -2507.7700,   4798.8023],
-        [-18068.3300,  -2529.1395,   3687.6998],
-        [-19391.3963,  -3470.2544,   3116.0687],
-        [-20000.7650,  -4282.9150,   4049.4349],
-        [-18289.6949,  -2593.1291,   4006.5032]
-    ]).float()
-    
     cam_gt = torch.tensor([
         [[-9.2829e-01,  3.7185e-01,  6.5016e-04,  4.9728e-14],
          [ 1.0662e-01,  2.6784e-01, -9.5755e-01, -2.7233e-14],
@@ -373,66 +391,45 @@ def debug_live_training():
          [-5.2180e-02, -3.5374e-01, -9.3389e-01,  9.9662e-15],
          [ 3.8698e-01,  8.5493e-01, -3.4546e-01,  4.4827e+03]]
     ]).float()
-    gt = torch.tensor([
-        [ -31.6247, -100.3399, -871.4619],
-        [ -68.8613,  -88.2665, -418.9454],
-        [-130.5779,  -20.4618,   14.3550],
-        [ 130.5781,   20.4619,  -14.3550],
-        [ 112.0524, -112.4079, -436.4425],
-        [ 118.4395, -118.9372, -890.5573],
-        [   0.0000,    0.0000,    0.0000],
-        [  20.1498, -202.9053,  113.7092],
-        [  72.8428, -445.9834,  178.7122],
-        [  42.3387, -530.1173,  276.0580],
-        [ -16.5688, -832.9115,   36.2845],
-        [-165.1364, -633.3756,   -2.1917],
-        [ -75.0140, -423.4212,  157.7408],
-        [ 206.9062, -377.9351,  164.2977],
-        [ 324.1460, -285.8358,  -71.3889],
-        [ 168.2460, -202.8033, -250.7503],
-        [  57.6037, -565.6554,  167.7551]
+
+    pred = torch.tensor([
+        [ 3.8319e+00, -1.3947e+01, -8.2509e+00],
+        [ 3.2059e+00, -6.5528e+00, -3.9266e+00],
+        [ 1.7898e+00, -4.8475e-01,  1.7942e+00],
+        [-1.7541e+00,  4.9733e-01, -1.7918e+00],
+        [ 3.9875e+00, -2.9029e+00, -7.2769e+00],
+        [ 3.0024e+00, -1.1274e+01, -9.4920e+00],
+        [ 0.0000e+00, -4.5293e-15, -7.0862e-15],
+        [-1.5031e+00,  2.8309e+00,  3.2488e+00],
+        [-2.6287e+00,  6.8664e+00,  6.0945e+00],
+        [-2.9585e+00,  1.0157e+01,  8.0187e+00],
+        [ 2.4125e+00, -2.1864e+00,  2.8741e+00],
+        [ 8.3875e-01, -1.6529e-01,  7.1220e+00],
+        [-4.7962e-01,  5.2010e+00,  7.3087e+00],
+        [-4.5880e+00,  6.4164e+00,  3.9222e+00],
+        [-5.7658e+00,  1.7276e+00,  1.3391e+00],
+        [-3.2599e+00,  1.8872e-01, -2.7612e+00],
+        [-1.8353e+00,  9.0571e+00,  6.3520e+00]
     ]).float()
-
-    def _compare_in_world(try2align=True, force_pelvis_in_origin=True, show_metrics=True):
-        fig = plt.figure(figsize=plt.figaspect(1.5))
-        axis = fig.add_subplot(1, 1, 1, projection='3d')
-
-        def _f(gt, pred):
-            if try2align:
-                pred = apply_umeyama(gt.unsqueeze(0), pred.unsqueeze(0))[0]
-
-            if force_pelvis_in_origin:
-                pred = pred - pred[PELVIS_I].unsqueeze(0).repeat(17, 1)
-
-            draw_kps_in_3d(
-                axis, gt.detach().cpu().numpy(), label='gt',
-                marker='o', color='blue'
-            )
-
-            draw_kps_in_3d(
-                axis, pred.detach().cpu().numpy(), label='pred',
-                marker='^', color='red'
-            )
-
-            if show_metrics:
-                criterion = KeypointsMSESmoothLoss(threshold=20*20)
-                loss = criterion(pred.unsqueeze(0), gt.unsqueeze(0))
-                print(
-                    'loss ({}) = {:.3f}'.format(
-                        str(criterion), loss
-                    )
-                )
-
-                per_pose_error_relative = torch.sqrt(
-                    ((gt - pred) ** 2).sum(1)
-                ).mean(0)
-                print(
-                    'MPJPE (relative 2 pelvis) = {:.3f} mm'.format(
-                        per_pose_error_relative
-                    )
-                )
-
-        return _f
+    gt = torch.tensor([
+        [ -30.5427,  122.4925, -866.1334],
+        [ -65.3038,   12.3645, -426.8534],
+        [-132.5108,   -1.3265,   10.6982],
+        [ 132.5110,    1.3265,  -10.6982],
+        [  63.7638, -190.1282, -404.1120],
+        [  76.0000,   44.1370, -793.0513],
+        [   0.0000,    0.0000,    0.0000],
+        [ -20.1950,   35.6811,  229.8493],
+        [ -25.9048,   19.0776,  486.3267],
+        [ -38.4954,  -19.8726,  675.1237],
+        [-211.0988,   55.8651,  -31.1973],
+        [-268.5826,  147.8054,  195.9809],
+        [-164.2979,   31.9026,  427.2221],
+        [ 113.2847,   41.4549,  432.1337],
+        [ 185.9315,  155.6096,  188.2757],
+        [ 218.0677,   36.9595,  -31.4040],
+        [ -37.1440,  -67.3955,  570.4086]
+    ]).float()
 
     def _compare_in_camspace(cam_i):
         fig = plt.figure(figsize=plt.figaspect(1.5))
@@ -527,7 +524,10 @@ def debug_live_training():
 
         axis.legend()
 
-    _compare_in_world()(gt, pred)
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    axis = fig.add_subplot(1, 1, 1, projection='3d')
+
+    #compare_in_world()(axis, gt, pred)
     #_compare_in_camspace(cam_i=1)
     #_compare_in_proj(cam_i=0, norm=True)
     #_plot_cam_config()
@@ -589,6 +589,6 @@ def debug_noisy_kps():
 
 if __name__ == '__main__':
     debug_live_training()
-    # debug_noisy_kps()
-    # viz_experiment_samples()
-    # viz_2ds()
+    #debug_noisy_kps()
+    #viz_experiment_samples()
+    #viz_2ds()

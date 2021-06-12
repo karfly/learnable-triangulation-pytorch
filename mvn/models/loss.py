@@ -250,30 +250,37 @@ class ScaleDependentProjectionLoss(nn.Module):
         super().__init__()
 
         self.criterion = criterion
-        self.scale2 = lambda x: torch.cat([
+        self.where = where
+
+    @staticmethod
+    def scale(x):
+        return torch.cat([
             (
                 x[i] / torch.norm(x[i], p='fro')
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
-        self.calc_loss = lambda projections, initials:\
-            self.criterion(
-                self.scale2(projections),
-                self.scale2(initials)
-            )
-        self.where = where
+
+    def project(self, K, cam_preds, kps_pred):
+        return project2weak_views(
+            K, cam_preds, kps_pred, self.where
+        )
+
+    def calc_loss(self, projections, initials):
+        return self.criterion(
+            self.scale(projections),
+            self.scale(initials)
+        )
 
     def forward(self, K, cam_preds, kps_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]
         dev = cam_preds.device
 
-        projections = project2weak_views(
-            K, cam_preds, kps_pred, self.where
-        )
+        projections = self.project(K, cam_preds, kps_pred)
         return torch.mean(torch.cat([
             self.calc_loss(
-                projections[batch_i, 1:].to(dev),
-                initial_keypoints[batch_i, 1:].to(dev)
+                projections[batch_i].to(dev),
+                initial_keypoints[batch_i].to(dev)
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ]))

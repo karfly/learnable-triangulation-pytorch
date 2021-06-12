@@ -235,9 +235,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
-        #criterion=PseudoHuberLoss(threshold=1.0),
-        criterion=BerHuLoss(threshold=0.5),
-        #criterion=KeypointsMSESmoothLoss(threshold=20.0),
+        criterion=BerHuLoss(threshold=0.25),
         where=config.cam2cam.triangulate
     )(
         K,
@@ -307,14 +305,14 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF PROJ ~ {:.2f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF PROJ ~ {:.3f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
             t_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_self_proj.item(),
+            loss_self_proj.item() * 1e2,  # too small
             loss_self_world.item(),
             loss_self_separation.item(),
             total_loss.item(),

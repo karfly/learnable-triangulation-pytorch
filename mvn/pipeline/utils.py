@@ -52,7 +52,7 @@ def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip):
             'cannot backpropagate ... are you cheating?'
         )
 
-    if clip > 0:  # see #16578951: works well at the start, but then it stills
+    if clip > 0.0:  # see #16578951: works well at the start, but then it stills
         torch.nn.utils.clip_grad_norm_(
             params,
             clip

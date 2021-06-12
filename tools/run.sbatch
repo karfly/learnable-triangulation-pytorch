@@ -2,6 +2,7 @@
 
 #SBATCH --partition=ml
 #SBATCH --cpus-per-task=1
+# `2` when 10% dataset
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=2048
 #SBATCH --time=00:15:00

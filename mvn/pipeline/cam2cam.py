@@ -199,9 +199,13 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
 
+    total_loss += 10.0 * torch.norm(
+        cam_preds[:, start_cam:n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3, p='fro'
+    )  # promote nearer cams
+
     K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss(
-        criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),  # HuberLoss(threshold=1e-1),
+        criterion=KeypointsMSESmoothLoss(threshold=2.0),  # HuberLoss(threshold=1e-1),
         where=config.cam2cam.triangulate
     )(
         K,
@@ -397,11 +401,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     if is_train:
         _backprop()
 
-    if config.cam2cam.postprocess.try2align:
+    using_any_gt = config.cam2cam.cams.using_just_one_gt or config.cam2cam.cams.using_gt.really
+    if config.cam2cam.postprocess.try2align and not using_any_gt:
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,
-            scaling=config.cam2cam.cams.use_extra_cams < 1 and not config.cam2cam.cams.using_just_one_gt
+            scaling=config.cam2cam.cams.use_extra_cams < 1
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

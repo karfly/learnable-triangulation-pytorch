@@ -264,8 +264,8 @@ def rotation_matrix_from_vectors_torch(vec1, vec2):
 
     dev = vec1.device
     a, b = (
-        (vec1 / torch.norm(vec1)).double(),
-        (vec2 / torch.norm(vec2)).double()
+        vec1 / torch.norm(vec1),
+        vec2 / torch.norm(vec2)
     )
 
     v = torch.cross(a, b)
@@ -275,7 +275,7 @@ def rotation_matrix_from_vectors_torch(vec1, vec2):
         [0, -v[2], v[1]],
         [v[2], 0, -v[0]],
         [-v[1], v[0], 0]
-    ], requires_grad=True).to(dev).double()
+    ], requires_grad=True).to(dev)
 
     return torch.eye(3).to(dev) +\
         kmat +\

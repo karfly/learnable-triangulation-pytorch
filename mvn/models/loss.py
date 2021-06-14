@@ -130,7 +130,7 @@ class BerHuLoss(nn.Module):
     def __init__(self, threshold):
         super().__init__()
 
-        self.c = np.float64(threshold)
+        self.c = np.float32(threshold)
 
     def _criterion(self, diff):
         diff[torch.abs(diff) <= self.c] = torch.abs(
@@ -155,7 +155,7 @@ class PseudoHuberLoss(nn.Module):
     def __init__(self, threshold):
         super().__init__()
 
-        self.delta_squared = np.square(np.float64(threshold))
+        self.delta_squared = np.square(np.float32(threshold))
 
     def _criterion(self, diff):
         return self.delta_squared * (

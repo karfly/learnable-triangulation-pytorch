@@ -65,7 +65,7 @@ cam2cam:
     normalize_kps: "fro"
 
   postprocess:
-    scale_t: 100.0
+    scale_t: 1000.0
 # or even 1000.0
     try2align: true
 

@@ -49,7 +49,7 @@ class RotoTransCombiner(nn.Module):
         ], dim=-1)  # hstack => ~ batch_size, | comparisons |, 3, 4
         roto_trans = torch.cat([  # padd each view
             roto_trans,
-            torch.DoubleTensor(
+            torch.tensor(
                 [0, 0, 0, 1]
             ).repeat(batch_size, n_views, 1, 1).to(roto_trans.device)
         ], dim=-2)  # hstack => ~ batch_size, | comparisons |, 3, 4
@@ -120,8 +120,11 @@ class RotoTransNet(nn.Module):
                 n2predict=self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.LeakyReLU,
+                activation=nn.Sigmoid,
             )
+
+            nn.init.normal_(self.t_model.bb.head.weight, 0.0, 0.1)
+            nn.init.constant_(self.t_model.bb.head.bias, 2.0)
 
     def _forward_R(self, features):
         R_feats = self.R_model(features)

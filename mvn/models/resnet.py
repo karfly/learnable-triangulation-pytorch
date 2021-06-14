@@ -30,23 +30,15 @@ class MLPResNet(nn.Module):
         self.head = nn.Linear(inner_size, out_features, bias=True)
         self.final_activation = final_activation() if (not final_activation is None) else None
 
-        if init_weights:
-            self._init_weights()
+        if str(self.final_activation).startswith('ReLU'):
+            nn.init.normal_(self.head.weight, 0.0, 1.0)  # avoid 0 to let DLT
+            nn.init.constant_(self.head.bias, 1e3)  # avoid 0 to let DLT
 
     def _make_bn_layers(self, inner_size, n_inner_layers, batch_norm=True):
         return nn.ModuleList([
             nn.BatchNorm1d(inner_size) if batch_norm else None
             for _ in range(n_inner_layers)
         ])
-
-    def _init_weights(self):   # todo very stupid, can do better
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
 
     def _forward_layer(self, i, x, residual):
         l, b = self.linears[i], self.bns[i]

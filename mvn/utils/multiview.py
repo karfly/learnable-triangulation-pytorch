@@ -112,8 +112,8 @@ class Camera:
 
         def _f(x):
             homo = euclidean_to_homogeneous(x)  # [x y z] -> [x y z 1]
-            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))  # N x 4
-            eucl = homo.type(torch.DoubleTensor) @ inv
+            inv = torch.inverse(torch.tensor(self.extrinsics_padded.T))  # N x 4
+            eucl = homo.type @ inv
             return homogeneous_to_euclidean(eucl)  # N x 4 -> N x 3
 
         return _f
@@ -133,9 +133,8 @@ class Camera:
 
         def _f(x):
             dev = x.device
-            homo = euclidean_to_homogeneous(x).type('torch.DoubleTensor').to(dev)
-            proj = torch.DoubleTensor(self.projection.T).to(dev)
-
+            homo = euclidean_to_homogeneous(x).to(dev)
+            proj = torch.tensor(self.projection.T).to(dev).type(homo.type())
             return homogeneous_to_euclidean(homo @ proj)
 
         return _f
@@ -155,7 +154,7 @@ class Camera:
 
         def _f(x):
             in_other_cam = self.cam2cam(other)(x)
-            homo = in_other_cam @ torch.DoubleTensor(other.intrinsics_padded.T)
+            homo = in_other_cam @ torch.tensor(other.intrinsics_padded.T)
 
             # ... or equivalently:
             # m = other.intrinsics_padded.dot(
@@ -173,9 +172,9 @@ class Camera:
         """ 3D camera space (4D, x y z 1) -> 3D world (homo) -> 3D other camera space (4D, x y z 1) """
         
         def _f(x):
-            inv = torch.inverse(torch.DoubleTensor(self.extrinsics_padded.T))  # todo faster by .T
+            inv = torch.inverse(torch.tensor(self.extrinsics_padded.T))  # todo faster by .T
             back2world = x @ inv  # N x 4
-            return back2world @ torch.DoubleTensor(other.extrinsics_padded.T)  # N x 4
+            return back2world @ torch.tensor(other.extrinsics_padded.T)  # N x 4
 
             # ... or equivalently:
             # m = other.extrinsics_padded.dot(
@@ -263,7 +262,7 @@ def triangulate_point_from_multiple_views_linear_torch(proj_matricies, points, c
 
     if confidences is None:
         confidences = torch.ones(
-            n_views, dtype=torch.double, device=points.device  # same device
+            n_views, device=points.device  # same device
         )
 
     A = proj_matricies[:, 2:3].expand(n_views, 2, 4) * points.view(n_views, 2, 1)
@@ -332,7 +331,6 @@ def triangulate_batch_of_points_using_gpu_friendly_svd(proj_matricies_batch, poi
         batch_size,
         n_joints,
         3,  # because we're in 3D space
-        dtype=torch.double,
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
 
@@ -357,7 +355,6 @@ def triangulate_points_in_camspace(points_batch, matrices_batch, confidences_bat
     point_3d_batch = torch.zeros(
         n_joints,
         3,
-        dtype=torch.double
     )  # ~ (batch_size=8, n_joints=17, 3D)
 
     for joint_i in range(n_joints):  # triangulate joint
@@ -401,7 +398,6 @@ def triangulate_batch_of_points(proj_matricies_batch, points_batch, triangulator
         batch_size,
         n_joints,
         3,
-        dtype=torch.double,
         device=points_batch.device
     )  # ~ (batch_size=8, n_joints=17, 3)
 
@@ -457,8 +453,8 @@ def _2proj(ext_from, ext_to, K_to):
 
 def _my_proj(ext, K):
     projection = torch.mm(
-        K,
-        ext
+        K.type(torch.get_default_dtype()),
+        ext.type(torch.get_default_dtype())
     ).T
 
     def _f(x):

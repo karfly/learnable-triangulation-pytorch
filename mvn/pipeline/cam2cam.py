@@ -94,19 +94,19 @@ def _get_cams_gt(cameras, where='world'):
     for batch_i in range(batch_size):
         if where == 'world':
             cam_gts[batch_i] = torch.cat([
-                torch.DoubleTensor(
+                torch.tensor(
                     cameras[i][batch_i].extrinsics_padded
                 ).unsqueeze(0)
                 for i in range(n_cameras)
             ])
         elif where == 'master':
-            master = torch.DoubleTensor(cameras[0][batch_i].extrinsics_padded)
+            master = torch.tensor(cameras[0][batch_i].extrinsics_padded)
             from_master = torch.inverse(master)
 
             cam_gts[batch_i, 0] = master.clone()
             cam_gts[batch_i, 1:] = torch.cat([
                 torch.mm(
-                    torch.DoubleTensor(cameras[i][batch_i].extrinsics_padded),
+                    torch.tensor(cameras[i][batch_i].extrinsics_padded),
                     from_master.clone()
                 ).unsqueeze(0)
                 for i in range(1, n_cameras)
@@ -143,7 +143,7 @@ def _forward_cams(cam2cam_model, detections, gt, config):
 def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, where="world"):
     full_cams = prepare_weak_cams_for_dlt(
         cams,
-        K.to(cams.device),
+        K.to(cams.device).type(torch.get_default_dtype()),
         where
     )
 
@@ -195,7 +195,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
 
-    K = torch.DoubleTensor(cameras[0][0].intrinsics_padded)  # same for all
+    K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss(
         criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)),  # HuberLoss(threshold=1e-1),
         where=config.cam2cam.triangulate
@@ -357,7 +357,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         keypoints_2d_pred,
         config.cam2cam.preprocess.pelvis_center_kps,
         config.cam2cam.preprocess.normalize_kps
-    ).to('cuda:0')  # todo device
+    ).to('cuda:0').type(torch.get_default_dtype())  # todo device
 
     minimon.enter()
     master_i = 0  # views are randomly sorted => no need for a random master within batch
@@ -376,7 +376,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         cam_preds,
         keypoints_2d_pred,
         confidences_pred,
-        torch.cuda.DoubleTensor(cameras[0][0].intrinsics_padded),
+        torch.tensor(cameras[0][0].intrinsics_padded).to(cam_preds.device),
         master_i,
         where=config.cam2cam.triangulate
     )
@@ -393,7 +393,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     if config.cam2cam.postprocess.try2align:
         kps_world_pred = apply_umeyama(
-            kps_world_gt.to(kps_world_pred.device).double(),
+            kps_world_gt.to(kps_world_pred.device),
             kps_world_pred,
             scaling=not config.cam2cam.data.use_extra_cams
         )

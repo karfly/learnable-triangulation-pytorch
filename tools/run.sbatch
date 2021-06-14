@@ -5,7 +5,7 @@
 # `2` when 10% dataset
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=2048
-#SBATCH --time=00:15:00
+#SBATCH --time=00:10:00
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err

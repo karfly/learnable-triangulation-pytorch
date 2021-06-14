@@ -139,7 +139,7 @@ class Human36MMultiViewDataset(Dataset):
 
     def _preprocess(self):
         if self.pelvis_in_origin:
-            self.labels['table']['keypoints'] = np.float64([
+            self.labels['table']['keypoints'] = np.float32([
                 self._reparameterize_pelvis_in_origin(kps, 6)
                 for kps in self.labels['table']['keypoints']
             ])
@@ -219,7 +219,7 @@ class Human36MMultiViewDataset(Dataset):
         origin = np.zeros_like(pelvis_in_world)
         t_from_pelvis2origin = origin - pelvis_in_world
 
-        return np.float64([
+        return np.float32([
             kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
             for kp in kps
         ]).squeeze(-1)

@@ -321,7 +321,7 @@ def create_line(coefficients):
     centroid, direction = coefficients  # unpack
     ts = torch.arange(-2e2, 2e2, 10)
     return torch.cat([
-        torch.DoubleTensor([
+        torch.tensor([
             centroid[0] + t * direction[0],
             centroid[1] + t * direction[1],
             centroid[2] + t * direction[2],

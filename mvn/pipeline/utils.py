@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from itertools import permutations
+from scipy.spatial.transform import Rotation as R
 
 from mvn.models.rototrans import RotoTransCombiner
 from mvn.utils.tred import euler_angles_to_matrix
@@ -23,16 +23,9 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
     ])  # ~ (batch_size, n_views, 17, 2)
 
     if use_extra_cams > 0:
-        eulers = np.float64([
-            [
-                np.random.uniform(-np.pi * 0.9, np.pi * 0.9),
-                0,
-                np.random.uniform(-np.pi * 0.9, np.pi * 0.9)
-            ]
-            for _ in range(use_extra_cams)
-        ])
+        eulers = R.random(use_extra_cams, random_state=1234).as_euler('zxy')
         Rs = euler_angles_to_matrix(
-            torch.tensor(eulers), 'XYZ'  # or any other
+            torch.tensor(eulers.copy()), 'XYZ'  # or any other
         )
         distances = np.random.uniform(
             4e3, 6e3, size=use_extra_cams
@@ -42,7 +35,7 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
             torch.tensor(distances).view(1, use_extra_cams, 1)
         )[0]
         K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
-        
+
         fakes = torch.cat([
             torch.cat([
                 _my_proj(Rts[fake_i], K)(

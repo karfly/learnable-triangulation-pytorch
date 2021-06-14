@@ -139,7 +139,7 @@ class DepthBlock(nn.Module):
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
-            final_activation=None,
+            final_activation=nn.ReLU,  # it's a distance! (=> > 0)
             init_weights=False
         )
 

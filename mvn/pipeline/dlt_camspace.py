@@ -11,7 +11,7 @@ def batch_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, k
 
     batch_size, n_views = images_batch.shape[0], images_batch.shape[1]
     master_cams = np.random.randint(0, n_views, size=batch_size)  # choose random "master" cam foreach frame in batch
-    proj_matricies_batch = torch.DoubleTensor([
+    proj_matricies_batch = torch.tensor([
         [
             cam2cam_batch(
                 master_cams[batch_i], view_i, batch['cameras'], batch_i
@@ -48,7 +48,7 @@ def batch_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, k
 
             total_loss = criterion(
                 keypoints_3d_pred.cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
-                torch.DoubleTensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
+                torch.tensor(gt_in_cam).cuda() * scale_keypoints_3d,  # ~ 8, 17, 3
                 keypoints_3d_binary_validity_gt.cuda()  # ~ 8, 17, 1
             )  # "the loss is 3D pose difference between the obtained 3D pose from DLT and the 3D pose in the first camera space"
         else:  # variant II (2D loss on each view)
@@ -69,8 +69,8 @@ def batch_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, k
                     )  # ~ 17, 2
 
                     total_loss += criterion(
-                        torch.DoubleTensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
-                        torch.DoubleTensor(gt).unsqueeze(0).cuda(),
+                        torch.tensor(pred).unsqueeze(0).cuda(),  # ~ 1, 17, 2
+                        torch.tensor(gt).unsqueeze(0).cuda(),
                         keypoints_3d_binary_validity_gt[batch_i].unsqueeze(0).cuda()
                     )  # "The loss is then 2D pose difference between the 2D pose you obtain this way and the GT 2D pose in each view."
 

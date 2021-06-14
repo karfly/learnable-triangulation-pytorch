@@ -268,7 +268,7 @@ class ScaleDependentProjectionLoss(nn.Module):
 
     def calc_loss(self, projections, initials):
         return self.criterion(
-            self.scale_by(projections, initials),
+            self.scale_by(projections, projections),
             self.scale_by(initials, initials)
         )
 

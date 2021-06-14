@@ -138,7 +138,6 @@ class DepthBlock(nn.Module):
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
-            final_activation=nn.LeakyReLU(),  # distance ...
             init_weights=False
         )
 

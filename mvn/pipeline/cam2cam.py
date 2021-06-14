@@ -199,10 +199,6 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
 
-    total_loss += 10.0 * torch.norm(
-        cam_preds[:, start_cam:n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3, p='fro'
-    )  # promote nearer cams
-
     K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss(
         criterion=KeypointsMSESmoothLoss(threshold=2.0),  # HuberLoss(threshold=1e-1),

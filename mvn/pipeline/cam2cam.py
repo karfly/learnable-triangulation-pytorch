@@ -115,15 +115,22 @@ def _get_cams_gt(cameras, where='world'):
     return cam_gts.cuda()
 
 
-def _forward_cams(cam2cam_model, detections, gt=None, noisy=0.0):
+def _forward_cams(cam2cam_model, detections, gt, config):
     preds = cam2cam_model(
-        detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
+        detections[:, 1:] if config.cam2cam.cams.using_just_one_gt else detections
     )  # (batch_size, ~ |views|, 4, 4)
     dev = preds.device
 
-    if not (gt is None):
+    if config.cam2cam.cams.using_just_one_gt:
+        preds = torch.cat([
+            gt[:, 0].unsqueeze(1),
+            preds
+        ], dim=1)
+
+    if config.cam2cam.cams.using_gt.really:
         preds = gt
 
+        noisy = config.cam2cam.cams.using_gt.using_noise
         if noisy > 0.0:
             preds[:, :, :3, :3] += 1e-2 * noisy *\
                 torch.rand_like(preds[:, :, :3, :3])
@@ -357,8 +364,8 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     cam_preds = _forward_cams(
         cam2cam_model,
         detections,
-        cam_gts if config.cam2cam.cams.using_gt else None,
-        noisy=config.cam2cam.cams.using_noise
+        cam_gts,
+        config,
     )
     if config.debug.dump_tensors:
         _save_stuff(cam_preds, 'cam_preds')

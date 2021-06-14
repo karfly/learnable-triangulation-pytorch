@@ -67,7 +67,12 @@ class RotoTransNet(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.n_views_comparing = 4 + 24  # todo only if fake cams
+        self.n_views = 4
+        if config.cam2cam.data.use_extra_cams:
+            self.n_views += 24
+        elif config.cam2cam.cams.using_just_one_gt:
+            self.n_views = 3  # ALL but first
+
         self.scale_t = config.cam2cam.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
@@ -78,7 +83,7 @@ class RotoTransNet(nn.Module):
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
-                in_features=self.n_views_comparing * n_joints * 2,
+                in_features=self.n_views * n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
                 out_features=n_features,
@@ -101,7 +106,7 @@ class RotoTransNet(nn.Module):
             in_features=n_features,
             inner_size=n_features,
             n_inner_layers=config.cam2cam.model.master.R.n_layers,
-            out_features=n_params_per_R * self.n_views_comparing,
+            out_features=n_params_per_R * self.n_views,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=nn.LeakyReLU,
@@ -112,7 +117,7 @@ class RotoTransNet(nn.Module):
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                n2predict=self.n_views_comparing,
+                n2predict=self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
@@ -120,9 +125,9 @@ class RotoTransNet(nn.Module):
 
     def _forward_R(self, features):
         R_feats = self.R_model(features)
-        features_per_pair = R_feats.shape[-1] // self.n_views_comparing
+        features_per_pair = R_feats.shape[-1] // self.n_views
         R_feats = R_feats.view(
-            -1, self.n_views_comparing, features_per_pair
+            -1, self.n_views, features_per_pair
         )
         return torch.cat([  # ext.R in each view
             self.R_param(R_feats[batch_i]).unsqueeze(0)
@@ -131,7 +136,7 @@ class RotoTransNet(nn.Module):
 
     def _forward_t(self, features):
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
-        trans = t_feats.view(-1, self.n_views_comparing, 1)
+        trans = t_feats.view(-1, self.n_views, 1)
         return trans * self.scale_t
 
     def forward(self, x):

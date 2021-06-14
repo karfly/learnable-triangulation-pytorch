@@ -79,6 +79,7 @@ class RotoTransNet(nn.Module):
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
         n_features = config.cam2cam.model.master.n_features
+        activation = nn.LeakyReLU
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -89,7 +90,7 @@ class RotoTransNet(nn.Module):
                 out_features=n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.LeakyReLU,
+                activation=activation,
             ),
             # CAN be beneficial nn.BatchNorm1d(n_features),
         ])
@@ -109,7 +110,7 @@ class RotoTransNet(nn.Module):
             out_features=n_params_per_R * self.n_views,
             batch_norm=batch_norm,
             drop_out=drop_out,
-            activation=nn.LeakyReLU,
+            activation=activation,
         )
 
         if config.cam2cam.data.pelvis_in_origin:
@@ -120,7 +121,7 @@ class RotoTransNet(nn.Module):
                 n2predict=self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.Sigmoid,
+                activation=activation,
             )
 
     def _forward_R(self, features):

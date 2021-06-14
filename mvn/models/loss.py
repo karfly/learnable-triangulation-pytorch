@@ -256,7 +256,13 @@ class ScaleDependentProjectionLoss(nn.Module):
     def scale_by(x, y):
         return torch.cat([
             (
-                x[i] / torch.norm(y[i], p='fro')
+                x[i] / torch.norm(y[i], p='fro')\
+                    * torch.pow(
+                        torch.square(
+                            torch.norm(x[i], p='fro') / torch.norm(y[i], p='fro') - 1.0
+                        ),
+                        0.1
+                    )
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
@@ -268,7 +274,7 @@ class ScaleDependentProjectionLoss(nn.Module):
 
     def calc_loss(self, projections, initials):
         return self.criterion(
-            self.scale_by(projections, projections),
+            self.scale_by(projections, initials),
             self.scale_by(initials, initials)
         )
 

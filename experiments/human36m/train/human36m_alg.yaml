@@ -50,8 +50,8 @@ cam2cam:
     using_gt:
       really: false
       using_noise: 0.0
-    using_just_one_gt: true
-    use_extra_cams: 0
+    using_just_one_gt: false
+    use_extra_cams: 20
 
   data:
     pelvis_in_origin: true

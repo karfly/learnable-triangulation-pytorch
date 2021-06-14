@@ -3,7 +3,7 @@ from torch import nn
 
 class MLPResNet(nn.Module):
     def __init__(self, in_features, inner_size, n_inner_layers, out_features,
-    batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
+    batch_norm=False, second_batch_norm=False, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
         super().__init__()
 
         self.up = nn.Linear(in_features, inner_size, bias=True)
@@ -29,10 +29,6 @@ class MLPResNet(nn.Module):
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
         self.final_activation = final_activation if (not final_activation is None) else None
-
-        if str(self.final_activation).startswith('ReLU'):
-            nn.init.normal_(self.head.weight, 0.0, 1.0)  # avoid 0 to let DLT
-            nn.init.constant_(self.head.bias, 1e3)  # avoid 0 to let DLT
 
     def _make_bn_layers(self, inner_size, n_inner_layers, batch_norm=True):
         return nn.ModuleList([

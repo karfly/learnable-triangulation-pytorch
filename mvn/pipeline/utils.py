@@ -23,12 +23,21 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
     ])  # ~ (batch_size, n_views, 17, 2)
 
     if use_extra_cams > 0:
-        eulers = R.random(use_extra_cams, random_state=1234).as_euler('zxy')
-        Rs = euler_angles_to_matrix(
-            torch.tensor(eulers.copy()), 'XYZ'  # or any other
+        convention = 'zxy'  # https://en.wikipedia.org/wiki/Euler_angles
+        eulers = torch.tensor(
+            R.random(use_extra_cams, random_state=1234)\
+                .as_euler(convention).copy()
         )
+        eulers[:, 0] = eulers[:, 0] * 2.0
+        eulers[:, 1] = torch.abs(eulers[:, 1]) + np.pi / 2.0  # Z > 0
+        eulers[:, 2] = torch.zeros(use_extra_cams)  # no camera roll
+        Rs = torch.inverse(euler_angles_to_matrix(
+            eulers, convention.upper()  # or any other
+        ))
+
+        np.random.seed(42)
         distances = np.random.uniform(
-            4e3, 6e3, size=use_extra_cams
+            4.5e3, 5.5e3, size=use_extra_cams
         )
         Rts = RotoTransCombiner()(
             Rs.unsqueeze(0),  # batched ...

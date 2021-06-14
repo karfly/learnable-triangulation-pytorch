@@ -120,11 +120,11 @@ class RotoTransNet(nn.Module):
                 n2predict=self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.Sigmoid,
+                activation=nn.LeakyReLU,
             )
 
-            nn.init.normal_(self.t_model.bb.head.weight, 0.0, 0.1)
-            nn.init.constant_(self.t_model.bb.head.bias, 2.0)
+            nn.init.normal_(self.t_model.bb.head.weight, 0.0, 10.0)
+            nn.init.normal_(self.t_model.bb.head.bias, 1e3, 10.0)
 
     def _forward_R(self, features):
         R_feats = self.R_model(features)

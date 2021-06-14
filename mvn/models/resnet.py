@@ -28,7 +28,7 @@ class MLPResNet(nn.Module):
         self.activation = activation()
 
         self.head = nn.Linear(inner_size, out_features, bias=True)
-        self.final_activation = final_activation() if (not final_activation is None) else None
+        self.final_activation = final_activation if (not final_activation is None) else None
 
         if str(self.final_activation).startswith('ReLU'):
             nn.init.normal_(self.head.weight, 0.0, 1.0)  # avoid 0 to let DLT

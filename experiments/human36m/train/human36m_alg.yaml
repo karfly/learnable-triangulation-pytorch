@@ -50,7 +50,7 @@ cam2cam:
     using_gt:
       really: false
       using_noise: 0.0
-    using_just_one_gt: false
+    using_just_one_gt: true
 
   data:
     pelvis_in_origin: true
@@ -58,14 +58,14 @@ cam2cam:
     using_noise: false
     using_heatmaps: false
     head_normal: false
-    use_extra_cams: 50
+    use_extra_cams: 0
 
   preprocess:
     pelvis_center_kps: true
-    normalize_kps: "fro"
+    normalize_kps: "fixed"
 
   postprocess:
-    scale_t: 1000.0
+    scale_t: 1.0
 # or even 1000.0
     try2align: true
 
@@ -79,7 +79,7 @@ cam2cam:
     backbone:
 # used by master and others
       n_features: 1024
-      n_layers: 6
+      n_layers: 4
 
     master:
       n_features: 1024
@@ -119,7 +119,7 @@ cam2cam:
     lr: 0.001
 # `0.0001` when large dataset
 # todo https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.CosineAnnealingLR or https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.LambdaLR
-    weight_decay: 0.01
+    weight_decay: 0.1
 # `0.001` when large dataset
     scheduler:
       factor: 0.7

@@ -33,23 +33,11 @@ class MLSkipper(nn.Module):
         self.head = nn.Linear(inner_size, out_features, bias=True)
         self.final_activation = final_activation() if (not final_activation is None) else None
 
-        if init_weights:
-            self._init_weights()
-
     def _make_bn_layers(self, inner_size, n_inner_layers, batch_norm=True):
         return nn.ModuleList([
             nn.BatchNorm1d(inner_size) if batch_norm else None
             for _ in range(n_inner_layers)
         ])
-
-    def _init_weights(self):   # todo very stupid, can do better
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.normal_(m.weight, 0, 1)
-                nn.init.constant_(m.bias, 0)
 
     def _encode_layer(self, i, x):
         l, b = self.encode_linears[i], self.encode_bns[i]

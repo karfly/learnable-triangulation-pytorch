@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 
-from mvn.utils.tred import matrix_to_euler_angles
 from mvn.models.resnet import MLPResNet
 
 
@@ -139,7 +138,7 @@ class DepthBlock(nn.Module):
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
-            final_activation=nn.ReLU,  # it's a distance! (=> > 0)
+            final_activation=nn.LeakyReLU(),  # distance ...
             init_weights=False
         )
 

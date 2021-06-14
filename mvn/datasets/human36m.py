@@ -139,7 +139,7 @@ class Human36MMultiViewDataset(Dataset):
 
     def _preprocess(self):
         if self.pelvis_in_origin:
-            self.labels['table']['keypoints'] = np.float32([
+            self.labels['table']['keypoints'] = np.float64([
                 self._reparameterize_pelvis_in_origin(kps, 6)
                 for kps in self.labels['table']['keypoints']
             ])
@@ -219,7 +219,7 @@ class Human36MMultiViewDataset(Dataset):
         origin = np.zeros_like(pelvis_in_world)
         t_from_pelvis2origin = origin - pelvis_in_world
 
-        return np.float32([
+        return np.float64([
             kp.reshape(3, 1) + t_from_pelvis2origin.reshape(3, 1)
             for kp in kps
         ]).squeeze(-1)
@@ -381,8 +381,8 @@ class Human36MMultiViewDataset(Dataset):
                         fx, fy = camera.K[0, 0], camera.K[1, 1]
                         cx, cy = camera.K[0, 2], camera.K[1, 2]
                         
-                        grid_x = (np.arange(w, dtype=np.float32) - cx) / fx
-                        grid_y = (np.arange(h, dtype=np.float32) - cy) / fy
+                        grid_x = (np.arange(w, dtype=np.float64) - cx) / fx
+                        grid_y = (np.arange(h, dtype=np.float64) - cy) / fy
                         meshgrid = np.stack(np.meshgrid(grid_x, grid_y), axis=2).reshape(-1, 2)
 
                         # distort meshgrid points

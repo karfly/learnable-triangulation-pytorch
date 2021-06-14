@@ -18,7 +18,7 @@ def _get_random_t():
 
 
 def _get_random_z_t():
-    return np.float32([
+    return np.float64([
         0,
         0,
         np.random.normal(5e3, 1e2)
@@ -26,7 +26,7 @@ def _get_random_z_t():
 
 
 n_views = 3
-keypoints_3d = torch.tensor(np.float32([
+keypoints_3d = torch.tensor(np.float64([
     np.random.normal(1e3, 1e2, size=3),  # a random one
     [0, 0, 0]  # origin
 ]))
@@ -41,7 +41,7 @@ cameras = [
 ]
 
 print('GT R|t:')
-print(torch.tensor(np.float32([
+print(torch.tensor(np.float64([
     cam.extrinsics_padded
     for cam in cameras
 ])))
@@ -57,7 +57,7 @@ for cam in cameras:
     # "At that point, after you re-sample, camera translation should be [0,0,d_pelvis]"
     cam.update_roto_extrsinsic(Rt)
 print('Looking at pelvis (origin) ... => R|t ...')
-print(torch.tensor(np.float32([
+print(torch.tensor(np.float64([
     cam.extrinsics_padded
     for cam in cameras
 ])))
@@ -80,7 +80,7 @@ learned_cams = [
     Camera(_get_random_R(), _get_random_z_t(), K)
     for _ in range(n_views)
 ]
-print(torch.tensor(np.float32([
+print(torch.tensor(np.float64([
     cam.extrinsics_padded
     for cam in learned_cams
 ])))

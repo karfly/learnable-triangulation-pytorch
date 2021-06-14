@@ -180,7 +180,7 @@ def render_points_as_2d_gaussians(points, sigmas, image_shape, normalize=True):
     n_points = points.shape[0]
 
     yy, xx = torch.meshgrid(torch.arange(image_shape[0]).to(device), torch.arange(image_shape[1]).to(device))
-    grid = torch.stack([xx, yy], dim=-1).type(torch.float32)
+    grid = torch.stack([xx, yy], dim=-1).type(torch.float64)
     grid = grid.unsqueeze(0).repeat(n_points, 1, 1, 1)  # (n_points, h, w, 2)
     grid = grid.reshape((-1, 2))
 

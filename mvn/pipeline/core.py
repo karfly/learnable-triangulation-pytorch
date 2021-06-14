@@ -27,7 +27,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
     indices, cameras, images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = prepare_batch(
         batch, device, config, is_train=is_train
     )
-    keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float32)  # 1s, 0s (mainly 1s) ~ 17, 1
+    keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float64)  # 1s, 0s (mainly 1s) ~ 17, 1
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
         results = cam2cam_iter(

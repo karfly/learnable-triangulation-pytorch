@@ -34,10 +34,10 @@ retval = {
 retval['cameras'] = np.empty(
     (len(retval['subject_names']), len(retval['camera_names'])),
     dtype=[
-        ('R', np.float32, (3,3)),
-        ('t', np.float32, (3,1)),
-        ('K', np.float32, (3,3)),
-        ('dist', np.float32, 5)
+        ('R', np.float64, (3,3)),
+        ('t', np.float64, (3,1)),
+        ('K', np.float64, (3,3)),
+        ('dist', np.float64, 5)
     ]
 )
 
@@ -45,7 +45,7 @@ table_dtype = np.dtype([
     ('subject_idx', np.int8),
     ('action_idx', np.int8),
     ('frame_idx', np.int16),
-    ('keypoints', np.float32, (17,3)), # roughly MPII format
+    ('keypoints', np.float64, (17,3)), # roughly MPII format
     ('bbox_by_camera_tlbr', np.int16, (len(retval['camera_names']),4))
 ])
 retval['table'] = []

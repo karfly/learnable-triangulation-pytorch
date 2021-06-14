@@ -7,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss
+from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss
 from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'
@@ -72,6 +72,9 @@ def normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
             ).unsqueeze(0).repeat(1, n_views)  # same for each view
             for batch_i in range(batch_size)
         ])
+    elif normalization == 'fixed':
+        factor = 40.0  # todo to be scaled with K
+        scaling = factor * torch.ones(batch_size, n_views)
 
     return torch.cat([
         torch.cat([
@@ -189,8 +192,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_weights.R * loss_R
 
     t_loss = MSESmoothLoss(threshold=4e2)(
-        cam_gts.view(-1, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,  # just t
-        cam_preds[:, :n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,
+        cam_gts.view(-1, 4, 4)[:, :3, 3] / 1e3,  # just t
+        cam_preds[:, :n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3,
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -243,6 +246,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     loss_self_proj = ScaleDependentProjectionLoss(
         criterion=BerHuLoss(threshold=0.25),
+        #criterion=KeypointsMSESmoothLoss(threshold=1.0),
+        #criterion=PseudoHuberLoss(threshold=1.0),
         where=config.cam2cam.triangulate
     )(
         K,
@@ -393,9 +398,9 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     if config.cam2cam.postprocess.try2align:
         kps_world_pred = apply_umeyama(
-            kps_world_gt.to(kps_world_pred.device),
+            kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,
-            scaling=not config.cam2cam.data.use_extra_cams
+            scaling=config.cam2cam.data.use_extra_cams < 1
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

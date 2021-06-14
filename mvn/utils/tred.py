@@ -162,8 +162,10 @@ def _axis_angle_rotation(axis: str, angle):
 
     if axis == "X":
         R_flat = (one, zero, zero, zero, cos, -sin, zero, sin, cos)
+
     if axis == "Y":
         R_flat = (cos, zero, sin, zero, one, zero, -sin, zero, cos)
+
     if axis == "Z":
         R_flat = (cos, -sin, zero, sin, cos, zero, zero, zero, one)
 

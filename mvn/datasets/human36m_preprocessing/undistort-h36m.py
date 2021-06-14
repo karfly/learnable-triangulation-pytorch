@@ -52,8 +52,8 @@ for sample_idx in range(len(dataset))):
                 fx, fy = camera.K[0, 0], camera.K[1, 1]
                 cx, cy = camera.K[0, 2], camera.K[1, 2]
                 
-                grid_x = (np.arange(w, dtype=np.float32) - cx) / fx
-                grid_y = (np.arange(h, dtype=np.float32) - cy) / fy
+                grid_x = (np.arange(w, dtype=np.float64) - cx) / fx
+                grid_y = (np.arange(h, dtype=np.float64) - cy) / fy
                 meshgrid = np.stack(np.meshgrid(grid_x, grid_y), axis=2).reshape(-1, 2)
 
                 # distort meshgrid points

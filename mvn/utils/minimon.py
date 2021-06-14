@@ -6,9 +6,9 @@ from mvn.utils.misc import is_master
 
 class MiniMonValue:
     def __init__(self):
-        self.runtime_sum = np.float32(0)
-        self.runtime_min = np.float32('inf')
-        self.runtime_max = -np.float32('inf')
+        self.runtime_sum = np.float64(0)
+        self.runtime_min = np.float64('inf')
+        self.runtime_max = -np.float64('inf')
         self.num = 0
         self.runtime_last = -1
 

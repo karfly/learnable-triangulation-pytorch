@@ -97,7 +97,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         },
         't loss / batch': {
             'color': colors[2],
-            'scaler': 2e-3,
+            'scaler': 1e-1,
             'show': True,
         },
         'proj loss / batch': {
@@ -135,7 +135,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
     for key in loss_keys:
         if key in epochs[0]:  # be sure to plot something that exists, we are not in QM
             if key in loss_plotters and loss_plotters[key]['show']:
-                loss_history = np.float32([
+                loss_history = np.float64([
                     np.mean(epoch[key])
                     for epoch in epochs
                 ])
@@ -183,11 +183,11 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
     legend_loc = 'upper right'
     marker = ','
 
-    metrics = np.float32(list(map(lambda x: x['training metrics (rel)'], epochs)))
+    metrics = np.float64(list(map(lambda x: x['training metrics (rel)'], epochs)))
     label = 'train rel MPJPE = {:.0f}'.format(metrics[-1])
 
     if 'training metrics (abs)' in epochs[-1]:
-        last_abs_metrics = np.float32(epochs[-1]['training metrics (abs)'])
+        last_abs_metrics = np.float64(epochs[-1]['training metrics (abs)'])
     else:
         last_abs_metrics = None
     
@@ -211,10 +211,10 @@ def plot_metrics(axis, epochs, xrange, train_metric_ylim=[0, 1], eval_metric_yli
         verbose=False
     )
 
-    metrics = np.float32(list(map(lambda x: x['eval metrics (rel)'], epochs)))
+    metrics = np.float64(list(map(lambda x: x['eval metrics (rel)'], epochs)))
     label = 'eval rel MPJPE = {:.0f}'.format(metrics[-1])
     if 'eval metrics (abs)' in epochs[-1]:
-        last_abs_metrics = np.float32(epochs[-1]['eval metrics (abs)'])
+        last_abs_metrics = np.float64(epochs[-1]['eval metrics (abs)'])
     else:
         last_abs_metrics = None
 

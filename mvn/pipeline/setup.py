@@ -130,7 +130,7 @@ def setup_experiment(config_path, logdir, config, model_name):
 
 
 def build_env(config, device):
-    torch.set_default_dtype(torch.float)  # dio cane
+    torch.set_default_dtype(torch.double)  # dio cane
 
     # build triangulator model ...
     model = {

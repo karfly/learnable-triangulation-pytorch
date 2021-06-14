@@ -181,19 +181,20 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     batch_size = cam_gts.shape[0]
     n_cameras = cam_gts.shape[1]
+    start_cam = 1 if config.cam2cam.cams.using_just_one_gt else 0
     loss_weights = config.cam2cam.loss  # todo normalize | sum = 1
 
     # using supervision ...
     loss_R = GeodesicLoss()(
-        cam_gts.view(-1, 4, 4)[:, :3, :3],  # just R
-        cam_preds[:, :n_cameras].reshape(-1, 4, 4)[:, :3, :3]
+        cam_gts[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3],  # just R
+        cam_preds[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3]
     )
     if loss_weights.R > 0:
         total_loss += loss_weights.R * loss_R
 
     t_loss = MSESmoothLoss(threshold=4e2)(
-        cam_gts.view(-1, 4, 4)[:, :3, 3] / 1e3,  # just t
-        cam_preds[:, :n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3,
+        cam_gts[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, 3] / 1e3,  # just t
+        cam_preds[:, start_cam:n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3,
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -204,9 +205,9 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         where=config.cam2cam.triangulate
     )(
         K,
-        cam_preds,
+        cam_preds[:, start_cam:],
         kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
-        keypoints_2d_pred,  # todo just because I'm using GT KPs
+        keypoints_2d_pred[:, start_cam:],  # todo just because I'm using GT KPs
     )
     if loss_weights.proj > 0:
         total_loss += loss_weights.proj * loss_proj
@@ -251,9 +252,9 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         where=config.cam2cam.triangulate
     )(
         K,
-        cam_preds,
+        cam_preds[:, start_cam:],
         kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
-        keypoints_2d_pred
+        keypoints_2d_pred[:, start_cam:]
     )
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj

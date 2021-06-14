@@ -117,7 +117,6 @@ def denormalize_image(image):
     return np.clip(255.0 * (image * IMAGENET_STD + IMAGENET_MEAN), 0, 255)
 
 
-# todo faster
 def resample_channel(image, target_intrinsics, intrinsics, padding_size=10):
     y_ = np.arange(0, image.shape[0])[:, np.newaxis].repeat(
         image.shape[1], 1

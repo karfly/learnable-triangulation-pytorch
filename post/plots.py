@@ -84,7 +84,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
 
     n_max_losses = 10
     colors = plt.get_cmap('jet')(np.linspace(0, 1, n_max_losses))
-    loss_plotters = {  # todo config file
+    loss_plotters = {
         'total loss / batch': {
             'color': colors[0],
             'scaler': 1e-2,

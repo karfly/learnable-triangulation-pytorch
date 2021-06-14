@@ -464,7 +464,7 @@ def _my_proj(ext, K):
     def _f(x):
         homo = euclidean_to_homogeneous(x)
         return homogeneous_to_euclidean(
-            homo @ projection.to(x.device)
+            homo.type(projection.type()) @ projection
         )
 
     return _f
@@ -487,30 +487,21 @@ def project2weak_views(K, cam_preds, kps_world_pred, where='world'):
         for batch_i in range(batch_size)
     ])  # project DLT-ed points in all views
 
+
 def prepare_weak_cams_for_dlt(cams, K, where="world"):
     batch_size = cams.shape[0]
-    full_cams = torch.empty((batch_size, 4, 3, 4))
+    n_views = cams.shape[1]
+    full_cams = torch.empty((batch_size, n_views, 3, 4))
 
     for batch_i in range(batch_size):
         if where == 'world':
             full_cams[batch_i] = torch.cat([
                 torch.mm(
                     K,
-                    cams[batch_i, 0]
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 1]
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 2],
-                ).unsqueeze(0),
-                torch.mm(
-                    K,
-                    cams[batch_i, 3],
-                ).unsqueeze(0),
-            ])  # ~ 4, 3, 4
+                    cams[batch_i, view_i]
+                ).unsqueeze(0)
+                for view_i in range(n_views)
+            ])
         elif where == 'master':
             full_cams[batch_i] = torch.cat([
                 K.unsqueeze(0),  # doing DLT in master (0)'s camspace

@@ -45,11 +45,10 @@ svd:
 
 cam2cam:
   triangulate: "world"
-# todo config for the 2 variants: I) predict all Es "world" II) predict "master" E and the 3 cam_0_i
 
   cams:
     using_gt: false
-    using_noise: 0.1
+    using_noise: 0.0
 
   data:
     pelvis_in_origin: true
@@ -57,6 +56,7 @@ cam2cam:
     using_noise: false
     using_heatmaps: false
     head_normal: false
+    use_extra_cams: true
 
   preprocess:
     pelvis_center_kps: true
@@ -64,12 +64,12 @@ cam2cam:
 
   postprocess:
     scale_t: 100.0
-    try2align: true
+    try2align: false
 
   model:
     name: "mlp"
     batch_norm: true
-# `Martin` would disapprove
+# Martin would disapprove
 
     drop_out: 0
 

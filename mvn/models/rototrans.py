@@ -49,9 +49,9 @@ class RotoTransCombiner(nn.Module):
         ], dim=-1)  # hstack => ~ batch_size, | comparisons |, 3, 4
         roto_trans = torch.cat([  # padd each view
             roto_trans,
-            torch.cuda.DoubleTensor(
+            torch.DoubleTensor(
                 [0, 0, 0, 1]
-            ).repeat(batch_size, n_views, 1, 1)
+            ).repeat(batch_size, n_views, 1, 1).to(roto_trans.device)
         ], dim=-2)  # hstack => ~ batch_size, | comparisons |, 3, 4
 
         return torch.cat([
@@ -67,7 +67,7 @@ class RotoTransNet(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.n_views_comparing = 4
+        self.n_views_comparing = 4 + 24  # todo only if fake cams
         self.scale_t = config.cam2cam.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
@@ -98,7 +98,7 @@ class RotoTransNet(nn.Module):
             self.R_param = RodriguesBlock()
         
         self.R_model = MLPResNet(
-            in_features=n_features,  # todo concat view KPs
+            in_features=n_features,
             inner_size=n_features,
             n_inner_layers=config.cam2cam.model.master.R.n_layers,
             out_features=n_params_per_R * self.n_views_comparing,
@@ -107,39 +107,41 @@ class RotoTransNet(nn.Module):
             activation=nn.LeakyReLU,
         )
 
-        # todo assuming predicting just depth
-        self.t_model = DepthBlock(
-            in_features=n_features,
-            inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master.t.n_layers,
-            n2predict=self.n_views_comparing,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=nn.LeakyReLU,
-        )
+        if config.cam2cam.data.pelvis_in_origin:
+            self.t_model = DepthBlock(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n2predict=self.n_views_comparing,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=nn.LeakyReLU,
+            )
 
-    # todo refactor like in `Cam2camNet`
-    def forward(self, x):
-        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
-
-        batch_size = x.shape[0]
-        features = self.backbone(x)  # batch_size, ...
-
+    def _forward_R(self, features):
         R_feats = self.R_model(features)
         features_per_pair = R_feats.shape[-1] // self.n_views_comparing
         R_feats = R_feats.view(
-            batch_size, self.n_views_comparing, features_per_pair
+            -1, self.n_views_comparing, features_per_pair
         )
-        rots = torch.cat([  # ext.R in each view
+        return torch.cat([  # ext.R in each view
             self.R_param(R_feats[batch_i]).unsqueeze(0)
-            for batch_i in range(batch_size)
+            for batch_i in range(R_feats.shape[0])
         ])  # ~ batch_size, | n_predictions |, (3 x 3)
 
+    def _forward_t(self, features):
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
-        trans = t_feats.view(batch_size, self.n_views_comparing, 1)  # ~ batch_size, | n_predictions |, 1 = ext.d for each view
-        trans = trans * self.scale_t
+        trans = t_feats.view(-1, self.n_views_comparing, 1)
+        return trans * self.scale_t
 
-        return RotoTransCombiner()(rots, trans)
+    def forward(self, x):
+        """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """
+
+        features = self.backbone(x)
+        return RotoTransCombiner()(
+            self._forward_R(features),
+            self._forward_t(features)
+        )
 
 
 class Cam2camNet(nn.Module):
@@ -222,7 +224,7 @@ class Cam2camNet(nn.Module):
             TranslationFromAnglesBlock()
         ])
 
-    @staticmethod  # todo out of this class
+    @staticmethod
     def _make_Rt_model(make_mlp, in_features, inner_size, R_param, R_layers, t_param, t_layers, batch_norm, drop_out, activation):
         if R_param == '6d':
             n_params_per_R = 6
@@ -256,7 +258,7 @@ class Cam2camNet(nn.Module):
 
         return R_model, t_model
 
-    @staticmethod  # todo out of this class
+    @staticmethod
     def _forward_cam(R_model, t_model, base_features, scale_t):
         Rs = R_model(base_features)  # ~ batch_size, (3 x 3)
         ts = t_model(base_features) * scale_t

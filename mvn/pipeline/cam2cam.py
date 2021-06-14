@@ -118,7 +118,7 @@ def _get_cams_gt(cameras, where='world'):
 def _forward_cams(cam2cam_model, detections, gt=None, noisy=0.0):
     preds = cam2cam_model(
         detections  # ~ (batch_size, | pairs |, 2, n_joints=17, 2D)
-    )  # (batch_size, | pairs |, 3, 3)
+    )  # (batch_size, ~ |views|, 4, 4)
     dev = preds.device
 
     if not (gt is None):
@@ -169,21 +169,21 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, wher
 def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps_mastercam_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
     dev = cam_preds.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
-    batch_size = cam_preds.shape[0]
-    n_cameras = cam_preds.shape[1]
+    batch_size = cam_gts.shape[0]
+    n_cameras = cam_gts.shape[1]
     loss_weights = config.cam2cam.loss  # todo normalize | sum = 1
 
     # using supervision ...
     loss_R = GeodesicLoss()(
-        cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, :3],  # just R
-        cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, :3]
+        cam_gts.view(-1, 4, 4)[:, :3, :3],  # just R
+        cam_preds[:, :n_cameras].reshape(-1, 4, 4)[:, :3, :3]
     )
     if loss_weights.R > 0:
         total_loss += loss_weights.R * loss_R
 
     t_loss = MSESmoothLoss(threshold=4e2)(
-        cam_gts.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,  # just t
-        cam_preds.view(batch_size * n_cameras, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,
+        cam_gts.view(-1, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,  # just t
+        cam_preds[:, :n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / config.cam2cam.postprocess.scale_t,
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -281,7 +281,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     def _forward_kp():
         if config.cam2cam.data.using_gt:
-            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(kps_world_gt, cameras, config.cam2cam.data.using_noise)
+            keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(
+                kps_world_gt,
+                cameras,
+                config.cam2cam.data.use_extra_cams,
+                config.cam2cam.data.using_noise
+            )
         else:
             keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
                 images_batch, None, minimon
@@ -379,7 +384,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     if is_train:
         _backprop()
 
-    if config.cam2cam.postprocess.try2align:
+    if config.cam2cam.postprocess.try2align and not config.cam2cam.data.use_extra_cams:  # just if NOT cheating
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).double(),
             kps_world_pred

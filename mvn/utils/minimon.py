@@ -4,7 +4,7 @@ import time
 from mvn.utils.misc import is_master
 
 
-class MiniMonValue:  # todo support multi-GPU
+class MiniMonValue:
     def __init__(self):
         self.runtime_sum = np.float32(0)
         self.runtime_min = np.float32('inf')
@@ -48,13 +48,13 @@ class MiniMon:
         self.only_by_master = only_by_master
         self.only_master_should_print = only_master_should_print
 
-    def _can_do_transaction(self):  # todo as wrapper
+    def _can_do_transaction(self):
         if self.only_by_master:
             return is_master()
 
         return True
 
-    def _can_print(self):  # todo as wrapper
+    def _can_print(self):
         if self.only_master_should_print:
             return is_master()
 

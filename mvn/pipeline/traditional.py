@@ -19,8 +19,6 @@ def batch_iter(batch, iter_i, model, model_type, criterion, opt, images_batch, k
             batch,
             minimon
         )
-    else:  # fail case
-        keypoints_2d_pred, cuboids_pred, base_points_pred = None, None, None
 
     minimon.leave('forward pass')
 

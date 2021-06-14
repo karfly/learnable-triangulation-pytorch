@@ -16,6 +16,145 @@ from mvn.pipeline.cam2cam import PELVIS_I
 from mvn.models.loss import KeypointsMSESmoothLoss
 
 
+def viz_geodesic():
+    """ really appreciate https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html """
+
+    def _gen_some_eulers():
+        return np.float32([])
+
+    rots = torch.cat([
+        # rotx(torch.tensor(np.pi / 2)).unsqueeze(0),
+        # roty(torch.tensor(np.pi / 3)).unsqueeze(0),
+        rotz(torch.tensor(np.pi / 2)).unsqueeze(0),
+        torch.tensor(R.random().as_matrix()).unsqueeze(0),
+        torch.tensor(R.random().as_matrix()).unsqueeze(0),
+        torch.tensor(R.random().as_matrix()).unsqueeze(0),
+    ])
+
+    distances = GeodesicLoss()._criterion(
+        rots.float(),
+        torch.eye(3, 3).repeat(rots.shape[0], 1, 1).float().to(rots.device)
+    )
+
+    angle_axis = rotation_matrix2axis_angle(rots)
+
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    axis = fig.add_subplot(1, 1, 1, projection='3d')
+
+    colors = plt.get_cmap('jet')(np.linspace(0, 1, rots.shape[0]))
+    for aa, dist, color in zip(
+        angle_axis.numpy(),
+        distances.numpy(),
+        colors):
+
+        label = 'rotate by {:.1f} along [{:.1f}, {:.1f}, {:.1f}] => distance {:.1f}'.format(
+            np.degrees(aa[-1]), aa[0], aa[1], aa[2], dist
+        )
+        axis.plot(
+            [0, aa[0]],  # from origin ...
+            [0, aa[1]],
+            [0, aa[2]],  # ... to vec
+            label=label,
+            color=color,
+        )
+
+    # show axis
+    axis.quiver(
+        0, 0, 0,
+        1, 0, 0,
+        normalize=True,
+        color='black',
+    )
+    axis.quiver(
+        0, 0, 0,
+        0, 1, 0,
+        normalize=True,
+        color='black',
+    )
+    axis.quiver(
+        0, 0, 0,
+        0, 0, 1,
+        normalize=True,
+        color='black',
+    )
+
+    axis.set_xlim3d(-2.0, 2.0)
+    axis.set_ylim3d(-2.0, 2.0)
+    axis.set_zlim3d(-2.0, 2.0)
+    axis.legend(loc='lower left')
+    plt.tight_layout()
+    plt.show()
+
+
+def viz_se_smooth():
+    def smooth(threshold, alpha, beta):
+        def _f(x):
+            x[x > threshold] = np.power(
+                x[x > threshold],
+                alpha
+            ) * (threshold ** beta)  # soft version
+
+            return x
+        return _f
+
+    n_points = 100
+    xs = np.linspace(0, 1e3, n_points)
+
+    threshold = 1e2
+
+    _, axis = get_figa(1, 1, heigth=12, width=30)
+
+    for alpha in np.linspace(0.1, 0.3, 2):
+        for beta in np.linspace(0.9, 1.5, 3):
+            ys = smooth(threshold, alpha, beta)(xs.copy())
+
+            axis.plot(
+                xs, ys,
+                label='smoothed (alpha={:.1f}, beta={:.1f}'.format(alpha, beta)
+            )
+
+    axis.plot(xs, xs, label='MSE')
+
+    axis.vlines(x=threshold, ymin=0, ymax=np.max(
+        xs), linestyle=':', label='threshold')
+
+    axis.set_xlim((xs[0], xs[-1]))
+    axis.set_yscale('log')
+
+    axis.legend(loc='upper left')
+
+
+def viz_extrinsics():
+    convention = 'ZXY'
+    eulers = torch.tensor([
+        np.deg2rad(30), np.deg2rad(50), 0  # no pitch
+    ])
+    cam_orient_in_world = euler_angles_to_matrix(eulers, convention)
+    aa_in_world = R.from_matrix(cam_orient_in_world.numpy()).as_rotvec()
+    print('GT orient', np.rad2deg(eulers.numpy()))
+
+    cam_R = cam_orient_in_world.T  # ext predicted
+    aa_in_pose = R.from_matrix(cam_R).as_rotvec()
+    print('eulers of predicted pose', np.rad2deg(
+        matrix_to_euler_angles(cam_R, convention)
+    ))
+
+    print('eulers of predicted orientation', np.rad2deg(
+        matrix_to_euler_angles(cam_R.T, convention)
+    ))
+
+    fig = plt.figure(figsize=plt.figaspect(1.5))
+    axis = fig.add_subplot(1, 1, 1, projection='3d')
+
+    plot_vector(axis, aa_in_world, from_origin=True, color='blue')
+    plot_vector(axis, aa_in_pose, from_origin=True, color='red')
+
+    plot_vector(axis, [1, 0, 0])  # X
+    plot_vector(axis, [0, 1, 0])  # Y
+    plot_vector(axis, [0, 0, 1])  # Z
+    plt.show()
+
+
 def get_joints_connections():
     return [
         (6, 3),  # pelvis -> left anca
@@ -100,7 +239,6 @@ def draw_kps_in_2d(axis, keypoints_2d, label, marker='o', color='blue'):
                 s=s,
                 color=colors[point_i],
                 label=label + ' {:.0f}'.format(point_i)
-                # todo too many label=label,
             )
 
 
@@ -119,7 +257,6 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
             marker=marker,
             markersize=0 if label else 5,
             color=color,
-            # todo too many label=label,
         )
 
     if label:
@@ -142,7 +279,6 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
                 s=s,
                 color=colors[point_i],
                 label=label + ' {:.0f}'.format(point_i)
-                # todo too many label=label,
             )
 
         print(label, 'centroid ~', keypoints_3d.mean(axis=0))
@@ -358,21 +494,101 @@ def debug_live_training():
     )
 
     cam_pred = torch.tensor([
-        [[ 1.5227e-01,  5.9660e-02,  9.8654e-01,  0.0000e+00],
-         [ 7.7107e-01, -6.3161e-01, -8.0818e-02,  0.0000e+00],
-         [ 6.1828e-01,  7.7299e-01, -1.4218e-01, -4.6307e+03]],
+        [[ 3.4549e-01, -4.7553e-01, -8.0902e-01,  0.0000e+00],
+         [-6.2247e-01, -7.6127e-01,  1.8164e-01,  0.0000e+00],
+         [-7.0225e-01,  4.4084e-01, -5.5902e-01,  4.0000e+03]],
 
-        [[-4.1619e-01, -5.9598e-01, -6.8673e-01,  0.0000e+00],
-         [ 9.0908e-01, -2.5688e-01, -3.2801e-01,  0.0000e+00],
-         [ 1.9080e-02, -7.6080e-01,  6.4871e-01, -4.6938e+03]],
+        [[-5.5902e-01, -1.8164e-01, -8.0902e-01,  0.0000e+00],
+         [-5.3166e-01,  8.2725e-01,  1.8164e-01,  0.0000e+00],
+         [ 6.3627e-01,  5.3166e-01, -5.5902e-01,  4.0870e+03]],
 
-        [[-4.2669e-01, -5.4653e-01, -7.2058e-01,  0.0000e+00],
-         [-8.0858e-01,  5.8745e-01,  3.3248e-02,  0.0000e+00],
-         [ 4.0513e-01,  5.9684e-01, -6.9257e-01,  4.8035e+03]],
+        [[ 3.4549e-01,  4.7553e-01,  8.0902e-01,  0.0000e+00],
+         [ 6.2247e-01, -7.6127e-01,  1.8164e-01,  0.0000e+00],
+         [ 7.0225e-01,  4.4084e-01, -5.5902e-01,  4.1739e+03]],
 
-        [[-2.2679e-01, -1.2974e-02, -9.7386e-01,  0.0000e+00],
-         [ 9.6618e-01, -1.2899e-01, -2.2328e-01,  0.0000e+00],
-         [-1.2272e-01, -9.9156e-01,  4.1788e-02, -3.7292e+03]]
+        [[-5.5902e-01, -1.8164e-01,  8.0902e-01,  0.0000e+00],
+         [-5.6128e-02,  9.8176e-01,  1.8164e-01,  0.0000e+00],
+         [-8.2725e-01,  5.6128e-02, -5.5902e-01,  4.2609e+03]],
+
+        [[-5.5902e-01, -7.6942e-01,  3.0902e-01,  0.0000e+00],
+         [ 7.1329e-01, -6.3627e-01, -2.9389e-01,  0.0000e+00],
+         [ 4.2275e-01,  5.6128e-02,  9.0451e-01,  4.3478e+03]],
+
+        [[-5.5902e-01,  7.6942e-01,  3.0902e-01,  0.0000e+00],
+         [-8.2555e-01, -4.8176e-01, -2.9389e-01,  0.0000e+00],
+         [-7.7254e-02, -4.1940e-01,  9.0451e-01,  4.4348e+03]],
+
+        [[-5.5902e-01,  7.6942e-01, -3.0902e-01,  0.0000e+00],
+         [ 6.2247e-01,  1.4324e-01, -7.6942e-01,  0.0000e+00],
+         [-5.4775e-01, -6.2247e-01, -5.5902e-01,  4.5217e+03]],
+
+        [[ 9.0451e-01,  2.9389e-01, -3.0902e-01,  0.0000e+00],
+         [-5.6128e-02, -6.3627e-01, -7.6942e-01,  0.0000e+00],
+         [-4.2275e-01,  7.1329e-01, -5.5902e-01,  4.6087e+03]],
+
+        [[-5.5902e-01,  1.8164e-01,  8.0902e-01,  0.0000e+00],
+         [ 4.4084e-01, -7.6127e-01,  4.7553e-01,  0.0000e+00],
+         [ 7.0225e-01,  6.2247e-01,  3.4549e-01,  4.6957e+03]],
+
+        [[-5.5902e-01, -1.8164e-01,  8.0902e-01,  0.0000e+00],
+         [ 8.0411e-01, -3.5676e-01,  4.7553e-01,  0.0000e+00],
+         [ 2.0225e-01,  9.1637e-01,  3.4549e-01,  4.7826e+03]],
+
+        [[ 9.0451e-01, -2.9389e-01,  3.0902e-01,  0.0000e+00],
+         [ 5.6128e-02, -6.3627e-01, -7.6942e-01,  0.0000e+00],
+         [ 4.2275e-01,  7.1329e-01, -5.5902e-01,  4.8696e+03]],
+
+        [[-5.5902e-01,  7.6942e-01,  3.0902e-01,  0.0000e+00],
+         [ 3.2858e-01,  5.4775e-01, -7.6942e-01,  0.0000e+00],
+         [-7.6127e-01, -3.2858e-01, -5.5902e-01,  4.9565e+03]],
+
+        [[-5.5902e-01, -7.6942e-01, -3.0902e-01,  0.0000e+00],
+         [-6.2247e-01,  1.4324e-01,  7.6942e-01,  0.0000e+00],
+         [-5.4775e-01,  6.2247e-01, -5.5902e-01,  5.0435e+03]],
+
+        [[ 9.0451e-01,  2.9389e-01, -3.0902e-01,  0.0000e+00],
+         [ 4.1940e-01, -4.8176e-01,  7.6942e-01,  0.0000e+00],
+         [ 7.7254e-02, -8.2555e-01, -5.5902e-01,  5.1304e+03]],
+
+        [[-5.5902e-01,  1.8164e-01, -8.0902e-01,  0.0000e+00],
+         [ 4.4084e-01, -7.6127e-01, -4.7553e-01,  0.0000e+00],
+         [-7.0225e-01, -6.2247e-01,  3.4549e-01,  5.2174e+03]],
+
+        [[-5.5902e-01, -1.8164e-01, -8.0902e-01,  0.0000e+00],
+         [ 8.0411e-01, -3.5676e-01, -4.7553e-01,  0.0000e+00],
+         [-2.0225e-01, -9.1637e-01,  3.4549e-01,  5.3043e+03]],
+
+        [[ 9.0451e-01, -2.9389e-01,  3.0902e-01,  0.0000e+00],
+         [-4.1940e-01, -4.8176e-01,  7.6942e-01,  0.0000e+00],
+         [-7.7254e-02, -8.2555e-01, -5.5902e-01,  5.3913e+03]],
+
+        [[-5.5902e-01, -7.6942e-01,  3.0902e-01,  0.0000e+00],
+         [-3.2858e-01,  5.4775e-01,  7.6942e-01,  0.0000e+00],
+         [-7.6127e-01,  3.2858e-01, -5.5902e-01,  5.4783e+03]],
+
+        [[-5.5902e-01, -7.6942e-01, -3.0902e-01,  0.0000e+00],
+         [ 7.1329e-01, -6.3627e-01,  2.9389e-01,  0.0000e+00],
+         [-4.2275e-01, -5.6128e-02,  9.0451e-01,  5.5652e+03]],
+
+        [[-5.5902e-01,  7.6942e-01, -3.0902e-01,  0.0000e+00],
+         [-8.2555e-01, -4.8176e-01,  2.9389e-01,  0.0000e+00],
+         [ 7.7254e-02,  4.1940e-01,  9.0451e-01,  5.6522e+03]],
+
+        [[-5.5902e-01,  1.8164e-01, -8.0902e-01,  0.0000e+00],
+         [ 5.3166e-01,  8.2725e-01, -1.8164e-01,  0.0000e+00],
+         [ 6.3627e-01, -5.3166e-01, -5.5902e-01,  5.7391e+03]],
+
+        [[ 3.4549e-01, -4.7553e-01, -8.0902e-01,  0.0000e+00],
+         [-9.1637e-01, -3.5676e-01, -1.8164e-01,  0.0000e+00],
+         [-2.0225e-01,  8.0411e-01, -5.5902e-01,  5.8261e+03]],
+
+        [[-5.5902e-01,  1.8164e-01,  8.0902e-01,  0.0000e+00],
+         [ 5.6128e-02,  9.8176e-01, -1.8164e-01,  0.0000e+00],
+         [-8.2725e-01, -5.6128e-02, -5.5902e-01,  5.9130e+03]],
+
+        [[ 3.4549e-01,  4.7553e-01,  8.0902e-01,  0.0000e+00],
+         [ 9.1637e-01, -3.5676e-01, -1.8164e-01,  0.0000e+00],
+         [ 2.0225e-01,  8.0411e-01, -5.5902e-01,  6.0000e+03]]
     ]).float()
     cam_gt = torch.tensor([
         [[-9.2829e-01,  3.7185e-01,  6.5016e-04,  4.9728e-14],
@@ -490,13 +706,11 @@ def debug_live_training():
         axis.set_ylim(axis.get_ylim()[::-1])  # invert
         #axis.legend(loc='lower right')
 
-    def _plot_cam_config():
-        fig = plt.figure(figsize=plt.figaspect(1.5))
-        axis = fig.add_subplot(1, 1, 1, projection='3d')
+    def _plot_cam_config(axis, gt, pred):
         cmap = plt.get_cmap('jet')
-        colors = cmap(np.linspace(0, 1, 5))
+        colors = cmap(np.linspace(0, 1, len(pred)))
 
-        locs = get_cam_location_in_world(cam_pred)
+        locs = get_cam_location_in_world(pred)
         for i, loc in enumerate(locs):
             axis.scatter(
                 [ loc[0] ], [ loc[1] ], [ loc[2] ],
@@ -507,22 +721,22 @@ def debug_live_training():
             )
             plot_vector(axis, loc, from_origin=False)
 
-        locs = get_cam_location_in_world(cam_gt)
-        for i, loc in enumerate(locs):
-            axis.scatter(
-                [ loc[0] ], [ loc[1] ], [ loc[2] ],
-                marker='x',
-                s=600,
-                color=colors[i],
-                label='GT cam #{:.0f}'.format(i)
-            )
-            plot_vector(axis, loc, from_origin=False)
+        # locs = get_cam_location_in_world(cam_gt)
+        # for i, loc in enumerate(locs):
+        #     axis.scatter(
+        #         [ loc[0] ], [ loc[1] ], [ loc[2] ],
+        #         marker='x',
+        #         s=600,
+        #         color=colors[i],
+        #         label='GT cam #{:.0f}'.format(i)
+        #     )
+        #     plot_vector(axis, loc, from_origin=False)
 
         plot_vector(axis, [1, 0, 0])  # X
         plot_vector(axis, [0, 1, 0])  # Y
         plot_vector(axis, [0, 0, 1])  # Z
 
-        axis.legend()
+        #axis.legend()
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
@@ -530,7 +744,7 @@ def debug_live_training():
     #compare_in_world()(axis, gt, pred)
     #_compare_in_camspace(cam_i=1)
     #_compare_in_proj(cam_i=0, norm=True)
-    #_plot_cam_config()
+    _plot_cam_config(axis, None, cam_pred)
 
     # axis.legend(loc='lower left')
     plt.tight_layout()

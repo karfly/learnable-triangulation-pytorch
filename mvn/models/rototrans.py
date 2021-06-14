@@ -68,8 +68,8 @@ class RotoTransNet(nn.Module):
         super().__init__()
 
         self.n_views = 4
-        if config.cam2cam.data.use_extra_cams > 0:
-            self.n_views += config.cam2cam.data.use_extra_cams
+        if config.cam2cam.cams.use_extra_cams > 0:
+            self.n_views += config.cam2cam.cams.use_extra_cams
         elif config.cam2cam.cams.using_just_one_gt:
             self.n_views = 3  # ALL but first
 
@@ -122,9 +122,6 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=nn.LeakyReLU,
             )
-
-            nn.init.normal_(self.t_model.bb.head.weight, 0.0, 10.0)
-            nn.init.normal_(self.t_model.bb.head.bias, 1e3, 10.0)
 
     def _forward_R(self, features):
         R_feats = self.R_model(features)

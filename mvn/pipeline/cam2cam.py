@@ -267,9 +267,9 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         __batch_i = 0
 
         print('pred exts {:.0f}'.format(__batch_i))
-        print(cam_preds[__batch_i, :n_cameras, :3, :4])
+        print(cam_preds[__batch_i, start_cam:n_cameras, :3, :4])
         print('gt exts {:.0f}'.format(__batch_i))
-        print(cam_gts[__batch_i, :, :3, :4])
+        print(cam_gts[__batch_i, start_cam:n_cameras, :3, :4])
 
         print('pred batch {:.0f}'.format(__batch_i))
         print(kps_world_pred[__batch_i])
@@ -297,7 +297,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(
                 kps_world_gt,
                 cameras,
-                config.cam2cam.data.use_extra_cams,
+                config.cam2cam.cams.use_extra_cams,
                 config.cam2cam.data.using_noise
             )
         else:
@@ -401,7 +401,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,
-            scaling=config.cam2cam.data.use_extra_cams < 1
+            scaling=config.cam2cam.cams.use_extra_cams < 1 and not config.cam2cam.cams.using_just_one_gt
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

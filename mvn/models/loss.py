@@ -253,10 +253,10 @@ class ScaleDependentProjectionLoss(nn.Module):
         self.where = where
 
     @staticmethod
-    def scale(x):
+    def scale_by(x, y):
         return torch.cat([
             (
-                x[i] / 30.0  # todo to be scaled with K
+                x[i] / torch.norm(y[i], p='fro')
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
@@ -268,8 +268,8 @@ class ScaleDependentProjectionLoss(nn.Module):
 
     def calc_loss(self, projections, initials):
         return self.criterion(
-            self.scale(projections),
-            self.scale(initials)
+            self.scale_by(projections, initials),
+            self.scale_by(initials, initials)
         )
 
     def forward(self, K, cam_preds, kps_pred, initial_keypoints):

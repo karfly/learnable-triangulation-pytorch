@@ -9,7 +9,7 @@ from mvn.utils.misc import live_debug_log
 
 
 # todo refactor
-def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=False, noisy=False):
+def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
     batch_size, n_joints, n_views = keypoints_3d_gt.shape[0], keypoints_3d_gt.shape[1], len(cameras)
 
     keypoints_2d_pred = torch.cat([
@@ -22,18 +22,24 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=False, noisy=False):
         for batch_i in range(batch_size)
     ])  # ~ (batch_size, n_views, 17, 2)
 
-    if use_extra_cams:
-        eulers_per_axis = np.linspace(-np.pi * 0.9, np.pi * 0.9, 5) 
-        eulers = np.float64(list(permutations(  # todo uniform
-            eulers_per_axis, r=3
-        )))  # todo random
+    if use_extra_cams > 0:
+        eulers = np.float64([
+            [
+                np.random.uniform(-np.pi * 0.9, np.pi * 0.9),
+                0,
+                np.random.uniform(-np.pi * 0.9, np.pi * 0.9)
+            ]
+            for _ in range(use_extra_cams)
+        ])
         Rs = euler_angles_to_matrix(
             torch.tensor(eulers), 'XYZ'  # or any other
         )
-        distances = np.linspace(4e3, 6e3, len(eulers))  # todo random
+        distances = np.random.uniform(
+            4e3, 6e3, size=use_extra_cams
+        )
         Rts = RotoTransCombiner()(
             Rs.unsqueeze(0),  # batched ...
-            torch.tensor(distances).view(1, len(eulers), 1)
+            torch.tensor(distances).view(1, use_extra_cams, 1)
         )[0]
         K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
         

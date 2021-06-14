@@ -58,7 +58,7 @@ cam2cam:
     using_noise: false
     using_heatmaps: false
     head_normal: false
-    use_extra_cams: true
+    use_extra_cams: 50
 
   preprocess:
     pelvis_center_kps: true

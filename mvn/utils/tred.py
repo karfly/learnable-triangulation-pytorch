@@ -263,7 +263,7 @@ def get_centroid(points):
     return points.mean(axis=0)
 
 
-def apply_umeyama(batch_gt, batch_pred):  # todo really batched
+def apply_umeyama(batch_gt, batch_pred, scaling=True):
     def _f(gt, pred):
         pred_centered = pred - get_centroid(pred)
         gt_centered = gt - get_centroid(gt)
@@ -275,12 +275,15 @@ def apply_umeyama(batch_gt, batch_pred):  # todo really batched
         u, _, v = torch.svd(H)  # Kabsch algorithm
         R = torch.mm(v, u.T)
 
-        c = torch.mean(torch.cat([
-            (
-                torch.norm(gt_centered[i], p='fro') / torch.norm(pred_centered[i], p='fro')
-            ).unsqueeze(0)
-            for i in range(pred_centered.shape[0])
-        ]))  # ~ Umeyama approach
+        if scaling:
+            c = torch.mean(torch.cat([
+                (
+                    torch.norm(gt_centered[i], p='fro') / torch.norm(pred_centered[i], p='fro')
+                ).unsqueeze(0)
+                for i in range(pred_centered.shape[0])
+            ]))  # ~ Umeyama approach
+        else:
+            c = 1.0
 
         # todo t
 

@@ -261,7 +261,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         __batch_i = 0
 
         print('pred exts {:.0f}'.format(__batch_i))
-        print(cam_preds[__batch_i, :, :3, :4])
+        print(cam_preds[__batch_i, :n_cameras, :3, :4])
         print('gt exts {:.0f}'.format(__batch_i))
         print(cam_gts[__batch_i, :, :3, :4])
 
@@ -324,7 +324,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             t_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_self_proj.item() * 1e2,  # too small
+            loss_self_proj.item(),
             loss_self_world.item(),
             loss_self_separation.item(),
             total_loss.item(),
@@ -391,10 +391,11 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     if is_train:
         _backprop()
 
-    if config.cam2cam.postprocess.try2align and not config.cam2cam.data.use_extra_cams:  # just if NOT cheating
+    if config.cam2cam.postprocess.try2align:
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).double(),
-            kps_world_pred
+            kps_world_pred,
+            scaling=not config.cam2cam.data.use_extra_cams
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

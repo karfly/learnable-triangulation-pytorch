@@ -69,7 +69,7 @@ class RotoTransNet(nn.Module):
 
         self.n_views = 4
         if config.cam2cam.data.use_extra_cams:
-            self.n_views += 24
+            self.n_views += 60
         elif config.cam2cam.cams.using_just_one_gt:
             self.n_views = 3  # ALL but first
 

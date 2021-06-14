@@ -23,7 +23,7 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=False, noisy=False):
     ])  # ~ (batch_size, n_views, 17, 2)
 
     if use_extra_cams:
-        eulers_per_axis = np.linspace(-np.pi * 0.9, np.pi * 0.9, 4) 
+        eulers_per_axis = np.linspace(-np.pi * 0.9, np.pi * 0.9, 5) 
         eulers = np.float64(list(permutations(  # todo uniform
             eulers_per_axis, r=3
         )))  # todo random

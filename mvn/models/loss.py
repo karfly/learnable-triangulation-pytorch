@@ -268,13 +268,23 @@ class ScaleDependentProjectionLoss(nn.Module):
     def scale_by(self, x, y):
         return torch.cat([
             (
-                x[i] / torch.norm(y[i], p='fro') *\
-                    torch.sqrt(
-                        torch.abs(self.get_best_scaling(x[i], y[i]) - 1.0)
-                    )
+                x[i] / torch.norm(y[i], p='fro')
             ).unsqueeze(0)
             for i in range(x.shape[0])
         ])
+
+    def f(self, projections, initials):  # todo refactor
+        return torch.mean(torch.cat([
+            (
+                torch.pow(
+                    torch.abs(
+                        self.get_best_scaling(projections[i], initials[i]) - 1.0
+                    ),
+                    0.1
+                )
+            ).unsqueeze(0)
+            for i in range(projections.shape[0])
+        ]))
 
     def project(self, K, cam_preds, kps_pred):
         return project2weak_views(
@@ -285,7 +295,7 @@ class ScaleDependentProjectionLoss(nn.Module):
         return self.criterion(
             self.scale_by(projections, initials),
             self.scale_by(initials, initials)
-        )
+        ) * self.f(projections, initials)
 
     def forward(self, K, cam_preds, kps_pred, initial_keypoints):
         batch_size = cam_preds.shape[0]

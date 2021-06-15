@@ -7,10 +7,9 @@ from scipy.optimize import least_squares
 import torch
 from torch import nn
 
-from mvn.utils import op, multiview, img, misc, volumetric
+from mvn.utils import op, multiview, volumetric
 
 from mvn.models import pose_resnet
-from mvn.models.v2v import V2VModel
 
 
 class RANSACTriangulationNet(nn.Module):

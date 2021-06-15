@@ -21,7 +21,7 @@ class MLPResNet(nn.Module):
             inner_size, n_inner_layers, batch_norm
         )
         self.second_bns = self._make_bn_layers(
-            inner_size, n_inner_layers, False  # CAN be beneficial batch_norm
+            inner_size, n_inner_layers, second_batch_norm  # CAN be beneficial
         )
 
         # todo dropout

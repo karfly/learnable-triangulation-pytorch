@@ -522,13 +522,13 @@ def debug_live_training():
         [-1.1481e+02,  1.0342e+02, -4.3539e+01],
         [-7.3312e+01,  4.8097e+01, -1.6624e+01],
         [-2.0760e+01, -1.8714e+01, -7.8778e+00],
-        [ 2.0552e+01,  1.9306e+01,  7.6507e+00],
+        [ 2.0552e+01,  2.9306e+01,  7.6507e+00],
         [-1.8736e+01,  8.4960e+01, -2.6909e+01],
-        [-4.1541e+01,  1.3563e+02, -7.7019e+01],
+        [4.1541e+01,  1.3563e+02, -7.7019e+01],
         [-4.6281e-16, -4.5255e-16,  4.9648e-16],
         [ 2.8958e+01, -4.3513e+01,  1.4335e+01],
         [ 5.1982e+01, -8.5733e+01,  4.2230e+01],
-        [ 5.2815e+01, -1.1381e+02,  8.2918e+01],
+        [ 2.2815e+01, -1.1381e+02,  8.2918e+01],
         [-3.5883e+00, -5.0213e+01,  4.5085e+01],
         [-2.1852e+01, -6.4028e+01,  1.6312e+00],
         [ 2.6233e+01, -9.8277e+01,  2.3085e+01],
@@ -589,24 +589,46 @@ def debug_live_training():
             draw_kps_in_2d(
                 axis, in_proj.cpu().numpy(), label=label, color=color
             )
+            return in_proj  # just for debugging
 
-        _plot(
-            Camera(
-                cam_gt[cam_i, :3, :3],
-                cam_gt[cam_i, :3, 3],
-                K
-            ),
-            gt, 'gt', 'blue'
+        cam = Camera(
+            cam_gt[cam_i, :3, :3],
+            cam_gt[cam_i, :3, 3],
+            K
+        )
+        in_proj = _plot(cam, gt, 'gt', 'blue')
+
+        cam = Camera(
+            cam_pred[cam_i, :3, :3],
+            cam_pred[cam_i, :3, 3],
+            K
         )
 
-        _plot(
-            Camera(
-                cam_pred[cam_i, :3, :3],
-                cam_pred[cam_i, :3, 3],
-                K
-            ),
-            pred, 'pred', 'red'
+        raw = cam.world2proj()(pred.detach().cpu()).cpu().numpy()
+        draw_kps_in_2d(
+            axis, raw, label='pred', color='green'
         )
+        print(
+            KeypointsMSESmoothLoss(20.0)(
+                torch.tensor(raw).unsqueeze(0),
+                torch.tensor(in_proj).unsqueeze(0)
+            )
+        )
+
+        in_fix = apply_umeyama(
+            in_proj.unsqueeze(0),
+            cam.world2proj()(pred.detach().cpu()).unsqueeze(0),
+            scaling=True
+        )[0]
+        print(
+            KeypointsMSESmoothLoss(20.0)(
+                torch.tensor(in_fix).unsqueeze(0),
+                torch.tensor(in_proj).unsqueeze(0)
+            )
+        )
+        draw_kps_in_2d(axis, in_fix.cpu().numpy(), label='pred', color='red')
+        
+        # _plot(cam, pred, 'pred', 'red')
 
         axis.set_ylim(axis.get_ylim()[::-1])  # invert
 
@@ -649,18 +671,18 @@ def debug_live_training():
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     
-    axis = fig.add_subplot(1, 1, 1, projection='3d')
-    compare_in_world(
-        try2align=True,
-        scaling=True,
-        force_pelvis_in_origin=False,
-        show_metrics=True
-    )(axis, gt, pred)
+    # axis = fig.add_subplot(1, 1, 1, projection='3d')
+    # compare_in_world(
+    #     try2align=True,
+    #     scaling=True,
+    #     force_pelvis_in_origin=False,
+    #     show_metrics=True
+    # )(axis, gt, pred)
     #_compare_in_camspace(axis, cam_i=1)
     #_plot_cam_config(axis, None, cam_pred)
 
-    # axis = fig.add_subplot(1, 1, 1)
-    # _compare_in_proj(axis, cam_i=0, norm=False)
+    axis = fig.add_subplot(1, 1, 1)
+    _compare_in_proj(axis, cam_i=0, norm=False)
 
     # axis.legend(loc='lower left')
     plt.tight_layout()

@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import project2weak_views
+from mvn.utils.tred import get_centroid
 
 
 class KeypointsMSELoss(nn.Module):
@@ -221,7 +222,7 @@ class SeparationLoss(nn.Module):
 class ProjectionLoss(nn.Module):
     """ project GT VS pred points to all views """
 
-    def __init__(self, criterion=KeypointsMSESmoothLoss(threshold=20*np.sqrt(2)), where='world'):
+    def __init__(self, criterion=KeypointsMSESmoothLoss(threshold=20.0), where='world'):
         super().__init__()
 
         self.criterion = criterion
@@ -253,15 +254,23 @@ class ScaleDependentProjectionLoss(nn.Module):
         self.where = where
 
     @staticmethod
-    def scale_by(x, y):
+    def get_best_scaling(x, y):
+        x_centered = x - get_centroid(x)
+        y_centered = y - get_centroid(y)
+
+        return torch.mean(torch.cat([
+            (
+                torch.norm(x_centered[i], p='fro') / torch.norm(y_centered[i], p='fro')
+            ).unsqueeze(0)
+            for i in range(y_centered.shape[0])
+        ]))  # ~ Umeyama approach
+
+    def scale_by(self, x, y):
         return torch.cat([
             (
-                x[i] / torch.norm(y[i], p='fro')\
-                    * torch.pow(
-                        torch.square(
-                            torch.norm(x[i], p='fro') / torch.norm(y[i], p='fro') - 1.0
-                        ),
-                        0.1
+                x[i] / torch.norm(y[i], p='fro') *\
+                    torch.sqrt(
+                        torch.abs(self.get_best_scaling(x[i], y[i]) - 1.0)
                     )
             ).unsqueeze(0)
             for i in range(x.shape[0])

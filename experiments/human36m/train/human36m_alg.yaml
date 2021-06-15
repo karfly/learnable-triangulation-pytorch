@@ -49,9 +49,9 @@ cam2cam:
   cams:
     using_gt:
       really: false
-      using_noise: 1.5
+      using_noise: 0.5
     using_just_one_gt: false
-    use_extra_cams: 20
+    use_extra_cams: 0
 
   data:
     pelvis_in_origin: true
@@ -62,10 +62,10 @@ cam2cam:
 
   preprocess:
     pelvis_center_kps: true
-    normalize_kps: "fixed"
+    normalize_kps: "fro"
 
   postprocess:
-    scale_t: 1000.0
+    scale_t: 100.0
     try2align: true
 
   model:
@@ -112,7 +112,7 @@ cam2cam:
       separation: 0.0
 
   opt:
-    grad_clip: 10.0
+    grad_clip: 1.0
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 
     lr: 0.001

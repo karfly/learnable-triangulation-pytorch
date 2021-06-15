@@ -136,7 +136,6 @@ class DepthBlock(nn.Module):
             n_inner_layers=n_inner_layers,
             out_features=1 * n2predict,
             batch_norm=batch_norm,
-            second_batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
             init_weights=False

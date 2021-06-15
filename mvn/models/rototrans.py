@@ -138,7 +138,7 @@ class RotoTransNet(nn.Module):
     def _forward_t(self, features):
         t_feats = self.t_model(features)  # ~ (batch_size, 3)
         trans = t_feats.view(-1, self.n_views, 1)
-        return trans * self.scale_t
+        return torch.abs(trans) * self.scale_t  # assuming it's a distance!
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """

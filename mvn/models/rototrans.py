@@ -114,18 +114,15 @@ class RotoTransNet(nn.Module):
         )
 
         if config.cam2cam.data.look_at_pelvis:  # just d
-            self.t_model = nn.Sequential(*[
-                DepthBlock(
-                    in_features=n_features,
-                    inner_size=n_features,
-                    n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                    n2predict=self.n_views,
-                    batch_norm=batch_norm,
-                    drop_out=drop_out,
-                    activation=activation,
-                ),
-                torch.abs  # it's a distance!
-            ])
+            self.t_model = DepthBlock(
+                in_features=n_features,
+                inner_size=n_features,
+                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n2predict=self.n_views,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+            )
         else:
             self.t_model = MLPResNet(
                 in_features=n_features,

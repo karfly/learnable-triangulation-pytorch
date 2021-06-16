@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.multiview import build_intrinsics, Camera
+from mvn.utils.multiview import build_intrinsics, Camera, euclidean_to_homogeneous, homogeneous_to_euclidean
 from mvn.utils.tred import get_cam_location_in_world, apply_umeyama
 from mvn.pipeline.cam2cam import PELVIS_I
 from mvn.models.loss import KeypointsMSESmoothLoss
@@ -492,12 +492,12 @@ def debug_live_training():
          [ 2.8530e-01,  1.4344e+00,  4.3006e-02,  0.0],
          [-2.7773e-01, -4.0118e-02, -8.1864e-01,  6.8301e+03]],
 
-        [[-4.8849e-01, -7.3431e-01,  4.9769e-02,  1.0000e+01],
-         [ 8.6995e-01, -2.1382e-01, -9.9753e-01,  2.0000e+01],
+        [[-4.8849e-01, -7.3431e-01,  4.9769e-02,  1.0000e+02],
+         [ 8.6995e-01, -2.1382e-01, -9.9753e-01,  2.0000e+02],
          [-6.7622e-02,  4.1833e-01, -4.9589e-02,  6.0136e+03]]
     ]).float()
     cam_gt = cam_pred.clone()
-    cam_gt[:, :3] *= 0.5
+    cam_gt[:, :, 3] *= 0.5
 
     pred = torch.tensor([
         [ 3.1387e+02,  8.1538e+02,  8.1446e+02],
@@ -518,7 +518,7 @@ def debug_live_training():
         [ 4.4266e+02, -6.9286e+02, -7.8663e+02],
         [-1.4469e+02, -4.3859e+02, -7.3626e+02]
     ]).float()
-    gt = pred.clone() # * 0.25
+    gt = pred.clone() * 0.5
 
     def _compare_in_camspace(axis, cam_i):
         cam = Camera(
@@ -526,6 +526,7 @@ def debug_live_training():
             cam_gt[cam_i, :3, 3],
             K
         )
+
         in_cam = cam.world2cam()(gt.detach().cpu())
         draw_kps_in_3d(
             axis, in_cam.detach().cpu().numpy(), label='gt',
@@ -613,13 +614,13 @@ def debug_live_training():
     if False:
         axis = fig.add_subplot(1, 1, 1, projection='3d')
         # compare_in_world(
-        #     try2align=True,
+        #     try2align=False,
         #     scaling=False,
         #     force_pelvis_in_origin=False,
         #     show_metrics=True
         # )(axis, gt, pred)
+
         _compare_in_camspace(axis, cam_i=0)
-        #_plot_cam_config(axis, None, cam_pred)
     else:
         axis = fig.add_subplot(1, 1, 1)
         _compare_in_proj(axis, cam_i=0, norm=False)

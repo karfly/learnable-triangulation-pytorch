@@ -142,7 +142,7 @@ class DepthBlock(nn.Module):
         )
 
     def forward(self, x):
-        return self.bb(x)
+        return torch.abs(self.bb(x))  # it's a distance!
 
 
 class TranslationFromAnglesBlock(nn.Module):

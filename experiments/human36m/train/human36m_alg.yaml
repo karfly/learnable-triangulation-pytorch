@@ -55,7 +55,7 @@ cam2cam:
 
   data:
     pelvis_in_origin: true
-    look_at_pelvis: false
+    look_at_pelvis: true
     using_gt: true
     using_noise: false
     using_heatmaps: false
@@ -67,7 +67,7 @@ cam2cam:
 
   postprocess:
     scale_t: 1000.0
-    try2align: false
+    try2align: true
 
   model:
     name: "mlp"

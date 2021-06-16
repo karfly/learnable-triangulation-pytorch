@@ -55,7 +55,7 @@ for cam in cameras:
     Rt = rotation_matrix_from_vectors(pelvis_vector, z_axis)
 
     # "At that point, after you re-sample, camera translation should be [0,0,d_pelvis]"
-    cam.update_roto_extrsinsic(Rt)
+    cam.update_extrinsics(Rt)
 print('Looking at pelvis (origin) ... => R|t ...')
 print(torch.tensor(np.float64([
     cam.extrinsics_padded

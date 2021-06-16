@@ -276,7 +276,7 @@ class Human36MMultiViewDataset(Dataset):
             )
 
             # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
-            retval_camera.update_roto_extrsinsic(Rt)
+            retval_camera.update_extrinsics(Rt)
 
     def finalize_image(self, image):
         if False:  # using GT ... self.image_shape is not None:

@@ -113,15 +113,28 @@ class RotoTransNet(nn.Module):
             activation=activation,
         )
 
-        if config.cam2cam.data.pelvis_in_origin:
-            self.t_model = DepthBlock(
+        if config.cam2cam.data.look_at_pelvis:  # just d
+            self.t_model = nn.Sequential(*[
+                DepthBlock(
+                    in_features=n_features,
+                    inner_size=n_features,
+                    n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                    n2predict=self.n_views,
+                    batch_norm=batch_norm,
+                    drop_out=drop_out,
+                    activation=activation,
+                ),
+                torch.abs  # it's a distance!
+            ])
+        else:
+            self.t_model = MLPResNet(
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                n2predict=self.n_views,
+                out_features=3 * self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=activation,
+                activation=activation
             )
 
     def _forward_R(self, features):
@@ -136,9 +149,9 @@ class RotoTransNet(nn.Module):
         ])  # ~ batch_size, | n_predictions |, (3 x 3)
 
     def _forward_t(self, features):
-        t_feats = self.t_model(features)  # ~ (batch_size, 3)
-        trans = t_feats.view(-1, self.n_views, 1)
-        return torch.abs(trans) * self.scale_t  # assuming it's a distance!
+        t_feats = self.t_model(features)
+        trans = t_feats.view(-1, self.n_views, t_feats.shape[-1] // self.n_views)
+        return trans * self.scale_t
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, pair => 2, n_joints, 2D) """

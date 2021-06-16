@@ -31,7 +31,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop,
             resample_same_K=config.model.cam2cam_estimation,
-            look_at_pelvis=config.model.cam2cam_estimation,
+            look_at_pelvis=config.model.cam2cam_estimation and config.cam2cam.data.look_at_pelvis,
             pelvis_in_origin=config.cam2cam.data.pelvis_in_origin,
         )
         print("  training dataset length:", len(train_dataset))
@@ -72,7 +72,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop,
         resample_same_K=config.model.cam2cam_estimation,
-        look_at_pelvis=config.model.cam2cam_estimation,
+        look_at_pelvis=config.model.cam2cam_estimation and config.cam2cam.data.look_at_pelvis,
         pelvis_in_origin=config.cam2cam.data.pelvis_in_origin,
     )
     print("  validation dataset length:", len(val_dataset))

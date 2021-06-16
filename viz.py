@@ -484,78 +484,41 @@ def debug_live_training():
     )
 
     cam_pred = torch.tensor([
-        [[-8.5516e-01, -5.1583e-01,  5.1236e-02,  0.0000e+00],
-         [-4.3348e-01,  6.5741e-01, -6.1636e-01,  0.0000e+00],
-         [ 2.8426e-01, -5.4929e-01, -7.8580e-01,  1.0725e+03]],
+        [[ 5.9109e-01, -3.2541e-01, -4.3147e-01,  0.0],
+         [-6.9326e-01,  3.2201e-01, -8.5394e-01,  0.0],
+         [ 4.1232e-01,  4.1586e-02, -2.9089e-01,  5.0765e+03]],
 
-        [[ 7.2191e-01,  1.7145e-01, -6.7041e-01,  0.0000e+00],
-         [-3.2756e-01,  9.3807e-01, -1.1282e-01,  0.0000e+00],
-         [ 6.0955e-01,  3.0104e-01,  7.3337e-01,  1.0924e+03]],
+        [[ 9.1732e-01, -1.8135e-01,  5.7269e-01,  0.0],
+         [ 2.8530e-01,  1.4344e+00,  4.3006e-02,  0.0],
+         [-2.7773e-01, -4.0118e-02, -8.1864e-01,  6.8301e+03]],
 
-        [[-7.6180e-01, -1.8188e-01,  6.2175e-01,  0.0000e+00],
-         [-5.8698e-01,  5.9984e-01, -5.4373e-01,  0.0000e+00],
-         [-2.7406e-01, -7.7917e-01, -5.6372e-01,  1.0957e+03]],
-
-        [[ 8.7588e-01,  4.7587e-01,  7.9946e-02,  0.0000e+00],
-         [-4.7557e-01,  8.7935e-01, -2.3882e-02,  0.0000e+00],
-         [-8.1665e-02, -1.7102e-02,  9.9651e-01,  9.1252e+02]]
+        [[-4.8849e-01, -7.3431e-01,  4.9769e-02,  1.0000e+01],
+         [ 8.6995e-01, -2.1382e-01, -9.9753e-01,  2.0000e+01],
+         [-6.7622e-02,  4.1833e-01, -4.9589e-02,  6.0136e+03]]
     ]).float()
-    cam_gt = torch.tensor([
-        [[-9.1745e-01,  3.9751e-01,  1.6634e-02,  5.6241e-15],
-         [ 1.0014e-01,  2.7118e-01, -9.5731e-01, -1.9119e-14],
-         [-3.8505e-01, -8.7661e-01, -2.8860e-01,  5.5853e+03]],
-
-        [[ 9.1784e-01,  3.9693e-01,  3.7275e-03, -2.6808e-14],
-         [ 1.1304e-01, -2.5235e-01, -9.6101e-01,  1.0247e-15],
-         [-3.8052e-01,  8.8248e-01, -2.7649e-01,  5.8341e+03]],
-
-        [[-9.5852e-01, -2.8281e-01, -3.5537e-02,  3.2520e-14],
-         [-4.3240e-02,  2.6751e-01, -9.6259e-01,  7.6208e-15],
-         [ 2.8174e-01, -9.2112e-01, -2.6864e-01,  5.5769e+03]],
-
-        [[ 9.4185e-01, -3.2803e-01,  7.2874e-02, -6.1390e-15],
-         [-5.0344e-02, -3.5218e-01, -9.3458e-01, -2.4730e-14],
-         [ 3.3223e-01,  8.7657e-01, -3.4821e-01,  4.4455e+03]]
-    ]).float()
+    cam_gt = cam_pred.clone()
+    cam_gt[:, :3] *= 0.5
 
     pred = torch.tensor([
-        [-3.3526e+01, -3.8762e+01, -1.0691e+02],
-        [-1.1360e+01, -1.1531e+01, -3.1655e+01],
-        [-1.1059e+00, -1.1838e+00, -2.8104e+00],
-        [ 1.3725e+00,  1.4189e+00,  3.4337e+00],
-        [ 1.5166e+01,  1.5630e+01,  4.2520e+01],
-        [ 3.2556e+01,  3.7360e+01,  1.0278e+02],
-        [ 0.0000e+00,  2.2117e-16,  3.5576e-17],
-        [-8.0848e+00, -7.0210e+00, -1.9255e+01],
-        [-1.2139e+01, -9.9586e+00, -2.7306e+01],
-        [-1.2011e+01, -9.5365e+00, -2.6162e+01],
-        [-4.2679e+00, -3.7910e+00, -1.0138e+01],
-        [-6.1405e+00, -5.8065e+00, -1.5100e+01],
-        [-1.1703e+01, -1.0008e+01, -2.6916e+01],
-        [-1.6292e+01, -1.3079e+01, -3.6483e+01],
-        [ 4.4181e+01,  3.7920e+01,  1.0400e+02],
-        [-4.4883e+00, -3.7420e+00, -1.0573e+01],
-        [-1.0572e+01, -8.5666e+00, -2.3527e+01]
+        [ 3.1387e+02,  8.1538e+02,  8.1446e+02],
+        [ 5.4482e+01,  4.0088e+02,  4.8568e+02],
+        [-2.0065e+02,  1.0001e+02,  1.9545e+01],
+        [ 2.0430e+02, -9.9319e+01, -1.7881e+01],
+        [ 1.4140e+02,  1.1293e+02,  6.4858e+02],
+        [ 1.0633e+02,  3.5753e+02,  1.1690e+03],
+        [ 4.0402e-15,  1.3685e-15, -8.9482e-15],
+        [-5.2192e+01, -1.1681e+02, -3.2461e+02],
+        [-1.4678e+02, -2.8971e+02, -6.8201e+02],
+        [-2.0985e+02, -4.0825e+02, -9.0247e+02],
+        [-2.0877e+02, -3.1454e+02, -1.5410e+02],
+        [-4.1867e+02,  4.6806e+01, -1.5145e+02],
+        [-3.3011e+02, -1.7283e+02, -5.6790e+02],
+        [ 6.9739e+01, -3.2733e+02, -6.8601e+02],
+        [ 4.5370e+02, -3.5140e+02, -5.7038e+02],
+        [ 4.4266e+02, -6.9286e+02, -7.8663e+02],
+        [-1.4469e+02, -4.3859e+02, -7.3626e+02]
     ]).float()
-    gt = torch.tensor([
-        [-223.9388,   56.2951, -865.2037],
-        [-197.3877,   30.1725, -428.1547],
-        [-108.9469,   97.4755,   10.1214],
-        [ 108.9460,  -97.4747,  -10.1213],
-        [ 143.1042,  -64.2862, -459.7523],
-        [ 263.7129,   67.6030, -860.3243],
-        [   0.0000,    0.0000,    0.0000],
-        [  13.1453,    7.5346,  260.7762],
-        [ -17.3390,  -42.1605,  504.9365],
-        [-128.4527, -152.3386,  660.5565],
-        [-189.8130,  -77.0542,  259.2988],
-        [-214.2607,  158.3594,  199.2538],
-        [-111.6482,   91.7718,  462.0903],
-        [ 112.6446, -138.1503,  454.3574],
-        [ 188.5219, -197.1659,  180.8492],
-        [ -46.6052, -188.7412,  246.1689],
-        [ -88.4431, -124.6931,  556.3450]
-    ]).float()
+    gt = pred.clone() # * 0.25
 
     def _compare_in_camspace(axis, cam_i):
         cam = Camera(
@@ -580,7 +543,7 @@ def debug_live_training():
             marker='^', color='red'
         )
 
-    def _compare_in_proj(axis, cam_i, norm=True):
+    def _compare_in_proj(axis, cam_i, norm=False):
         def _plot(cam, kps, label, color):
             in_proj = cam.world2proj()(kps.detach().cpu())
             if norm:
@@ -589,6 +552,7 @@ def debug_live_training():
             draw_kps_in_2d(
                 axis, in_proj.cpu().numpy(), label=label, color=color
             )
+            print(in_proj[3:9])
             return in_proj  # just for debugging
 
         cam = Camera(
@@ -596,39 +560,14 @@ def debug_live_training():
             cam_gt[cam_i, :3, 3],
             K
         )
-        in_proj = _plot(cam, gt, 'gt', 'blue')
+        _plot(cam, gt, 'gt', 'blue')
 
         cam = Camera(
             cam_pred[cam_i, :3, :3],
             cam_pred[cam_i, :3, 3],
             K
         )
-
-        raw = cam.world2proj()(pred.detach().cpu()).cpu().numpy()
-        draw_kps_in_2d(
-            axis, raw, label='pred', color='green'
-        )
-        print(
-            KeypointsMSESmoothLoss(20.0)(
-                torch.tensor(raw).unsqueeze(0),
-                torch.tensor(in_proj).unsqueeze(0)
-            )
-        )
-
-        in_fix = apply_umeyama(
-            in_proj.unsqueeze(0),
-            cam.world2proj()(pred.detach().cpu()).unsqueeze(0),
-            scaling=True
-        )[0]
-        print(
-            KeypointsMSESmoothLoss(20.0)(
-                torch.tensor(in_fix).unsqueeze(0),
-                torch.tensor(in_proj).unsqueeze(0)
-            )
-        )
-        draw_kps_in_2d(axis, in_fix.cpu().numpy(), label='pred', color='red')
-        
-        # _plot(cam, pred, 'pred', 'red')
+        _plot(cam, pred, 'pred', 'red')
 
         axis.set_ylim(axis.get_ylim()[::-1])  # invert
 
@@ -671,18 +610,19 @@ def debug_live_training():
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
     
-    axis = fig.add_subplot(1, 1, 1, projection='3d')
-    compare_in_world(
-        try2align=True,
-        scaling=True,
-        force_pelvis_in_origin=False,
-        show_metrics=True
-    )(axis, gt, pred)
-    #_compare_in_camspace(axis, cam_i=1)
-    #_plot_cam_config(axis, None, cam_pred)
-
-    #axis = fig.add_subplot(1, 1, 1)
-    #_compare_in_proj(axis, cam_i=0, norm=False)
+    if False:
+        axis = fig.add_subplot(1, 1, 1, projection='3d')
+        # compare_in_world(
+        #     try2align=True,
+        #     scaling=False,
+        #     force_pelvis_in_origin=False,
+        #     show_metrics=True
+        # )(axis, gt, pred)
+        _compare_in_camspace(axis, cam_i=0)
+        #_plot_cam_config(axis, None, cam_pred)
+    else:
+        axis = fig.add_subplot(1, 1, 1)
+        _compare_in_proj(axis, cam_i=0, norm=False)
 
     # axis.legend(loc='lower left')
     plt.tight_layout()

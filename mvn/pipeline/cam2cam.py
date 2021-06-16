@@ -151,20 +151,20 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, wher
     )
 
     # ... perform DLT in master cam space ...
-    kps_cam_pred = triangulate_batch_of_points_in_cam_space(
+    kps_pred = triangulate_batch_of_points_in_cam_space(
         full_cams.cpu(),
         keypoints_2d_pred.cpu(),
         confidences_batch=confidences_pred.cpu()
     ).to(keypoints_2d_pred.device)
 
     if where == 'world':
-        return None, kps_cam_pred
+        return None, kps_pred
     elif where == 'master':  # ... but since they're in master cam space ...
         batch_size = cams.shape[0]
         kps_world_pred = torch.cat([
             homogeneous_to_euclidean(
                 euclidean_to_homogeneous(
-                    kps_cam_pred[batch_i]
+                    kps_pred[batch_i]
                 ).to(cams.device)
                 @
                 torch.inverse(
@@ -173,7 +173,7 @@ def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, wher
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ])
-        return kps_cam_pred, kps_world_pred
+        return kps_pred, kps_world_pred
 
 
 def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps_mastercam_pred, kps_world_pred, kps_world_gt, keypoints_3d_binary_validity_gt, cameras, config):
@@ -184,17 +184,18 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     start_cam = 1 if config.cam2cam.cams.using_just_one_gt else 0
     loss_weights = config.cam2cam.loss  # todo normalize | sum = 1
 
-    # using supervision ...
+    just_R = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3]
     loss_R = GeodesicLoss()(
-        cam_gts[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3],  # just R
-        cam_preds[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3]
+        just_R(cam_gts),
+        just_R(cam_preds)
     )
     if loss_weights.R > 0:
         total_loss += loss_weights.R * loss_R
 
+    just_t = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, 3]
     t_loss = MSESmoothLoss(threshold=4e2)(
-        cam_gts[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, 3] / 1e3,  # just t
-        cam_preds[:, start_cam:n_cameras, ...].reshape(-1, 4, 4)[:, :3, 3] / 1e3,
+        just_t(cam_gts),
+        just_t(cam_preds)
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -220,7 +221,6 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.world > 0:
         total_loss += loss_world * loss_weights.world
 
-    # ... and self
     if config.cam2cam.triangulate == 'master':
         extrinsics = torch.cat([
             torch.cat([
@@ -247,14 +247,12 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     loss_self_proj = ScaleDependentProjectionLoss(
         criterion=BerHuLoss(threshold=0.25),
-        #criterion=KeypointsMSESmoothLoss(threshold=1.0),
-        #criterion=PseudoHuberLoss(threshold=1.0),
         where=config.cam2cam.triangulate
     )(
         K,
-        cam_preds[:, start_cam:],
+        cam_preds,
         kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
-        keypoints_2d_pred[:, start_cam:]
+        keypoints_2d_pred
     )
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj

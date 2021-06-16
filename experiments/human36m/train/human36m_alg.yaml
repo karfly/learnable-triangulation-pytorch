@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 
   cams:
     using_gt:
@@ -93,11 +93,11 @@ cam2cam:
 
     master2others:
       R:
-        n_layers: 2
+        n_layers: 3
         parametrization: "6d"
 
       t:
-        n_layers: 2
+        n_layers: 3
 
     init_weights: false
     checkpoint: "/cam2cam_model.pth"

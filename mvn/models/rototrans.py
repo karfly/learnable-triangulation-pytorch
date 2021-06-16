@@ -92,7 +92,6 @@ class RotoTransNet(nn.Module):
                 drop_out=drop_out,
                 activation=activation,
             ),
-            # CAN be beneficial nn.BatchNorm1d(n_features),
         ])
 
         n_params_per_R, self.R_param = None, None
@@ -172,6 +171,7 @@ class Cam2camNet(nn.Module):
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
         make_mlp_with = make_mlp_by_name(config.cam2cam.model.name)
+        activation = nn.LeakyReLU
 
         self.bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -182,9 +182,8 @@ class Cam2camNet(nn.Module):
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.LeakyReLU,
+                activation=activation,
             ),
-            # CAN be beneficial nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
         self.master_R, self.master_t = self._make_Rt_model(
@@ -197,8 +196,18 @@ class Cam2camNet(nn.Module):
             t_layers=config.cam2cam.model.master.t.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
-            activation=nn.LeakyReLU,
+            activation=activation,
         )
+        if config.cam2cam.data.look_at_pelvis:  # just d
+            self.master_t = DepthBlock(
+                in_features=config.cam2cam.model.master.n_features,
+                inner_size=config.cam2cam.model.master.n_features,
+                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n2predict=1,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+            )
 
         self.master2other_bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -209,12 +218,11 @@ class Cam2camNet(nn.Module):
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
-                activation=nn.LeakyReLU,
+                activation=activation,
             ),
-            # CAN be beneficial nn.BatchNorm1d(config.cam2cam.model.master.n_features),
         ])
 
-        self.master2other_R, _ = self._make_Rt_model(  # todo refactor
+        self.master2other_R, self.master2other_t = self._make_Rt_model(  # todo refactor
             make_mlp_with,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
@@ -224,21 +232,8 @@ class Cam2camNet(nn.Module):
             t_layers=config.cam2cam.model.master2others.t.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
-            activation=nn.LeakyReLU,
+            activation=activation,
         )
-
-        self.master2other_t = nn.Sequential(*[
-            make_mlp_with(
-                in_features=config.cam2cam.model.master.n_features,
-                inner_size=config.cam2cam.model.master.n_features,
-                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
-                out_features=2 * 4 + 1,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=nn.LeakyReLU,
-            ),
-            TranslationFromAnglesBlock()
-        ])
 
     @staticmethod
     def _make_Rt_model(make_mlp, in_features, inner_size, R_param, R_layers, t_param, t_layers, batch_norm, drop_out, activation):
@@ -291,14 +286,14 @@ class Cam2camNet(nn.Module):
             self.scale_t
         )
 
-    def _forward_master2others(self, x):
-        features = self.master2other_bb(x)
+    def _forward_master2others(self, x, bb_features):
+        features = self.master2other_bb(x) + bb_features
         return torch.cat([
             self._forward_cam(
                 self.master2other_R,
                 self.master2other_t,
                 features,
-                self.scale_t
+                self.scale_t / 10.0  # todo heuristics
             ).unsqueeze(1)
             for _ in range(1, self.n_views)
         ], dim=1)
@@ -308,7 +303,7 @@ class Cam2camNet(nn.Module):
 
         features = self.bb(x)  # batch_size, ...
         masters = self._forward_master(features)
-        master2others = self._forward_master2others(x)
+        master2others = self._forward_master2others(x, features)
 
         return torch.cat([
             masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4

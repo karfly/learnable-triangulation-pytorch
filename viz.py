@@ -588,8 +588,6 @@ def debug_live_training():
         )
         _plot(cam, pred, 'pred', 'red')
 
-        axis.set_ylim(axis.get_ylim()[::-1])  # invert
-
     def _plot_cam_config(axis, gt, pred):
         cmap = plt.get_cmap('jet')
         colors = cmap(np.linspace(0, 1, len(pred)))

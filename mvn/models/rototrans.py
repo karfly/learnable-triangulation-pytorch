@@ -214,7 +214,7 @@ class Cam2camNet(nn.Module):
             make_mlp_with(
                 in_features=n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.n_features,
-                n_inner_layers=config.cam2cam.model.backbone.n_layers,
+                n_inner_layers=2,
                 out_features=config.cam2cam.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,

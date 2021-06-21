@@ -85,6 +85,13 @@ class Camera:
         self.R = E[:3, :3]
         self.t = E[:3, 3].reshape(3, 1)
 
+    def scale_K(self, scaling):
+        self.K[0, 0] /= scaling
+        self.K[1, 1] /= scaling
+
+    def scale_extrinsics(self, scaling):
+        self.t /= scaling
+
     @property
     def extrinsics(self):  # 3D world -> 3D camera space
         return np.hstack([self.R, self.t])  # ~ 3 x 4 (rotation 3 x 3 + translation 3 x 1)

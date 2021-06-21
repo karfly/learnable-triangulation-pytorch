@@ -64,6 +64,7 @@ cam2cam:
   preprocess:
     pelvis_center_kps: true
     normalize_kps: "fro"
+    scale2meters: false
 
   postprocess:
     scale_t: 1000.0

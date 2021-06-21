@@ -35,6 +35,7 @@ class Human36MMultiViewDataset(Dataset):
                  resample_same_K=False,
                  look_at_pelvis=False,
                  pelvis_in_origin=False,
+                 scale2meters=False
                  ):
         """
             h36m_root:
@@ -71,6 +72,7 @@ class Human36MMultiViewDataset(Dataset):
         self.resample_same_K = resample_same_K
         self.look_at_pelvis = look_at_pelvis
         self.pelvis_in_origin = pelvis_in_origin
+        self.scale2m = scale2meters
 
         self.labels = np.load(labels_path, allow_pickle=True).item()
 
@@ -277,6 +279,12 @@ class Human36MMultiViewDataset(Dataset):
 
             # ... "At that point, after you re-sample, camera translation should be [0, 0, d_pelvis]"
             retval_camera.update_extrinsics(Rt)
+
+        if self.scale2m:
+            scaling = 1e3  # mm -> m
+            retval_camera.scale_extrinsics(scaling)
+            retval_camera.scale_K(np.sqrt(scaling))  # see https://ksimek.github.io/perspective_camera_toy.html
+
 
     def finalize_image(self, image):
         if False:  # using GT ... self.image_shape is not None:

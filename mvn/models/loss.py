@@ -284,3 +284,44 @@ class ScaleDependentProjectionLoss(nn.Module):
             ).unsqueeze(0)
             for batch_i in range(batch_size)
         ]))
+
+
+class BodyLoss(nn.Module):
+    """ check length of bones """
+
+    def __init__(self, criterion=BerHuLoss(threshold=0.25)):
+        super().__init__()
+
+        self.criterion = criterion
+        self.distance = lambda a, b: torch.norm(a - b, p='fro')  # euclidean
+        self.joint_pairs = [
+            (6, 3),  # pelvis -> left anca
+            (3, 4),  # left anca -> left knee
+            (4, 5),  # left knee -> left foot
+        ]
+
+    def measure_length(self, joint_pair):
+        joint_i, joint_j = joint_pair[0], joint_pair[1]
+
+        def _f(kps):
+            batch_size = kps.shape[0]
+
+            return torch.cat([
+                self.distance(
+                    kps[batch_i, joint_i],
+                    kps[batch_i, joint_j]
+                ).unsqueeze(0)
+                for batch_i in range(batch_size)
+            ])  # batch_size x 1
+
+        return _f
+
+    def forward(self, kps_pred, kps_gt):
+        dev = kps_pred.device
+        return torch.mean(torch.cat([
+            self.criterion(
+                self.measure_length(joint_pair)(kps_pred).to(dev),
+                self.measure_length(joint_pair)(kps_gt).to(dev),
+            ).unsqueeze(0)
+            for joint_pair in self.joint_pairs
+        ]))

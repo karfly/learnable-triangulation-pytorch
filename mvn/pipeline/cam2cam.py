@@ -7,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss
+from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
 from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'
@@ -257,9 +257,9 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
-    loss_self_separation = SeparationLoss(3e1, 6e3)(kps_world_pred)
-    if loss_weights.self_consistency.separation > 0:
-        total_loss += loss_self_separation * loss_weights.self_consistency.separation
+    loss_body = BodyLoss()(kps_world_pred, kps_world_gt)
+    if loss_weights.body > 0:
+        total_loss += loss_body * loss_weights.body
 
     if config.debug.show_live:
         __batch_i = 0
@@ -276,7 +276,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     return loss_R, t_loss,\
         loss_proj, loss_world,\
-        loss_self_proj, loss_self_world, loss_self_separation,\
+        loss_self_world, loss_self_proj, loss_body,\
         total_loss
 
 
@@ -307,7 +307,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     def _backprop():
         minimon.enter()
-        loss_R, t_loss, loss_2d, loss_3d, loss_self_proj, loss_self_world, loss_self_separation, total_loss = _compute_losses(
+        loss_R, t_loss, loss_2d, loss_3d, loss_self_world, loss_self_proj, loss_body, total_loss = _compute_losses(
             cam_preds,
             cam_gts,
             confidences_pred,
@@ -321,16 +321,16 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF PROJ ~ {:.3f}, SELF WORLD ~ {:.0f}, SELF SEP ~ {:.0f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF PROJ ~ {:.3f}, BODY ~ {:.3f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),
             t_loss.item(),
             loss_2d.item(),
             loss_3d.item(),
-            loss_self_proj.item(),
             loss_self_world.item(),
-            loss_self_separation.item(),
+            loss_self_proj.item(),
+            loss_body.item(),
             total_loss.item(),
         )
         live_debug_log(_ITER_TAG, message)
@@ -408,7 +408,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,
-            scaling=config.cam2cam.cams.use_extra_cams < 1
+            scaling=config.cam2cam.postprocess.try2scale
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

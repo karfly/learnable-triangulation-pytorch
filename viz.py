@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
-from mvn.utils.multiview import build_intrinsics, Camera, euclidean_to_homogeneous, homogeneous_to_euclidean
+from mvn.utils.multiview import build_intrinsics, Camera
 from mvn.utils.tred import get_cam_location_in_world, apply_umeyama
 from mvn.pipeline.cam2cam import PELVIS_I
 from mvn.models.loss import KeypointsMSESmoothLoss

@@ -284,7 +284,7 @@ class Cam2camNet(nn.Module):
             self.master_R,
             self.master_t,
             features,
-            5e3
+            self.scale_t
         )
 
     def _forward_master2others(self, x, bb_features):
@@ -293,7 +293,7 @@ class Cam2camNet(nn.Module):
                 self.master2other_R,
                 self.master2other_t,
                 bb_features + self.master2other_bb(x[:, view_i]),
-                2e3  # todo heuristics
+                self.scale_t / 10.0  # todo heuristics
             ).unsqueeze(1)
             for view_i in range(1, self.n_views)  # todo just 1 pass for all 3
         ], dim=1)

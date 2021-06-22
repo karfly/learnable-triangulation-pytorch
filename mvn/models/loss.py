@@ -298,6 +298,10 @@ class BodyLoss(nn.Module):
             (6, 3),  # pelvis -> left anca
             (3, 4),  # left anca -> left knee
             (4, 5),  # left knee -> left foot
+
+            (6, 7),  # pelvis -> back
+            (7, 8),  # back -> neck
+            (8, 9),  # neck -> head
         ]
 
     def measure_length(self, joint_pair):

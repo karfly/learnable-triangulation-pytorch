@@ -1,5 +1,5 @@
 srun \
---partition=ml \
+--partition=alpha-interactive \
 --nodes=1 \
 --tasks=1 \
 --cpus-per-task=1 \

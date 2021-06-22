@@ -257,7 +257,9 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.self_consistency.proj > 0:
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
-    loss_body = BodyLoss()(kps_world_pred, kps_world_gt)
+    loss_body = BodyLoss(
+        criterion=BerHuLoss(threshold=5.0)
+    )(kps_world_pred, kps_world_gt)
     if loss_weights.body > 0:
         total_loss += loss_body * loss_weights.body
 

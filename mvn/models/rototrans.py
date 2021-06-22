@@ -198,16 +198,6 @@ class Cam2camNet(nn.Module):
             drop_out=drop_out,
             activation=activation,
         )
-        if config.cam2cam.data.look_at_pelvis:  # just d
-            self.master_t = DepthBlock(
-                in_features=config.cam2cam.model.master.n_features,
-                inner_size=config.cam2cam.model.master.n_features,
-                n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                n2predict=1,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=activation,
-            )
 
         self.master2other_bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
@@ -257,15 +247,26 @@ class Cam2camNet(nn.Module):
             R_param
         ])
 
-        t_model = make_mlp(
-            in_features=in_features,
-            inner_size=inner_size,
-            n_inner_layers=t_layers,
-            out_features=t_param,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=activation,
-        )
+        if t_param == 1:  # just d
+            t_model = DepthBlock(
+                in_features=in_features,
+                inner_size=inner_size,
+                n_inner_layers=t_layers,
+                n2predict=1,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+            )
+        else:
+            t_model = MLPResNet(
+                in_features=in_features,
+                inner_size=inner_size,
+                n_inner_layers=t_layers,
+                out_features=t_param,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation
+            )
 
         return R_model, t_model
 
@@ -283,7 +284,7 @@ class Cam2camNet(nn.Module):
             self.master_R,
             self.master_t,
             features,
-            self.scale_t
+            5e3
         )
 
     def _forward_master2others(self, x, bb_features):
@@ -292,7 +293,7 @@ class Cam2camNet(nn.Module):
                 self.master2other_R,
                 self.master2other_t,
                 bb_features + self.master2other_bb(x[:, view_i]),
-                self.scale_t / 10.0  # todo heuristics
+                2e3  # todo heuristics
             ).unsqueeze(1)
             for view_i in range(1, self.n_views)  # todo just 1 pass for all 3
         ], dim=1)
@@ -303,7 +304,6 @@ class Cam2camNet(nn.Module):
         features = self.bb(x)  # batch_size, ...
         masters = self._forward_master(features)
         master2others = self._forward_master2others(x, features)
-
         return torch.cat([
             masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4
             master2others

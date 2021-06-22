@@ -1,6 +1,4 @@
 import argparse
-import sys
-import os
 
 from mvn.utils.misc import flush_cache, get_exception_trace
 from mvn.mini import get_config, build_labels

@@ -44,7 +44,7 @@ svd:
 # `gpu_friendly` only used when `in_cpu` is false
 
 cam2cam:
-  triangulate: "world"
+  triangulate: "master"
 
   cams:
     using_gt:
@@ -68,7 +68,7 @@ cam2cam:
 
   postprocess:
     scale_t: 1000.0
-    try2align: true
+    try2align: false
     try2scale: false
 
   model:
@@ -108,14 +108,14 @@ cam2cam:
     R: 0.0
     t: 0.0
     proj: 0.0
-    world: 0.0
+    world: 1.0
     self_consistency:
       proj: 10.0
       world: 0.0
     body: 0.05
 
   opt:
-    grad_clip: 0.15
+    grad_clip: 0.25
 # 0.1 when `triangulate: "master"`
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 

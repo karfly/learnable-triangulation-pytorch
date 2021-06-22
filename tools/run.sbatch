@@ -2,10 +2,11 @@
 
 #SBATCH --partition=alpha
 #SBATCH --cpus-per-task=1
-# `2` when 10% dataset
+# `2` when large dataset
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=2048
 #SBATCH --time=00:10:00
+# `10:00:00` when large dataset
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
@@ -13,6 +14,7 @@
 # This will spawn a sub-bash in parallel which will be started right away. It starts  the program sleep set to sleep N seconds and afterwards calls Slurm's job cancel programm with the job ID of the Job.
 REALLY_KILL_AFTER_SECONDS=600  # 1h = 3600", ½h = 1800", ¼h = 900"
 (/usr/bin/sleep ${REALLY_KILL_AFTER_SECONDS} && scancel ${SLURM_JOB_ID} ) &
+# comment when large dataset
 
 date +"%Y-%m-%d %H:%M:%S"
 

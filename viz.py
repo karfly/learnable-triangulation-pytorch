@@ -379,7 +379,12 @@ def viz_experiment_samples():
     for i, sample_i in enumerate(samples_to_show):
         axis = fig.add_subplot(2, 3, i + 1, projection='3d')
 
-        compare_in_world()(
+        compare_in_world(
+            try2align=True,
+            scaling=False,
+            force_pelvis_in_origin=True,
+            show_metrics=True
+        )(
             axis,
             torch.FloatTensor(gts[sample_i]),
             torch.FloatTensor(pred[sample_i])
@@ -695,7 +700,7 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    debug_live_training()
+    #debug_live_training()
     #debug_noisy_kps()
-    #viz_experiment_samples()
+    viz_experiment_samples()
     #viz_2ds()

@@ -4,9 +4,9 @@
 #SBATCH --cpus-per-task=1
 # `2` when large dataset
 #SBATCH --gres=gpu:1
-#SBATCH --mem-per-cpu=2048
+#SBATCH --mem-per-cpu=1848
 #SBATCH --time=00:10:00
-# `10:00:00` when large dataset
+# `04:00:00` when large dataset
 #SBATCH --account=p_humanpose
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err

@@ -22,7 +22,7 @@ function showLRReductions () {
     job_id=$1
     log_file=${job_id}.out
 
-    grep -i red ${log_file}
+    grep -i reduc ${log_file}
 }
 
 # from fs last job (`squeue` takes takes too much)

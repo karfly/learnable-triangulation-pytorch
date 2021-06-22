@@ -108,7 +108,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'world loss / batch': {
             'color': colors[4],
             'scaler': 1e-2,
-            'show': True,
+            'show': False,
         },
         'self cam loss / batch': {
             'color': colors[5],

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=ml
+#SBATCH --partition=alpha
 #SBATCH --cpus-per-task=1
 # `2` when 10% dataset
 #SBATCH --gres=gpu:1

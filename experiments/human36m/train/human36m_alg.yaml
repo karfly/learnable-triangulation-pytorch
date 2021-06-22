@@ -115,7 +115,7 @@ cam2cam:
     body: 0.05
 
   opt:
-    grad_clip: 0.25
+    grad_clip: 0.15
 # 0.1 when `triangulate: "master"`
 # "I found that I could make an LSTM language model dramatically better by setting it to 0.25. I don't know why that is." https://stats.stackexchange.com/a/352037
 

@@ -93,11 +93,11 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
         'R loss / batch': {
             'color': colors[1],
             'scaler': 3e-1,
-            'show': True,
+            'show': False,
         },
         't loss / batch': {
             'color': colors[2],
-            'scaler': 5e-2,
+            'scaler': 1e0,
             'show': True,
         },
         'proj loss / batch': {
@@ -142,7 +142,7 @@ def plot_losses(axis, epochs, xrange, normalize_loss=None, title=None, xlabel='#
                 nan = np.mean(drop_na(loss_history))
                 loss_history = np.nan_to_num(loss_history, nan=nan)
 
-                if np.mean(loss_history) > 1e-2:  # non-trivial losses
+                if np.mean(loss_history) > 1e-4:  # non-trivial losses
                     _min, _max = np.min(drop_na(loss_history)), np.max(drop_na(loss_history))
                     _last = loss_history[-1]
                     label = '{} = {:.1f} [{:.1f}, {:.1f}]'.format(

@@ -194,8 +194,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     just_t = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, 3]
     t_loss = MSESmoothLoss(threshold=4e2)(
-        just_t(cam_gts),
-        just_t(cam_preds)
+        just_t(cam_gts) / config.cam2cam.postprocess.scale_t,
+        just_t(cam_preds) / config.cam2cam.postprocess.scale_t
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -258,7 +258,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_proj * loss_weights.self_consistency.proj
 
     loss_body = BodyLoss(
-        criterion=BerHuLoss(threshold=5.0)
+        criterion=BerHuLoss(threshold=10.0)
     )(kps_world_pred, kps_world_gt)
     if loss_weights.body > 0:
         total_loss += loss_body * loss_weights.body
@@ -323,7 +323,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         )
         minimon.leave('compute loss')
 
-        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.1f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF PROJ ~ {:.3f}, BODY ~ {:.3f}, TOTAL ~ {:.0f}'.format(
+        message = '{} batch iter {:d} losses: R ~ {:.1f}, t ~ {:.2f}, PROJ ~ {:.0f}, WORLD ~ {:.0f}, SELF WORLD ~ {:.0f}, SELF PROJ ~ {:.3f}, BODY ~ {:.3f}, TOTAL ~ {:.0f}'.format(
             'training' if is_train else 'validation',
             iter_i,
             loss_R.item(),

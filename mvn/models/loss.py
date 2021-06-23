@@ -4,7 +4,6 @@ import torch
 from torch import nn
 
 from mvn.utils.multiview import project2weak_views
-from mvn.utils.tred import get_centroid
 
 
 class KeypointsMSELoss(nn.Module):

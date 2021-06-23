@@ -7,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, SeparationLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
+from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
 from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'

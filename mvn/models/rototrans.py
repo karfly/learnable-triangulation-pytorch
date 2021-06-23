@@ -164,6 +164,17 @@ class Cam2camNet(nn.Module):
             ),
         ])
 
+        self.master_feats = MLPResNet(
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
+            n_inner_layers=2,
+            out_features=config.cam2cam.model.master.n_features,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+            final_activation=None,
+            init_weights=False
+        )
         self.master_R = self.make_R_model(
             how_many=1,
             in_features=config.cam2cam.model.master.n_features,
@@ -184,12 +195,23 @@ class Cam2camNet(nn.Module):
             activation=activation,
         )
 
+        self.others_feats = MLPResNet(
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
+            n_inner_layers=2,
+            out_features=config.cam2cam.model.master.n_features,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+            final_activation=None,
+            init_weights=False
+        )
         self.others_R = self.make_R_model(
             how_many=self.n_master2other_pairs,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
-            param=config.cam2cam.model.master.R.parametrization,
-            n_inner_layers=config.cam2cam.model.master.R.n_layers,
+            param=config.cam2cam.model.master2others.R.parametrization,
+            n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
@@ -198,7 +220,7 @@ class Cam2camNet(nn.Module):
             MLPResNet(
                 in_features=config.cam2cam.model.master.n_features,
                 inner_size=config.cam2cam.model.master.n_features,
-                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
                 out_features=self.n_master2other_pairs * 3,  # 3D euclidean space
                 batch_norm=batch_norm,
                 drop_out=drop_out,
@@ -272,8 +294,8 @@ class Cam2camNet(nn.Module):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
         features = self.bb(x)
-        masters = self._forward_master(features)
-        master2others = self._forward_master2others(features)
+        masters = self._forward_master(self.master_feats(features))
+        master2others = self._forward_master2others(self.others_feats(features))
         return torch.cat([
             masters,
             master2others

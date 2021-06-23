@@ -120,14 +120,14 @@ def _get_cams_gt(cameras, where='world'):
 
 def _forward_cams(cam2cam_model, detections, gt, config):
     preds = cam2cam_model(
-        detections[:, 1:] if config.cam2cam.cams.using_just_one_gt else detections
+        detections
     )  # (batch_size, ~ |views|, 4, 4)
     dev = preds.device
 
     if config.cam2cam.cams.using_just_one_gt:
         preds = torch.cat([
             gt[:, 0].unsqueeze(1),
-            preds
+            preds[:, 1:]
         ], dim=1)
 
     if config.cam2cam.cams.using_gt.really:
@@ -406,8 +406,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             for batch_i in range(kps_world_pred.shape[0])
         ])
 
-    using_any_gt = config.cam2cam.cams.using_just_one_gt or config.cam2cam.cams.using_gt.really
-    if config.cam2cam.postprocess.try2align and not using_any_gt:
+    if config.cam2cam.postprocess.try2align:
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,

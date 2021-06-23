@@ -127,14 +127,14 @@ class RodriguesBlock(nn.Module):
 
 
 class DepthBlock(nn.Module):
-    def __init__(self, in_features, inner_size, n_inner_layers, n2predict, batch_norm, drop_out, activation):
+    def __init__(self, how_many, in_features, inner_size, n_inner_layers, batch_norm, drop_out, activation):
         super().__init__()
 
         self.bb = MLPResNet(
             in_features=in_features,
             inner_size=inner_size,
             n_inner_layers=n_inner_layers,
-            out_features=n2predict,
+            out_features=how_many,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,

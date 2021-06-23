@@ -1,31 +1,8 @@
 from torch import nn
 import torch
 
-from mvn.models.skips import MLSkipper
 from mvn.models.resnet import MLPResNet
-from mvn.models.layers import R6DBlock, RodriguesBlock, DepthBlock, TranslationFromAnglesBlock
-
-
-def make_mlp_by_name(name):
-    if name == 'mlp':
-        base_class = MLPResNet
-    elif name == 'skip':
-        base_class = MLSkipper
-
-    def _f(in_features, inner_size, n_inner_layers, out_features, batch_norm, drop_out=0.0, activation=nn.LeakyReLU, final_activation=None, init_weights=False):
-        return base_class(
-            in_features=in_features,
-            inner_size=inner_size,
-            n_inner_layers=n_inner_layers,
-            out_features=out_features,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=activation,
-            final_activation=final_activation,
-            init_weights=init_weights
-        )
-
-    return _f
+from mvn.models.layers import R6DBlock, RodriguesBlock, DepthBlock, View
 
 
 class RotoTransCombiner(nn.Module):
@@ -36,13 +13,13 @@ class RotoTransCombiner(nn.Module):
         batch_size = rotations.shape[0]
         n_views = rotations.shape[1]
 
-        if translations.shape[-1] == 1:  # predicted just distance
+        if translations.shape[-2] == 1:  # predicted just distance
             trans = torch.cat([  # ext.t in each view
-                torch.zeros(batch_size, n_views, 2, 1).to(rotations.device),
-                translations.unsqueeze(-1)  # massively helps to NOT use |.|
+                torch.zeros(batch_size, n_views, 2, 1).to(translations.device),
+                translations  # massively helps to NOT use |.|
             ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
         else:
-            trans = translations.unsqueeze(-1)
+            trans = translations  # alias
 
         roto_trans = torch.cat([  # ext (not padded) in each view
             rotations, trans
@@ -114,10 +91,10 @@ class RotoTransNet(nn.Module):
 
         if config.cam2cam.data.look_at_pelvis:  # just d
             self.t_model = DepthBlock(
+                how_many=self.n_views,
                 in_features=n_features,
                 inner_size=n_features,
                 n_inner_layers=config.cam2cam.model.master.t.n_layers,
-                n2predict=self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
@@ -170,12 +147,11 @@ class Cam2camNet(nn.Module):
         n_joints = config.model.backbone.num_joints
         batch_norm = config.cam2cam.model.batch_norm
         drop_out = config.cam2cam.model.drop_out
-        make_mlp_with = make_mlp_by_name(config.cam2cam.model.name)
         activation = nn.LeakyReLU
 
         self.bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
-            make_mlp_with(
+            MLPResNet(
                 in_features=self.n_views * n_joints * 2,
                 inner_size=config.cam2cam.model.backbone.n_features,
                 n_inner_layers=config.cam2cam.model.backbone.n_layers,
@@ -183,128 +159,122 @@ class Cam2camNet(nn.Module):
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
+                final_activation=None,
+                init_weights=False
             ),
         ])
 
-        self.master_R, self.master_t = self._make_Rt_model(
-            make_mlp_with,
+        self.master_R = self.make_R_model(
+            how_many=1,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
-            R_param=config.cam2cam.model.master.R.parametrization,
-            R_layers=config.cam2cam.model.master.R.n_layers,
-            t_param=1 if config.cam2cam.data.pelvis_in_origin else 3,  # just d
-            t_layers=config.cam2cam.model.master.t.n_layers,
+            param=config.cam2cam.model.master.R.parametrization,
+            n_inner_layers=config.cam2cam.model.master.R.n_layers,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+        )
+        self.master_t = DepthBlock(
+            how_many=1,
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
+            n_inner_layers=config.cam2cam.model.master.t.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
         )
 
-        self.view_bb = nn.Sequential(*[  # just to augment BB features with view
-            nn.Flatten(),  # will be fed into a MLP
-            make_mlp_with(
-                in_features=n_joints * 2,
-                inner_size=config.cam2cam.model.backbone.n_features,
-                n_inner_layers=2,
-                out_features=config.cam2cam.model.master.n_features,
+        self.others_R = self.make_R_model(
+            how_many=self.n_master2other_pairs,
+            in_features=config.cam2cam.model.master.n_features,
+            inner_size=config.cam2cam.model.master.n_features,
+            param=config.cam2cam.model.master.R.parametrization,
+            n_inner_layers=config.cam2cam.model.master.R.n_layers,
+            batch_norm=batch_norm,
+            drop_out=drop_out,
+            activation=activation,
+        )
+        self.others_t = nn.Sequential(*[
+            MLPResNet(
+                in_features=config.cam2cam.model.master.n_features,
+                inner_size=config.cam2cam.model.master.n_features,
+                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                out_features=self.n_master2other_pairs * 3,  # 3D euclidean space
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
+                final_activation=None,
+                init_weights=False
             ),
+            View((-1, self.n_master2other_pairs, 3, 1))
         ])
 
-        self.master2other_R, self.master2other_t = self._make_Rt_model(  # todo refactor
-            make_mlp_with,
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            R_param=config.cam2cam.model.master2others.R.parametrization,
-            R_layers=config.cam2cam.model.master2others.R.n_layers,
-            t_param=3,
-            t_layers=config.cam2cam.model.master2others.t.n_layers,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=activation,
-        )
-
     @staticmethod
-    def _make_Rt_model(make_mlp, in_features, inner_size, R_param, R_layers, t_param, t_layers, batch_norm, drop_out, activation):
-        if R_param == '6d':
+    def make_R_model(how_many, in_features, inner_size, param, n_inner_layers, batch_norm, drop_out, activation):
+        """ `how_many` refers to a per batch! """
+
+        if param == '6d':
             n_params_per_R = 6
             R_param = R6DBlock()
-        elif R_param == 'rod':
+        elif param == 'rod':
             n_params_per_R = 3
             R_param = RodriguesBlock()
 
-        R_model = nn.Sequential(*[
-            make_mlp(
+        return nn.Sequential(*[
+            MLPResNet(
                 in_features=in_features,
                 inner_size=inner_size,
-                n_inner_layers=R_layers,
-                out_features=n_params_per_R,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=activation
-            ),
-            R_param
-        ])
-
-        if t_param == 1:  # just d
-            t_model = DepthBlock(
-                in_features=in_features,
-                inner_size=inner_size,
-                n_inner_layers=t_layers,
-                n2predict=1,
+                n_inner_layers=n_inner_layers,
+                out_features=how_many * n_params_per_R,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
-            )
-        else:
-            t_model = MLPResNet(
-                in_features=in_features,
-                inner_size=inner_size,
-                n_inner_layers=t_layers,
-                out_features=t_param,
-                batch_norm=batch_norm,
-                drop_out=drop_out,
-                activation=activation
-            )
-
-        return R_model, t_model
+                final_activation=None,
+                init_weights=False
+            ),
+            View((-1, n_params_per_R)),
+            R_param,
+            View((-1, how_many, 3, 3)),
+        ])
 
     @staticmethod
-    def _forward_cam(R_model, t_model, base_features, scale_t):
-        Rs = R_model(base_features)  # ~ batch_size, (3 x 3)
-        ts = t_model(base_features) * scale_t
+    def _fix_prediction_shape(x):
+        while len(x.shape) < 4:  # batch x samples x [..., ...]
+            x = x.unsqueeze(1)
+
+        return x
+
+    def _forward_cam(self, R_model, t_model, features, scale_t):
+        Rs = R_model(features)  # ~ batch_size, (3 x 3)
+        ts = t_model(features) * scale_t
         return RotoTransCombiner()(
-            Rs.unsqueeze(1),
-            ts.unsqueeze(1) if len(ts.shape) == 2 else ts,
+            self._fix_prediction_shape(Rs),
+            self._fix_prediction_shape(ts),
         ).view(-1, 4, 4)
 
-    def _forward_master(self, x, bb_features):
+    def _forward_master(self, features):
         return self._forward_cam(
             self.master_R,
             self.master_t,
-            bb_features + self.view_bb(x[:, 0]),
+            features,
             self.scale_t
-        )
+        ).view(-1, 1, 4, 4)
 
-    def _forward_master2others(self, x, bb_features):
-        return torch.cat([
-            self._forward_cam(
-                self.master2other_R,
-                self.master2other_t,
-                bb_features + self.view_bb(x[:, view_i]),
-                self.scale_t / 10.0  # todo heuristics
-            ).unsqueeze(1)
-            for view_i in range(1, self.n_views)  # todo just 1 pass for all 3
-        ], dim=1)
+    def _forward_master2others(self, features):
+        return self._forward_cam(
+            self.others_R,
+            self.others_t,
+            features,
+            self.scale_t
+        ).view(-1, self.n_master2other_pairs, 4, 4)
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
         features = self.bb(x)
-        masters = self._forward_master(x, features)
-        master2others = self._forward_master2others(x, features)
+        masters = self._forward_master(features)
+        master2others = self._forward_master2others(features)
         return torch.cat([
-            masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4
+            masters,
             master2others
         ], dim=1)

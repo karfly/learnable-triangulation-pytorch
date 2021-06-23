@@ -114,7 +114,7 @@ cam2cam:
     self_consistency:
       proj: 10.0
       world: 0.01
-    body: 0.01
+    body: 0.1
 # `0.05` when large dataset
 
   opt:

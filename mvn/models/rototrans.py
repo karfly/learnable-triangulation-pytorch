@@ -199,7 +199,7 @@ class Cam2camNet(nn.Module):
             activation=activation,
         )
 
-        self.master2other_bb = nn.Sequential(*[
+        self.view_bb = nn.Sequential(*[  # just to augment BB features with view
             nn.Flatten(),  # will be fed into a MLP
             make_mlp_with(
                 in_features=n_joints * 2,
@@ -279,11 +279,11 @@ class Cam2camNet(nn.Module):
             ts.unsqueeze(1) if len(ts.shape) == 2 else ts,
         ).view(-1, 4, 4)
 
-    def _forward_master(self, features):
+    def _forward_master(self, x, bb_features):
         return self._forward_cam(
             self.master_R,
             self.master_t,
-            features,
+            bb_features + self.view_bb(x[:, 0]),
             self.scale_t
         )
 
@@ -292,7 +292,7 @@ class Cam2camNet(nn.Module):
             self._forward_cam(
                 self.master2other_R,
                 self.master2other_t,
-                bb_features + self.master2other_bb(x[:, view_i]),
+                bb_features + self.view_bb(x[:, view_i]),
                 self.scale_t / 10.0  # todo heuristics
             ).unsqueeze(1)
             for view_i in range(1, self.n_views)  # todo just 1 pass for all 3
@@ -301,8 +301,8 @@ class Cam2camNet(nn.Module):
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
-        features = self.bb(x)  # batch_size, ...
-        masters = self._forward_master(features)
+        features = self.bb(x)
+        masters = self._forward_master(x, features)
         master2others = self._forward_master2others(x, features)
         return torch.cat([
             masters.unsqueeze(1),  # batch_size, 4, 4 -> batch_size, 1, 4, 4

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --partition=alpha
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 # `2` when large dataset
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-cpu=1848

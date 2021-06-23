@@ -386,14 +386,6 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         master_i,
         where=config.cam2cam.triangulate
     )
-    if config.cam2cam.data.pelvis_in_origin:
-        kps_world_pred = torch.cat([
-            torch.cat([
-                kps_world_pred[batch_i] -\
-                    kps_world_pred[batch_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
-            ]).unsqueeze(0)
-            for batch_i in range(kps_world_pred.shape[0])
-        ])
 
     if config.debug.dump_tensors:
         _save_stuff(kps_world_pred, 'kps_world_pred')
@@ -404,6 +396,15 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     if is_train:
         _backprop()
+
+    if config.cam2cam.postprocess.force_pelvis_in_origin:
+        kps_world_pred = torch.cat([
+            torch.cat([
+                kps_world_pred[batch_i] -\
+                    kps_world_pred[batch_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+            ]).unsqueeze(0)
+            for batch_i in range(kps_world_pred.shape[0])
+        ])
 
     using_any_gt = config.cam2cam.cams.using_just_one_gt or config.cam2cam.cams.using_gt.really
     if config.cam2cam.postprocess.try2align and not using_any_gt:

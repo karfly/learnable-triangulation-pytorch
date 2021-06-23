@@ -141,7 +141,7 @@ class Cam2camNet(nn.Module):
         super().__init__()
 
         self.n_views = 4
-        self.n_master2other_pairs = self.n_views - 1  # 0 -> 1, 0 -> 2 ...
+        self.n_others = self.n_views - 1  # 0 -> 1, 0 -> 2 ...
         self.scale_t = config.cam2cam.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
@@ -164,17 +164,20 @@ class Cam2camNet(nn.Module):
             ),
         ])
 
-        self.master_feats = MLPResNet(
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            n_inner_layers=2,
-            out_features=config.cam2cam.model.master.n_features,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=activation,
-            final_activation=None,
-            init_weights=False
-        )
+        self.master_feats = nn.Sequential(*[
+            nn.Flatten(),  # will be fed into a MLP
+            MLPResNet(
+                in_features=1 * n_joints * 2,
+                inner_size=config.cam2cam.model.master.n_features,
+                n_inner_layers=3,
+                out_features=config.cam2cam.model.master.n_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+                final_activation=None,
+                init_weights=False
+            )
+        ])
         self.master_R = self.make_R_model(
             how_many=1,
             in_features=config.cam2cam.model.master.n_features,
@@ -195,19 +198,22 @@ class Cam2camNet(nn.Module):
             activation=activation,
         )
 
-        self.others_feats = MLPResNet(
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            n_inner_layers=2,
-            out_features=config.cam2cam.model.master.n_features,
-            batch_norm=batch_norm,
-            drop_out=drop_out,
-            activation=activation,
-            final_activation=None,
-            init_weights=False
-        )
+        self.others_feats = nn.Sequential(*[
+            nn.Flatten(),  # will be fed into a MLP
+            MLPResNet(
+                in_features=self.n_others * n_joints * 2,
+                inner_size=config.cam2cam.model.master.n_features,
+                n_inner_layers=3,
+                out_features=config.cam2cam.model.master.n_features,
+                batch_norm=batch_norm,
+                drop_out=drop_out,
+                activation=activation,
+                final_activation=None,
+                init_weights=False
+            )
+        ])
         self.others_R = self.make_R_model(
-            how_many=self.n_master2other_pairs,
+            how_many=self.n_others,
             in_features=config.cam2cam.model.master.n_features,
             inner_size=config.cam2cam.model.master.n_features,
             param=config.cam2cam.model.master2others.R.parametrization,
@@ -221,14 +227,14 @@ class Cam2camNet(nn.Module):
                 in_features=config.cam2cam.model.master.n_features,
                 inner_size=config.cam2cam.model.master.n_features,
                 n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
-                out_features=self.n_master2other_pairs * 3,  # 3D euclidean space
+                out_features=self.n_others * 3,  # 3D euclidean space
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
                 final_activation=None,
                 init_weights=False
             ),
-            View((-1, self.n_master2other_pairs, 3, 1))
+            View((-1, self.n_others, 3, 1))
         ])
 
     @staticmethod
@@ -274,28 +280,30 @@ class Cam2camNet(nn.Module):
             self._fix_prediction_shape(ts),
         ).view(-1, 4, 4)
 
-    def _forward_master(self, features):
+    def _forward_master(self, x, features):
+        skip_feats = self.master_feats(x[:, 0])
         return self._forward_cam(
             self.master_R,
             self.master_t,
-            features,
+            skip_feats + features,
             self.scale_t
         ).view(-1, 1, 4, 4)
 
-    def _forward_master2others(self, features):
+    def _forward_master2others(self, x, features):
+        skip_feats = self.others_feats(x[:, 1:])
         return self._forward_cam(
             self.others_R,
             self.others_t,
-            features,
+            skip_feats + features,
             self.scale_t
-        ).view(-1, self.n_master2other_pairs, 4, 4)
+        ).view(-1, self.n_others, 4, 4)
 
     def forward(self, x):
         """ batch ~ many poses, i.e ~ (batch_size, # views, n_joints, 2D) """
 
         features = self.bb(x)
-        masters = self._forward_master(self.master_feats(features))
-        master2others = self._forward_master2others(self.others_feats(features))
+        masters = self._forward_master(x, features)
+        master2others = self._forward_master2others(x, features)
         return torch.cat([
             masters,
             master2others

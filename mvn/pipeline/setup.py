@@ -31,9 +31,9 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop,
             resample_same_K=config.model.cam2cam_estimation,
-            look_at_pelvis=config.model.cam2cam_estimation and config.cam2cam.data.look_at_pelvis,
-            pelvis_in_origin=config.cam2cam.data.pelvis_in_origin,
-            scale2meters=config.cam2cam.preprocess.scale2meters,
+            look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
+            pelvis_in_origin=config.ours.data.pelvis_in_origin,
+            scale2meters=config.ours.preprocess.scale2meters,
         )
         print("  training dataset length:", len(train_dataset))
 
@@ -73,9 +73,9 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop,
         resample_same_K=config.model.cam2cam_estimation,
-        look_at_pelvis=config.model.cam2cam_estimation and config.cam2cam.data.look_at_pelvis,
-        pelvis_in_origin=config.cam2cam.data.pelvis_in_origin,
-        scale2meters=config.cam2cam.preprocess.scale2meters,
+        look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
+        pelvis_in_origin=config.ours.data.pelvis_in_origin,
+        scale2meters=config.ours.preprocess.scale2meters,
     )
     print("  validation dataset length:", len(val_dataset))
 
@@ -143,12 +143,12 @@ def build_env(config, device):
 
     # ... and cam2cam ...
     if config.model.cam2cam_estimation:
-        if config.cam2cam.data.using_heatmaps:
+        if config.ours.data.using_heatmaps:
             roto_net = None  # todo
         else:
-            if config.cam2cam.triangulate == 'master':
+            if config.ours.triangulate == 'master':
                 roto_net = Cam2camNet
-            elif config.cam2cam.triangulate == 'world':
+            elif config.ours.triangulate == 'world':
                 roto_net = RotoTransNet
 
         cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
@@ -163,8 +163,8 @@ def build_env(config, device):
         show_params(model, verbose=config.debug.show_models)
 
     if config.model.cam2cam_estimation:
-        if config.cam2cam.model.init_weights:
-            load_checkpoint(cam2cam_model, config.cam2cam.model.checkpoint)
+        if config.ours.model.init_weights:
+            load_checkpoint(cam2cam_model, config.ours.model.checkpoint)
         else:
             print('cam2cam model:')
             show_params(cam2cam_model, verbose=config.debug.show_models)

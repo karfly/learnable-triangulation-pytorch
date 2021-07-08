@@ -118,7 +118,7 @@ def prepare_batch(batch, device, config, is_train=True):
     cameras = batch['cameras']
     indices = batch['indexes']  # wrt to dataset
 
-    if config.cam2cam.data.head_normal and is_train:
+    if config.ours.data.head_normal and is_train:
         def _get_head_normal(threshold):
             batch_size = keypoints_3d_batch_gt.shape[0]
             Z_axis = torch.tensor([0., 0., 1.0])\

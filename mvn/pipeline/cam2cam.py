@@ -124,16 +124,16 @@ def _forward_cams(cam2cam_model, detections, gt, config):
     )  # (batch_size, ~ |views|, 4, 4)
     dev = preds.device
 
-    if config.cam2cam.cams.using_just_one_gt:
+    if config.ours.cams.using_just_one_gt:
         preds = torch.cat([
             gt[:, 0].unsqueeze(1),
             preds[:, 1:]
         ], dim=1)
 
-    if config.cam2cam.cams.using_gt.really:
+    if config.ours.cams.using_gt.really:
         preds = gt
 
-        noisy = config.cam2cam.cams.using_gt.using_noise
+        noisy = config.ours.cams.using_gt.using_noise
         if noisy > 0.0:
             preds[:, :, :3, :3] += 1e-2 * noisy *\
                 torch.rand_like(preds[:, :, :3, :3])
@@ -181,8 +181,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     batch_size = cam_gts.shape[0]
     n_cameras = cam_gts.shape[1]
-    start_cam = 1 if config.cam2cam.cams.using_just_one_gt else 0
-    loss_weights = config.cam2cam.loss  # todo normalize | sum = 1
+    start_cam = 1 if config.ours.cams.using_just_one_gt else 0
+    loss_weights = config.ours.loss  # todo normalize | sum = 1
 
     just_R = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3]
     loss_R = GeodesicLoss()(
@@ -194,8 +194,8 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
 
     just_t = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, 3]
     t_loss = MSESmoothLoss(threshold=4e2)(
-        just_t(cam_gts) / config.cam2cam.postprocess.scale_t,
-        just_t(cam_preds) / config.cam2cam.postprocess.scale_t
+        just_t(cam_gts) / config.ours.postprocess.scale_t,
+        just_t(cam_preds) / config.ours.postprocess.scale_t
     )
     if loss_weights.t > 0:
         total_loss += loss_weights.t * t_loss
@@ -203,11 +203,11 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
     loss_proj = ProjectionLoss(
         criterion=KeypointsMSESmoothLoss(threshold=2.0),  # HuberLoss(threshold=1e-1),
-        where=config.cam2cam.triangulate
+        where=config.ours.triangulate
     )(
         K,
         cam_preds[:, start_cam:],
-        kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
+        kps_mastercam_pred if config.ours.triangulate == 'master' else kps_world_pred,
         keypoints_2d_pred[:, start_cam:],  # todo just because I'm using GT KPs
     )
     if loss_weights.proj > 0:
@@ -221,7 +221,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.world > 0:
         total_loss += loss_world * loss_weights.world
 
-    if config.cam2cam.triangulate == 'master':
+    if config.ours.triangulate == 'master':
         extrinsics = torch.cat([
             torch.cat([
                 torch.mm(
@@ -240,18 +240,18 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
             kps_world_pred_from_exts * config.opt.scale_keypoints_3d,
             keypoints_3d_binary_validity_gt,
         )
-    elif config.cam2cam.triangulate == 'world':
+    elif config.ours.triangulate == 'world':
         loss_self_world = torch.tensor(0.0)
     if loss_weights.self_consistency.world > 0:
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleDependentProjectionLoss(
         criterion=BerHuLoss(threshold=0.25),
-        where=config.cam2cam.triangulate
+        where=config.ours.triangulate
     )(
         K,
         cam_preds,
-        kps_mastercam_pred if config.cam2cam.triangulate == 'master' else kps_world_pred,
+        kps_mastercam_pred if config.ours.triangulate == 'master' else kps_world_pred,
         keypoints_2d_pred
     )
     if loss_weights.self_consistency.proj > 0:
@@ -293,12 +293,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             torch.save(torch.tensor(stuff), f_out)
 
     def _forward_kp():
-        if config.cam2cam.data.using_gt:
+        if config.ours.data.using_gt:
             keypoints_2d_pred, heatmaps_pred, confidences_pred = get_kp_gt(
                 kps_world_gt,
                 cameras,
-                config.cam2cam.cams.use_extra_cams,
-                config.cam2cam.data.using_noise
+                config.ours.cams.use_extra_cams,
+                config.ours.data.using_noise
             )
         else:
             keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
@@ -340,7 +340,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         minimon.enter()
 
         current_lr = opt.param_groups[0]['lr']
-        clip = config.cam2cam.opt.grad_clip / current_lr
+        clip = config.ours.opt.grad_clip / current_lr
 
         backprop(
             opt, total_loss, scheduler,
@@ -357,12 +357,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
 
     cam_gts = _get_cams_gt(
         cameras,
-        config.cam2cam.triangulate
+        config.ours.triangulate
     )
     detections = normalize_keypoints(
         keypoints_2d_pred,
-        config.cam2cam.preprocess.pelvis_center_kps,
-        config.cam2cam.preprocess.normalize_kps
+        config.ours.preprocess.pelvis_center_kps,
+        config.ours.preprocess.normalize_kps
     ).to('cuda:0').type(torch.get_default_dtype())  # todo device
 
     minimon.enter()
@@ -384,7 +384,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         confidences_pred,
         torch.tensor(cameras[0][0].intrinsics_padded).to(cam_preds.device),
         master_i,
-        where=config.cam2cam.triangulate
+        where=config.ours.triangulate
     )
 
     if config.debug.dump_tensors:
@@ -397,7 +397,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     if is_train:
         _backprop()
 
-    if config.cam2cam.postprocess.force_pelvis_in_origin:
+    if config.ours.postprocess.force_pelvis_in_origin:
         kps_world_pred = torch.cat([
             torch.cat([
                 kps_world_pred[batch_i] -\
@@ -406,11 +406,11 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
             for batch_i in range(kps_world_pred.shape[0])
         ])
 
-    if config.cam2cam.postprocess.try2align:
+    if config.ours.postprocess.try2align:
         kps_world_pred = apply_umeyama(
             kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
             kps_world_pred,
-            scaling=config.cam2cam.postprocess.try2scale
+            scaling=config.ours.postprocess.try2scale
         )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

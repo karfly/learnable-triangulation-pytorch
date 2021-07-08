@@ -337,7 +337,7 @@ def get_pose_net(config, num_deconv_filters=(256, 256, 256), device='cuda:0'):
     )
 
     need_backbone = True
-    if config.model.cam2cam_estimation and config.cam2cam.data.using_gt:
+    if config.model.cam2cam_estimation and config.ours.data.using_gt:
         need_backbone = False
 
     if need_backbone and config.model.backbone.init_weights:

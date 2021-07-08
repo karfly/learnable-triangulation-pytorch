@@ -106,11 +106,11 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
         params = [
             {
                 'params': get_grad_params(cam2cam_model),
-                'lr': config.cam2cam.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
+                'lr': config.ours.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
             }
         ]
 
-        if not config.cam2cam.data.using_gt:  # predicting KP and HM -> need to opt
+        if not config.ours.data.using_gt:  # predicting KP and HM -> need to opt
             print('using predicted KPs => adding model.backbone to grad ...')
             params.append(
                 {
@@ -119,7 +119,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
                 }
             )
 
-        opt = base_optim(params, weight_decay=config.cam2cam.opt.weight_decay)
+        opt = base_optim(params, weight_decay=config.ours.opt.weight_decay)
     elif config.model.name == "vol":
         print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
             'backbone',
@@ -154,7 +154,7 @@ def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_t
             lr=1e-6  # BB already optimized
         )
 
-    opts = config.cam2cam.opt.scheduler
+    opts = config.ours.opt.scheduler
     scheduler = ReduceLROnPlateau(
         opt,
         factor=opts.factor,  # new lr = x * lr

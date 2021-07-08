@@ -33,20 +33,20 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
-    config.cam2cam.data.using_gt = True
-    config.cam2cam.data.using_heatmaps = False  # KPs seem to work much better
-    config.cam2cam.model.init_weights = False
-    # config.cam2cam.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
+    config.ours.data.using_gt = True
+    config.ours.data.using_heatmaps = False  # KPs seem to work much better
+    config.ours.model.init_weights = False
+    # config.ours.model.checkpoint = '/home/stefano/Scuola/tud/_classes/thesis/milestones/06.05_12.05_solving_the_MLP_problem/weights_cam2cam_model.pth'
 
-    config.cam2cam.model.backbone.n_features = 16
-    config.cam2cam.model.backbone.n_layers = 3
+    config.ours.model.backbone.n_features = 16
+    config.ours.model.backbone.n_layers = 3
     
-    config.cam2cam.model.master.n_features = 16
-    config.cam2cam.model.master.R.n_layers = 1
-    config.cam2cam.model.master.t.n_layers = 1
+    config.ours.model.master.n_features = 16
+    config.ours.model.master.R.n_layers = 1
+    config.ours.model.master.t.n_layers = 1
 
-    config.cam2cam.model.master2others.R.n_layers = 1
-    config.cam2cam.model.master2others.t.n_layers = 1
+    config.ours.model.master2others.R.n_layers = 1
+    config.ours.model.master2others.t.n_layers = 1
 
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'

@@ -43,11 +43,13 @@ svd:
   gpu_friendly: true
 # `gpu_friendly` only used when `in_cpu` is false
 
-cam2cam:
-  triangulate: "master"
+ours:
+  triangulate: "world"
 # `master` does not really work well ...
 
   cams:
+    project: "pinhole"
+# todo `weak`
     using_gt:
       really: false
       using_noise: 0.1

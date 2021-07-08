@@ -13,13 +13,21 @@ class RotoTransCombiner(nn.Module):
         batch_size = rotations.shape[0]
         n_views = rotations.shape[1]
 
-        if translations.shape[-2] == 1:  # predicted just distance
+        # todo more elegant `if-else`
+        if translations.shape[-2] == 1:  # predicted just distance (master)
             trans = torch.cat([  # ext.t in each view
                 torch.zeros(batch_size, n_views, 2, 1).to(translations.device),
                 translations  # massively helps to NOT use |.|
             ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+        elif translations.shape[-1] == 1:  # predicted just distance (world)
+            trans = torch.cat([  # ext.t in each view
+                torch.zeros(batch_size, n_views, 2, 1).to(translations.device),
+                translations.unsqueeze(-1)
+            ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
         else:
             trans = translations  # alias
+
+        print(rotations.shape, trans.shape)
 
         roto_trans = torch.cat([  # ext (not padded) in each view
             rotations, trans
@@ -45,25 +53,25 @@ class RotoTransNet(nn.Module):
         super().__init__()
 
         self.n_views = 4
-        if config.cam2cam.cams.use_extra_cams > 0:
-            self.n_views += config.cam2cam.cams.use_extra_cams
-        elif config.cam2cam.cams.using_just_one_gt:
+        if config.ours.cams.use_extra_cams > 0:
+            self.n_views += config.ours.cams.use_extra_cams
+        elif config.ours.cams.using_just_one_gt:
             self.n_views = 3  # ALL but first
 
-        self.scale_t = config.cam2cam.postprocess.scale_t
+        self.scale_t = config.ours.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
-        batch_norm = config.cam2cam.model.batch_norm
-        drop_out = config.cam2cam.model.drop_out
-        n_features = config.cam2cam.model.master.n_features
+        batch_norm = config.ours.model.batch_norm
+        drop_out = config.ours.model.drop_out
+        n_features = config.ours.model.master.n_features
         activation = nn.LeakyReLU
 
         self.backbone = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=self.n_views * n_joints * 2,
-                inner_size=config.cam2cam.model.backbone.n_features,
-                n_inner_layers=config.cam2cam.model.backbone.n_layers,
+                inner_size=config.ours.model.backbone.n_features,
+                n_inner_layers=config.ours.model.backbone.n_layers,
                 out_features=n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
@@ -72,29 +80,29 @@ class RotoTransNet(nn.Module):
         ])
 
         n_params_per_R, self.R_param = None, None
-        if config.cam2cam.model.master.R.parametrization == '6d':
+        if config.ours.model.master.R.parametrization == '6d':
             n_params_per_R = 6
             self.R_param = R6DBlock()
-        elif config.cam2cam.model.master.R.parametrization == 'rod':
+        elif config.ours.model.master.R.parametrization == 'rod':
             n_params_per_R = 3
             self.R_param = RodriguesBlock()
         
         self.R_model = MLPResNet(
             in_features=n_features,
             inner_size=n_features,
-            n_inner_layers=config.cam2cam.model.master.R.n_layers,
+            n_inner_layers=config.ours.model.master.R.n_layers,
             out_features=n_params_per_R * self.n_views,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
         )
 
-        if config.cam2cam.data.look_at_pelvis:  # just d
+        if config.ours.data.look_at_pelvis:  # just d
             self.t_model = DepthBlock(
                 how_many=self.n_views,
                 in_features=n_features,
                 inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n_inner_layers=config.ours.model.master.t.n_layers,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
@@ -103,7 +111,7 @@ class RotoTransNet(nn.Module):
             self.t_model = MLPResNet(
                 in_features=n_features,
                 inner_size=n_features,
-                n_inner_layers=config.cam2cam.model.master.t.n_layers,
+                n_inner_layers=config.ours.model.master.t.n_layers,
                 out_features=3 * self.n_views,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
@@ -142,20 +150,20 @@ class Cam2camNet(nn.Module):
 
         self.n_views = 4
         self.n_others = self.n_views - 1  # 0 -> 1, 0 -> 2 ...
-        self.scale_t = config.cam2cam.postprocess.scale_t
+        self.scale_t = config.ours.postprocess.scale_t
 
         n_joints = config.model.backbone.num_joints
-        batch_norm = config.cam2cam.model.batch_norm
-        drop_out = config.cam2cam.model.drop_out
+        batch_norm = config.ours.model.batch_norm
+        drop_out = config.ours.model.drop_out
         activation = nn.LeakyReLU
 
         self.bb = nn.Sequential(*[
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=self.n_views * n_joints * 2,
-                inner_size=config.cam2cam.model.backbone.n_features,
-                n_inner_layers=config.cam2cam.model.backbone.n_layers,
-                out_features=config.cam2cam.model.master.n_features,
+                inner_size=config.ours.model.backbone.n_features,
+                n_inner_layers=config.ours.model.backbone.n_layers,
+                out_features=config.ours.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
@@ -168,9 +176,9 @@ class Cam2camNet(nn.Module):
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=1 * n_joints * 2,
-                inner_size=config.cam2cam.model.master.n_features,
+                inner_size=config.ours.model.master.n_features,
                 n_inner_layers=3,
-                out_features=config.cam2cam.model.master.n_features,
+                out_features=config.ours.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
@@ -180,19 +188,19 @@ class Cam2camNet(nn.Module):
         ])
         self.master_R = self.make_R_model(
             how_many=1,
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            param=config.cam2cam.model.master.R.parametrization,
-            n_inner_layers=config.cam2cam.model.master.R.n_layers,
+            in_features=config.ours.model.master.n_features,
+            inner_size=config.ours.model.master.n_features,
+            param=config.ours.model.master.R.parametrization,
+            n_inner_layers=config.ours.model.master.R.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
         )
         self.master_t = DepthBlock(
             how_many=1,
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            n_inner_layers=config.cam2cam.model.master.t.n_layers,
+            in_features=config.ours.model.master.n_features,
+            inner_size=config.ours.model.master.n_features,
+            n_inner_layers=config.ours.model.master.t.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
@@ -202,9 +210,9 @@ class Cam2camNet(nn.Module):
             nn.Flatten(),  # will be fed into a MLP
             MLPResNet(
                 in_features=self.n_others * n_joints * 2,
-                inner_size=config.cam2cam.model.master.n_features,
+                inner_size=config.ours.model.master.n_features,
                 n_inner_layers=3,
-                out_features=config.cam2cam.model.master.n_features,
+                out_features=config.ours.model.master.n_features,
                 batch_norm=batch_norm,
                 drop_out=drop_out,
                 activation=activation,
@@ -214,19 +222,19 @@ class Cam2camNet(nn.Module):
         ])
         self.others_R = self.make_R_model(
             how_many=self.n_others,
-            in_features=config.cam2cam.model.master.n_features,
-            inner_size=config.cam2cam.model.master.n_features,
-            param=config.cam2cam.model.master2others.R.parametrization,
-            n_inner_layers=config.cam2cam.model.master2others.R.n_layers,
+            in_features=config.ours.model.master.n_features,
+            inner_size=config.ours.model.master.n_features,
+            param=config.ours.model.master2others.R.parametrization,
+            n_inner_layers=config.ours.model.master2others.R.n_layers,
             batch_norm=batch_norm,
             drop_out=drop_out,
             activation=activation,
         )
         self.others_t = nn.Sequential(*[
             MLPResNet(
-                in_features=config.cam2cam.model.master.n_features,
-                inner_size=config.cam2cam.model.master.n_features,
-                n_inner_layers=config.cam2cam.model.master2others.t.n_layers,
+                in_features=config.ours.model.master.n_features,
+                inner_size=config.ours.model.master.n_features,
+                n_inner_layers=config.ours.model.master2others.t.n_layers,
                 out_features=self.n_others * 3,  # 3D euclidean space
                 batch_norm=batch_norm,
                 drop_out=drop_out,

@@ -266,7 +266,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_body * loss_weights.body
 
     if config.debug.show_live:
-        __batch_i = 0
+        __batch_i = np.random.randint(0, batch_size)
 
         print('pred exts {:.0f}'.format(__batch_i))
         print(cam_preds[__batch_i, start_cam:n_cameras, :3, :4])

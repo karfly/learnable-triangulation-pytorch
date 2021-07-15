@@ -166,9 +166,8 @@ dataset:
 
   train:
     crop: false
-    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
-    h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-# `h36m_root.bak` used when scratch will go out of renewals (<100 days)
+    h36m_root.bak: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
 
     with_damaged_actions: false
@@ -187,9 +186,8 @@ dataset:
 
   val:
     crop: false
-    h36m_root: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
-    h36m_root.bak: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
-# `h36m_root.bak` used when scratch will go out of renewals (<100 days)
+    h36m_root.bak: "/scratch/ws/0/stfo194b-p_humanpose/h36m-fetch/processed/"
+    h36m_root: "/projects/p_humanpose/learnable-triangulation/data/human36m/processed/"
     labels_path: "/projects/p_humanpose/learnable-triangulation/data/human36m/extra/human36m-multiview-labels-GTbboxes.npy"
     
     with_damaged_actions: false

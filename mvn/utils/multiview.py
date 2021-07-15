@@ -489,17 +489,19 @@ def project2perspective_views(K, cams, kps, where='world'):
     ])  # project DLT-ed points in all views
 
 
-def _orthogonal_project(R):
-    projection = torch.mm(
-        R.T,
-        torch.tensor([
-            [1., 0., 0.],
-            [0., 1., 0.]  # just x, y coordinates
-        ]).T.to(R.device)
-    )
+def _orthogonal_project(extrinsics):
+    M = torch.tensor([
+        [1., 0., 0.],
+        [0., 1., 0.]  # just x, y coordinates
+    ])
 
     def _f(x):
-        return x @ projection.to(x.device)
+        in_cam_space = homogeneous_to_euclidean(
+            euclidean_to_homogeneous(
+                x  # [x y z] -> [x y z 1]
+            ) @ extrinsics.T.to(x.device)  # N x 3
+        )
+        return in_cam_space @ M.T.to(x.device)
 
     return _f
 
@@ -512,7 +514,7 @@ def project2orthogonal_views(cams, kps):
     dev = cams.device
     return torch.cat([
         torch.cat([
-            _orthogonal_project(cams[batch_i, view_i, :3, :3])(
+            _orthogonal_project(cams[batch_i, view_i])(
                 kps[batch_i]
             ).unsqueeze(0)
             for view_i in range(n_views)

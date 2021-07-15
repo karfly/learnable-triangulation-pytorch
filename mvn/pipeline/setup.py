@@ -32,7 +32,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
             crop=config.dataset.train.crop,
             resample_same_K=config.model.cam2cam_estimation,
             look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
-            pelvis_in_origin=config.ours.data.pelvis_in_origin,
+            pelvis_in_origin=config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole',
             scale2meters=config.ours.preprocess.scale2meters,
         )
         print("  training dataset length:", len(train_dataset))
@@ -74,7 +74,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         crop=config.dataset.val.crop,
         resample_same_K=config.model.cam2cam_estimation,
         look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
-        pelvis_in_origin=config.ours.data.pelvis_in_origin,
+        pelvis_in_origin=config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole',
         scale2meters=config.ours.preprocess.scale2meters,
     )
     print("  validation dataset length:", len(val_dataset))

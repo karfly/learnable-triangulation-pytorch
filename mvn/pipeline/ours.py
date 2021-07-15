@@ -6,8 +6,8 @@ import torch
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_weak_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleDependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
+from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_cams_for_dlt
+from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
 from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'
@@ -143,8 +143,8 @@ def _forward_cams(cam2cam_model, detections, gt, config):
     return preds.to(dev)
 
 
-def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, where="world"):
-    full_cams = prepare_weak_cams_for_dlt(
+def triangulate(cams, keypoints_2d_pred, confidences_pred, K, master_cam_i, where='world', how='pinhole'):
+    full_cams = prepare_cams_for_dlt(
         cams,
         K.to(cams.device).type(torch.get_default_dtype()),
         where
@@ -201,9 +201,10 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_weights.t * t_loss
 
     K = torch.tensor(cameras[0][0].intrinsics_padded)  # same for all
-    loss_proj = ProjectionLoss(
+    loss_proj = ProjectionLoss(  # todo not that meaningful when using 'orthogonal' projection
         criterion=KeypointsMSESmoothLoss(threshold=2.0),  # HuberLoss(threshold=1e-1),
-        where=config.ours.triangulate
+        where=config.ours.triangulate,
+        how=config.ours.cams.project
     )(
         K,
         cam_preds[:, start_cam:],
@@ -245,9 +246,10 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     if loss_weights.self_consistency.world > 0:
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
-    loss_self_proj = ScaleDependentProjectionLoss(
+    loss_self_proj = ScaleIndependentProjectionLoss(
         criterion=BerHuLoss(threshold=0.25),
-        where=config.ours.triangulate
+        where=config.ours.triangulate,
+        how=config.ours.cams.project
     )(
         K,
         cam_preds,
@@ -378,13 +380,14 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     minimon.leave('forward')
 
     minimon.enter()
-    kps_mastercam_pred, kps_world_pred = triangulate(
+    kps_mastercam_pred, kps_world_pred = triangulate(  # via DLT
         cam_preds,
         keypoints_2d_pred,
         confidences_pred,
         torch.tensor(cameras[0][0].intrinsics_padded).to(cam_preds.device),
         master_i,
-        where=config.ours.triangulate
+        where=config.ours.triangulate,
+        how=config.ours.cams.project
     )
 
     if config.debug.dump_tensors:

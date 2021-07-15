@@ -12,7 +12,7 @@ from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 from mvn.utils.multiview import build_intrinsics, Camera
 from mvn.utils.tred import get_cam_location_in_world, apply_umeyama
-from mvn.pipeline.cam2cam import PELVIS_I
+from mvn.pipeline.ours import PELVIS_I
 from mvn.models.loss import KeypointsMSESmoothLoss
 
 

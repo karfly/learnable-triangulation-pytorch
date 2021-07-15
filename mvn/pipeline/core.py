@@ -13,7 +13,7 @@ from mvn.utils.vis import save_predictions
 from mvn.datasets.utils import prepare_batch
 from mvn.pipeline.traditional import batch_iter as original_iter
 from mvn.pipeline.dlt_camspace import batch_iter as triangulate_in_cam_iter
-from mvn.pipeline.cam2cam import batch_iter as cam2cam_iter
+from mvn.pipeline.ours import batch_iter as ours_iter
 
 
 def set_model_state(model, is_train):
@@ -30,7 +30,7 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float64)  # 1s, 0s (mainly 1s) ~ 17, 1
 
     if config.model.cam2cam_estimation:  # predict cam2cam matrices
-        results = cam2cam_iter(
+        results = ours_iter(
             epoch, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
         )
     else:  # usual KP estimation

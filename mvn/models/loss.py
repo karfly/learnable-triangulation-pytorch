@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from mvn.utils.multiview import project2weak_views
+from mvn.utils.multiview import project2perspective_views, project2orthogonal_views
 
 
 class KeypointsMSELoss(nn.Module):
@@ -221,19 +221,26 @@ class SeparationLoss(nn.Module):
 class ProjectionLoss(nn.Module):
     """ project GT VS pred points to all views """
 
-    def __init__(self, criterion=KeypointsMSESmoothLoss(threshold=20.0), where='world'):
+    def __init__(self, criterion=KeypointsMSESmoothLoss(threshold=20.0), where='world', how='pinhole'):
         super().__init__()
 
         self.criterion = criterion
         self.where = where
+        self.how = how
+
+    def _project(self, K, cam_preds, kps_pred):
+        if self.how == 'pinhole':
+            return project2perspective_views(
+                K, cam_preds, kps_pred, self.where
+            )
+
+        if self.how == 'orthogonal':
+            return project2orthogonal_views(cam_preds, kps_pred)
 
     def forward(self, K, cam_preds, kps_pred, keypoints_2d_gt):
         batch_size = kps_pred.shape[0]
         dev = cam_preds.device
-
-        projections = project2weak_views(
-            K, cam_preds, kps_pred, self.where
-        )
+        projections = self._project(K, cam_preds, kps_pred)
         return torch.mean(torch.cat([
             self.criterion(
                 projections[batch_i],
@@ -243,14 +250,15 @@ class ProjectionLoss(nn.Module):
         ]))
 
 
-class ScaleDependentProjectionLoss(nn.Module):
+class ScaleIndependentProjectionLoss(nn.Module):
     """ see eq 2 in https://arxiv.org/abs/2011.14679 """
 
-    def __init__(self, criterion=nn.L1Loss(), where='world'):
+    def __init__(self, criterion=nn.L1Loss(), where='world', how='pinhole'):
         super().__init__()
 
         self.criterion = criterion
         self.where = where
+        self.how = how
 
     def scale_by(self, x, y):
         return torch.cat([
@@ -261,9 +269,13 @@ class ScaleDependentProjectionLoss(nn.Module):
         ])
 
     def project(self, K, cam_preds, kps_pred):
-        return project2weak_views(
-            K, cam_preds, kps_pred, self.where
-        )
+        if self.how == 'pinhole':
+            return project2perspective_views(
+                K, cam_preds, kps_pred, self.where
+            )
+
+        if self.how == 'orthogonal':
+            return project2orthogonal_views(cam_preds, kps_pred)
 
     def calc_loss(self, projections, initials):
         return self.criterion(

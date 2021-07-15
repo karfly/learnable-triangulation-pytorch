@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation as R
 
 from mvn.models.rototrans import RotoTransCombiner
 from mvn.utils.tred import euler_angles_to_matrix
-from mvn.utils.multiview import _my_proj
+from mvn.utils.multiview import _perspective_project
 from mvn.utils.misc import live_debug_log
 
 
@@ -47,7 +47,7 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
 
         fakes = torch.cat([
             torch.cat([
-                _my_proj(Rts[fake_i], K)(
+                _perspective_project(Rts[fake_i], K)(
                     keypoints_3d_gt[batch_i].detach().cpu()  # ~ (17, 3)
                 ).unsqueeze(0)
                 for fake_i in range(len(Rts))

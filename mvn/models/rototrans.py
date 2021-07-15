@@ -24,10 +24,10 @@ class RotoTransCombiner(nn.Module):
                 torch.zeros(batch_size, n_views, 2, 1).to(translations.device),
                 translations.unsqueeze(-1)
             ], dim=-2)  # vstack => ~ batch_size, | comparisons |, 3, 1
+        elif len(translations.shape) == 3:
+            trans = translations.unsqueeze(-1)
         else:
             trans = translations  # alias
-
-        print(rotations.shape, trans.shape)
 
         roto_trans = torch.cat([  # ext (not padded) in each view
             rotations, trans
@@ -97,7 +97,7 @@ class RotoTransNet(nn.Module):
             activation=activation,
         )
 
-        if config.ours.data.look_at_pelvis:  # just d
+        if config.ours.data.look_at_pelvis and config.ours.cams.project == 'pinhole':  # just d
             self.t_model = DepthBlock(
                 how_many=self.n_views,
                 in_features=n_features,

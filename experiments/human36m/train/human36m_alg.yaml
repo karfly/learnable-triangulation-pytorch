@@ -48,8 +48,9 @@ ours:
 # `master` does not really work well ...
 
   cams:
-    project: "pinhole"
-# todo `weak`
+    project: "orthogonal"
+# todo `orthogonal`
+
     using_gt:
       really: false
       using_noise: 0.1
@@ -58,7 +59,7 @@ ours:
 
   data:
     pelvis_in_origin: true
-    look_at_pelvis: true
+    look_at_pelvis: false
     using_gt: true
     using_noise: false
     using_heatmaps: false
@@ -66,13 +67,14 @@ ours:
 
   preprocess:
     pelvis_center_kps: true
+# to have common rotation point between views
     normalize_kps: "fro"
     scale2meters: false
 
   postprocess:
     scale_t: 1000.0
     try2align: true
-    try2scale: false
+    try2scale: true
     force_pelvis_in_origin: true
 
   model:
@@ -114,9 +116,9 @@ ours:
     proj: 0.0
     world: 0.0
     self_consistency:
-      proj: 10.0
-      world: 0.01
-    body: 0.1
+      proj: 1.0
+      world: 0.0
+    body: 0.0
 # `0.05` when large dataset
 
   opt:

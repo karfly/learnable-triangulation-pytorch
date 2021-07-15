@@ -458,7 +458,7 @@ def _2proj(ext_from, ext_to, K_to):
     return _f
 
 
-def _my_proj(ext, K):
+def _perspective_project(ext, K):
     projection = torch.mm(
         K.type(torch.get_default_dtype()),
         ext.type(torch.get_default_dtype())
@@ -473,25 +473,55 @@ def _my_proj(ext, K):
     return _f
 
 
-def project2weak_views(K, cam_preds, kps_world_pred, where='world'):
-    """ assuming https://en.wikipedia.org/wiki/3D_projection#Weak_perspective_projection """
-
-    batch_size = cam_preds.shape[0]
-    n_views = cam_preds.shape[1]
-    dev = cam_preds.device
+def project2perspective_views(K, cams, kps, where='world'):
+    batch_size = cams.shape[0]
+    n_views = cams.shape[1]
+    dev = cams.device
     return torch.cat([
         torch.cat([
-            _my_proj(
-                torch.eye(4).to(dev) if (where == 'master' and view_i == 0) else cam_preds[batch_i, view_i],
+            _perspective_project(
+                torch.eye(4).to(dev) if (where == 'master' and view_i == 0) else cams[batch_i, view_i],
                 K.to(dev)
-            )(kps_world_pred[batch_i]).unsqueeze(0)
+            )(kps[batch_i]).unsqueeze(0)
             for view_i in range(n_views)
         ]).unsqueeze(0).to(dev)  # pred
         for batch_i in range(batch_size)
     ])  # project DLT-ed points in all views
 
 
-def prepare_weak_cams_for_dlt(cams, K, where="world"):
+def _orthogonal_project(R):
+    projection = torch.mm(
+        R.T,
+        torch.tensor([
+            [1., 0., 0.],
+            [0., 1., 0.]  # just x, y coordinates
+        ]).T.to(R.device)
+    )
+
+    def _f(x):
+        return x @ projection.to(x.device)
+
+    return _f
+
+
+def project2orthogonal_views(cams, kps):
+    """ assuming https://en.wikipedia.org/wiki/3D_projection#Weak_perspective_projection """
+
+    batch_size = cams.shape[0]
+    n_views = cams.shape[1]
+    dev = cams.device
+    return torch.cat([
+        torch.cat([
+            _orthogonal_project(cams[batch_i, view_i, :3, :3])(
+                kps[batch_i]
+            ).unsqueeze(0)
+            for view_i in range(n_views)
+        ]).unsqueeze(0).to(dev)
+        for batch_i in range(batch_size)
+    ])
+
+
+def prepare_cams_for_dlt(cams, K, where="world"):
     batch_size = cams.shape[0]
     n_views = cams.shape[1]
     full_cams = torch.empty((batch_size, n_views, 3, 4))

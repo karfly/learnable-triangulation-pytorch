@@ -247,7 +247,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss += loss_self_world * loss_weights.self_consistency.world
 
     loss_self_proj = ScaleIndependentProjectionLoss(
-        criterion=BerHuLoss(threshold=0.25),
+        criterion=BerHuLoss(threshold=5.0),
         where=config.ours.triangulate,
         how=config.ours.cams.project
     )(

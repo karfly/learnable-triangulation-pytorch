@@ -3,10 +3,12 @@ import shutil
 from datetime import datetime
 
 import torch
+import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from mvn.datasets import human36m
-from mvn.models.utils import build_opt, show_params, load_checkpoint
+from mvn.models.utils import show_params, load_checkpoint, get_grad_params, freeze_backbone
 from mvn.datasets.utils import worker_init_fn, make_collate_fn
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.rototrans import RotoTransNet, Cam2camNet
@@ -134,15 +136,29 @@ def setup_experiment(config_path, logdir, config, model_name):
 def build_env(config, device):
     torch.set_default_dtype(torch.double)  # dio cane
 
-    # build triangulator model ...
-    model = {
-        "ransac": RANSACTriangulationNet,
-        "alg": AlgebraicTriangulationNet,
-        "vol": VolumetricTriangulationNet
-    }[config.model.name](config, device=device).to(device)
+    base_optim = optim.Adam  # if _get_torch_version() >= 1.8 else optim.AdamW
 
-    # ... and cam2cam ...
-    if config.model.cam2cam_estimation:
+    if config.pipeline.model == 'classic':
+        model = {
+            "ransac": RANSACTriangulationNet,
+            "alg": AlgebraicTriangulationNet,
+            "vol": VolumetricTriangulationNet
+        }[config.model.name](config, device=device).to(device)
+
+        if config.model.init_weights:
+            load_checkpoint(model, config.model.checkpoint)
+
+            print('classic model:')
+            show_params(model, verbose=config.debug.show_models)
+
+        freeze_backbone(model)
+        opt = base_optim(
+            get_grad_params(model.backbone),
+            lr=1e-6  # BB already optimized
+        )
+        scheduler = None
+    elif config.pipeline.model == 'ours':
+        # freeze_backbone(model)
         if config.ours.data.using_heatmaps:
             roto_net = None  # todo
         else:
@@ -151,37 +167,59 @@ def build_env(config, device):
             elif config.ours.triangulate == 'world':
                 roto_net = RotoTransNet
 
-        cam2cam_model = roto_net(config).to(device)  # todo DistributedDataParallel
-    else:
-        cam2cam_model = None
+        model = roto_net(config).to(device)  # todo DistributedDataParallel
+        if config.pipeline.model == 'ours':
+            if config.ours.model.init_weights:
+                load_checkpoint(model, config.ours.model.checkpoint)
+            else:
+                print('our model:')
+                show_params(model, verbose=config.debug.show_models)
 
-    # ... load weights (if necessary) ...
-    if config.model.init_weights:
-        load_checkpoint(model, config.model.checkpoint)
+        params = [
+            {
+                'params': get_grad_params(model),
+                'lr': config.ours.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
+            }
+        ]
 
-        print('model:')
-        show_params(model, verbose=config.debug.show_models)
+        if not config.ours.data.using_gt:  # predicting KP and HM -> need to opt
+            print('using predicted KPs => adding model.backbone to grad ...')
+            params.append(
+                {
+                    'params': get_grad_params(model.backbone),
+                    'lr': 1e-6  # BB already optimized
+                }
+            )
 
-    if config.model.cam2cam_estimation:
-        if config.ours.model.init_weights:
-            load_checkpoint(cam2cam_model, config.ours.model.checkpoint)
+        opt = base_optim(params, weight_decay=config.ours.opt.weight_decay)
+        opts = config.ours.opt.scheduler
+        scheduler = ReduceLROnPlateau(
+            opt,
+            factor=opts.factor,  # new lr = x * lr
+            patience=opts.patience,  # n max iterations since optimum
+            # threshold=42,  # no matter what, do lr decay
+            mode='min',
+            cooldown=int(opts.patience * 0.05),  # 5%
+            min_lr=opts.min_lr,
+            verbose=True
+        )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
+    elif config.pipeline.model == 'canonpose':
+        model = None  # todo
+        if config.canonpose.model.init_weights:
+            load_checkpoint(model, config.ours.model.checkpoint)
         else:
-            print('cam2cam model:')
-            show_params(cam2cam_model, verbose=config.debug.show_models)
+            print('canonpose model:')
+            show_params(model, verbose=config.debug.show_models)
 
-    # ... and opt ...
-    opt, scheduler = build_opt(model, cam2cam_model, config)
+        params = [
+            {
+                'params': get_grad_params(model),
+                'lr': config.canonpose.opt.lr
+            }
+        ]
+        opt = optim.Adam(params, lr=config.learning_rate, weight_decay=1e-5)
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            opt, milestones=[30, 60, 90], gamma=0.1
+        )
 
-    # ... and loss criterion
-    criterion_class = {
-        "MSE": KeypointsMSELoss,
-        "MSESmooth": KeypointsMSESmoothLoss,
-        "MAE": KeypointsMAELoss
-    }[config.opt.criterion]
-
-    if config.opt.criterion == "MSESmooth":
-        criterion = criterion_class(config.opt.mse_smooth_threshold)
-    else:
-        criterion = criterion_class()
-
-    return model, cam2cam_model, criterion, opt, scheduler
+    return model, opt, scheduler

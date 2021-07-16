@@ -5,6 +5,10 @@ vis_n_elements: 10
 
 image_shape: [384, 384]
 
+pipeline:
+  model: "ours"
+# todo canonpose
+
 debug:
   show_models: true
   img_out: "/scratch/ws/0/stfo194b-p_humanpose/learnable-triangulation-pytorch/dumps"
@@ -136,6 +140,13 @@ ours:
       min_lr: 0.00001
 # not finetuned yet ...
 
+canonpose:
+  model:
+    init_weights
+
+  opt:
+    lr: 0.001
+
 model:
   name: "alg"
 
@@ -145,10 +156,6 @@ model:
   use_confidences: true
   heatmap_multiplier: 100.0
   heatmap_softmax: true
-
-  triangulate_in_world_space: false
-  triangulate_in_cam_space: false
-  cam2cam_estimation: true
 
   backbone:
     name: "resnet152"

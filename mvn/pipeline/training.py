@@ -11,7 +11,7 @@ from mvn.utils.minimon import MiniMon
 
 def do_train(config_path, logdir, config, device, is_distributed, master):
     _iter_tag = 'do_train'
-    model, cam2cam_model, criterion, opt, scheduler = build_env(config, device)
+    model, opt, scheduler = build_env(config, device)
     if is_distributed:  # multi-gpu
         model = DistributedDataParallel(model, device_ids=[device])
 
@@ -34,15 +34,15 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
 
         minimon.enter()
         one_epoch(
-            model, criterion, opt, scheduler, config, train_dataloader, device, epoch,
-            minimon, is_train=True, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
+            model, opt, scheduler, config, train_dataloader, device, epoch,
+            minimon, is_train=True, master=master, experiment_dir=experiment_dir
         )
         minimon.leave('do train')
 
         minimon.enter()
         one_epoch(
-            model, criterion, opt, scheduler, config, val_dataloader, device, epoch,
-            minimon, is_train=False, master=master, experiment_dir=experiment_dir, cam2cam_model=cam2cam_model
+            model, opt, scheduler, config, val_dataloader, device, epoch,
+            minimon, is_train=False, master=master, experiment_dir=experiment_dir
         )
         minimon.leave('do eval')
 

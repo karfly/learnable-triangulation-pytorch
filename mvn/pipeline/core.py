@@ -14,6 +14,7 @@ from mvn.datasets.utils import prepare_batch
 from mvn.pipeline.traditional import batch_iter as original_iter
 from mvn.pipeline.dlt_camspace import batch_iter as triangulate_in_cam_iter
 from mvn.pipeline.ours import batch_iter as ours_iter
+from mvn.pipeline.canonpose import batch_iter as canonpose_iter
 
 
 def set_model_state(model, is_train):
@@ -23,17 +24,28 @@ def set_model_state(model, is_train):
         model.eval()
 
 
-def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train, cam2cam_model=None, experiment_dir=None):
+def iter_batch(batch, iter_i, model, model_type, opt, scheduler, config, dataloader, device, epoch, minimon, is_train, experiment_dir=None):
     indices, cameras, images_batch, keypoints_3d_gt, keypoints_3d_validity_gt, proj_matricies_batch = prepare_batch(
         batch, device, config, is_train=is_train
     )
     keypoints_3d_binary_validity_gt = (keypoints_3d_validity_gt > 0.0).type(torch.float64)  # 1s, 0s (mainly 1s) ~ 17, 1
 
-    if config.model.cam2cam_estimation:  # predict cam2cam matrices
+    if config.pipeline.model == 'ours':
         results = ours_iter(
-            epoch, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
+            epoch, indices, cameras, iter_i, model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
         )
-    else:  # usual KP estimation
+    elif config.pipeline.model == 'classic':
+        criterion_class = {  # loss criterion
+            "MSE": KeypointsMSELoss,
+            "MSESmooth": KeypointsMSESmoothLoss,
+            "MAE": KeypointsMAELoss
+        }[config.opt.criterion]
+
+        if config.opt.criterion == "MSESmooth":
+            criterion = criterion_class(config.opt.mse_smooth_threshold)
+        else:
+            criterion = criterion_class()
+
         if config.model.triangulate_in_world_space:  # predict KP in world
             results = original_iter(
                 indices, cameras, iter_i, model, model_type, criterion, opt, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, proj_matricies_batch, is_train, config, minimon
@@ -44,6 +56,10 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
             )
         else:
             results = None
+    elif config.pipeline.model == 'canonpose':
+        results = canonpose_iter(
+            epoch, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
+        )
 
     if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers
         f_out = 'training' if is_train else 'validation'
@@ -85,14 +101,11 @@ def iter_batch(batch, iter_i, model, model_type, criterion, opt, scheduler, conf
     return indices, results
 
 
-def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None, cam2cam_model=None):
+def one_epoch(model, opt, scheduler, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None):
     _iter_tag = 'epoch'
     model_type = config.model.name
 
     set_model_state(model, is_train)
-
-    if config.model.cam2cam_estimation:
-        set_model_state(cam2cam_model, is_train)
 
     results = defaultdict(list)
 
@@ -111,13 +124,13 @@ def one_epoch(model, criterion, opt, scheduler, config, dataloader, device, epoc
                 torch.autograd.set_detect_anomaly(True)
                 with detect_anomaly():  # about x2s time
                     indices_pred, results_pred = iter_batch(
-                        batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
-                        epoch, minimon, is_train, cam2cam_model=cam2cam_model, experiment_dir=experiment_dir
+                        batch, iter_i, model, model_type, opt, scheduler, config, dataloader, device,
+                        epoch, minimon, is_train, experiment_dir=experiment_dir
                     )
             else:
                 indices_pred, results_pred = iter_batch(
-                    batch, iter_i, model, model_type, criterion, opt, scheduler, config, dataloader, device,
-                    epoch, minimon, is_train, cam2cam_model=cam2cam_model, experiment_dir=experiment_dir
+                    batch, iter_i, model, model_type, opt, scheduler, config, dataloader, device,
+                    epoch, minimon, is_train, experiment_dir=experiment_dir
                 )
 
             if not (results_pred is None):

@@ -5,86 +5,14 @@ import torch
 
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
+from mvn.pipeline.preprocess import center2pelvis, normalize_keypoints
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, KeypointsMSELoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, PseudoHuberLoss, BerHuLoss, BodyLoss
+from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, BerHuLoss, BodyLoss
 from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'cam2cam'
-PELVIS_I = 6
-
-
-def center2pelvis(keypoints_2d, pelvis_i=PELVIS_I):
-    """ pelvis -> (0, 0) """
-
-    n_joints = keypoints_2d.shape[2]
-    pelvis_point = keypoints_2d[:, :, pelvis_i, :]
-
-    return keypoints_2d - pelvis_point.unsqueeze(2).repeat(1, 1, n_joints, 1)  # in each view: joint coords - pelvis coords
-
-
-def dist2pelvis(keypoints_2d_in_view, pelvis_i=PELVIS_I):
-    return torch.mean(torch.cat([
-        torch.norm(
-            keypoints_2d_in_view[i] -\
-            keypoints_2d_in_view[pelvis_i]
-        ).unsqueeze(0)
-        for i in range(keypoints_2d_in_view.shape[0])
-        if i != pelvis_i
-    ])).unsqueeze(0)
-
-
-def normalize_keypoints(keypoints_2d, pelvis_center_kps, normalization):
-    """ "divided by its Frobenius norm in the preprocessing" """
-
-    batch_size, n_views = keypoints_2d.shape[0], keypoints_2d.shape[1]
-
-    if pelvis_center_kps:
-        kps = center2pelvis(keypoints_2d)
-    else:
-        kps = keypoints_2d
-
-    if normalization == 'd2pelvis':
-        scaling = torch.cat([
-            torch.max(
-                torch.cat([
-                    dist2pelvis(kps[batch_i, view_i])
-                    for view_i in range(n_views)
-                ]).unsqueeze(0)
-            ).unsqueeze(0).repeat(1, n_views)  # same for each view
-            for batch_i in range(batch_size)
-        ])
-    elif normalization == 'fro':
-        scaling = torch.cat([
-            torch.cat([
-                torch.norm(kps[batch_i, view_i], p='fro').unsqueeze(0)
-                for view_i in range(n_views)
-            ]).unsqueeze(0)
-            for batch_i in range(batch_size)
-        ])
-    elif normalization == 'maxfro':
-        scaling = torch.cat([
-            torch.max(
-                torch.cat([
-                    torch.norm(kps[batch_i, view_i], p='fro').unsqueeze(0)
-                    for view_i in range(n_views)
-                ]).unsqueeze(0)
-            ).unsqueeze(0).repeat(1, n_views)  # same for each view
-            for batch_i in range(batch_size)
-        ])
-    elif normalization == 'fixed':
-        factor = 40.0  # todo to be scaled with K
-        scaling = factor * torch.ones(batch_size, n_views)
-
-    return torch.cat([
-        torch.cat([
-            (
-                kps[batch_i, view_i] / scaling[batch_i, view_i]
-            ).unsqueeze(0)
-            for view_i in range(n_views)
-        ]).unsqueeze(0)
-        for batch_i in range(batch_size)
-    ])
+PELVIS_I = 6  # H3.6M
 
 
 def _get_cams_gt(cameras, where='world'):
@@ -118,8 +46,8 @@ def _get_cams_gt(cameras, where='world'):
     return cam_gts.cuda()
 
 
-def _forward_cams(cam2cam_model, detections, gt, config):
-    preds = cam2cam_model(
+def _forward_cams(model, detections, gt, config):
+    preds = model(
         detections
     )  # (batch_size, ~ |views|, 4, 4)
     dev = preds.device
@@ -284,7 +212,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
         total_loss
 
 
-def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
+def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
     iter_folder = 'epoch-{:.0f}-iter-{:.0f}'.format(epoch_i, iter_i)
     iter_dir = os.path.join(experiment_dir, iter_folder) if experiment_dir else None
 
@@ -303,9 +231,10 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
                 config.ours.data.using_noise
             )
         else:
-            keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
-                images_batch, None, minimon
-            )
+            pass  # todo use pre-trained backbone
+            # keypoints_2d_pred, heatmaps_pred, confidences_pred = model(
+            #     images_batch, None, minimon
+            # )
 
         return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
@@ -347,7 +276,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
         backprop(
             opt, total_loss, scheduler,
             loss_self_proj,
-            _ITER_TAG, get_grad_params(cam2cam_model), clip
+            _ITER_TAG, get_grad_params(model), clip
         )
         minimon.leave('backward pass')
 
@@ -364,13 +293,14 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, cam2cam_model, opt, sch
     detections = normalize_keypoints(
         keypoints_2d_pred,
         config.ours.preprocess.pelvis_center_kps,
-        config.ours.preprocess.normalize_kps
+        config.ours.preprocess.normalize_kps,
+        PELVIS_I
     ).to('cuda:0').type(torch.get_default_dtype())  # todo device
 
     minimon.enter()
     master_i = 0  # views are randomly sorted => no need for a random master within batch
     cam_preds = _forward_cams(
-        cam2cam_model,
+        model,
         detections,
         cam_gts,
         config,

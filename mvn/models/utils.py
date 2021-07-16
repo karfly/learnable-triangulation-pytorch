@@ -1,6 +1,4 @@
 import torch
-import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def _get_torch_version():
@@ -93,77 +91,3 @@ def freeze_backbone(model):
     # reset_layer(model.backbone.final_layer)
 
     # debug only show_params(model.backbone)
-
-
-def build_opt(model, cam2cam_model, config, base_optim=optim.Adam):  # if _get_torch_version() >= 1.8 else optim.AdamW):
-    freeze_backbone(model)
-
-    if config.model.cam2cam_estimation:
-        print('cam2cam estimation => adding {:.0f} params to grad ...'.format(
-            count_grad_params(cam2cam_model)
-        ))
-
-        params = [
-            {
-                'params': get_grad_params(cam2cam_model),
-                'lr': config.ours.opt.lr  # try me: 1e-4 seems too much larger, NaN when triangulating
-            }
-        ]
-
-        if not config.ours.data.using_gt:  # predicting KP and HM -> need to opt
-            print('using predicted KPs => adding model.backbone to grad ...')
-            params.append(
-                {
-                    'params': get_grad_params(model.backbone),
-                    'lr': 1e-6  # BB already optimized
-                }
-            )
-
-        opt = base_optim(params, weight_decay=config.ours.opt.weight_decay)
-    elif config.model.name == "vol":
-        print('volumetric method => adding model.{{ {}, {}, {} }} params to grad ...'.format(
-            'backbone',
-            'process_features',
-            'volume_net'
-        ))
-
-        opt = base_optim(
-            [
-                {
-                    'params': get_grad_params(model.backbone),
-                    'lr': 1e-6  # BB already optimized
-                },
-                {
-                    'params': model.process_features.parameters(),
-                    'lr': config.opt.process_features_lr if hasattr(config.opt, 'process_features_lr') else config.opt.lr
-                },
-                {
-                    'params': model.volume_net.parameters(),
-                    'lr': config.opt.volume_net_lr if hasattr(config.opt, 'volume_net_lr') else config.opt.lr
-                }
-            ],
-            lr=config.opt.lr
-        )
-    else:
-        print('standard method => adding model.backbone {:.0f} params to grad ...'.format(
-            count_grad_params(model.backbone)
-        ))
-
-        opt = base_optim(
-            get_grad_params(model.backbone),
-            lr=1e-6  # BB already optimized
-        )
-
-    opts = config.ours.opt.scheduler
-    scheduler = ReduceLROnPlateau(
-        opt,
-        factor=opts.factor,  # new lr = x * lr
-        patience=opts.patience,  # n max iterations since optimum
-        # threshold=42,  # no matter what, do lr decay
-        mode='min',
-        cooldown=int(opts.patience * 0.05),  # 5%
-        min_lr=opts.min_lr,
-        verbose=True
-    )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
-
-    return opt, scheduler

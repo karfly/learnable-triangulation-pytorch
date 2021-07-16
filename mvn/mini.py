@@ -33,6 +33,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.model.triangulate_in_cam_space = False
     config.model.cam2cam_estimation = True
 
+    # 'ours' model
     config.ours.data.using_gt = True
     config.ours.data.using_heatmaps = False  # KPs seem to work much better
     config.ours.model.init_weights = False
@@ -48,11 +49,16 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.ours.model.master2others.R.n_layers = 1
     config.ours.model.master2others.t.n_layers = 1
 
+    # 'canonpose' model
+    config.canonpose.model.inner_size = 16
+
+    # pre-trained backbone detector
     config.model.backbone.init_weights = config.model.init_weights
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'
     config.model.backbone.num_layers = 18  # very small BB
     config.model.backbone.num_deconv_filters = 32
 
+    # dataset
     config.dataset.train.crop = not config.model.cam2cam_estimation  # doing resampling when estimating cam2cam => no crop
     config.dataset.train.h36m_root = data_folder + 'processed/'
     config.dataset.train.labels_path = data_folder + 'human36m-multiview-labels-GTbboxes.npy'

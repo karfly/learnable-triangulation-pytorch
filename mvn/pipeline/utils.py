@@ -77,7 +77,7 @@ def get_kp_gt(keypoints_3d_gt, cameras, use_extra_cams=0, noisy=False):
     return keypoints_2d_pred, heatmaps_pred, confidences_pred
 
 
-def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip):
+def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip=None):
     opt.zero_grad()
 
     try:
@@ -88,7 +88,7 @@ def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip):
             'cannot backpropagate ... are you cheating?'
         )
 
-    if clip > 0.0:  # see #16578951: works well at the start, but then it stills
+    if clip and clip > 0.0:  # see #16578951: works well at the start, but then it stills
         torch.nn.utils.clip_grad_norm_(
             params,
             clip

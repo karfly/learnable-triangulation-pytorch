@@ -11,7 +11,7 @@ from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogen
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, BerHuLoss, BodyLoss
 from mvn.utils.tred import apply_umeyama
 
-_ITER_TAG = 'cam2cam'
+_ITER_TAG = 'ours'
 PELVIS_I = 6  # H3.6M
 
 
@@ -110,7 +110,7 @@ def _compute_losses(cam_preds, cam_gts, confidences_pred, keypoints_2d_pred, kps
     batch_size = cam_gts.shape[0]
     n_cameras = cam_gts.shape[1]
     start_cam = 1 if config.ours.cams.using_just_one_gt else 0
-    loss_weights = config.ours.loss  # todo normalize | sum = 1
+    loss_weights = config.ours.loss
 
     just_R = lambda x: x[:, start_cam:n_cameras].reshape(-1, 4, 4)[:, :3, :3]
     loss_R = GeodesicLoss()(
@@ -271,12 +271,11 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         minimon.enter()
 
         current_lr = opt.param_groups[0]['lr']
-        clip = config.ours.opt.grad_clip / current_lr
-
         backprop(
             opt, total_loss, scheduler,
             loss_self_proj,
-            _ITER_TAG, get_grad_params(model), clip
+            _ITER_TAG, get_grad_params(model),
+            clip=config.ours.opt.grad_clip / current_lr
         )
         minimon.leave('backward pass')
 

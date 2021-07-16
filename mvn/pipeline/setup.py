@@ -13,6 +13,7 @@ from mvn.datasets.utils import worker_init_fn, make_collate_fn
 from mvn.models.triangulation import RANSACTriangulationNet, AlgebraicTriangulationNet, VolumetricTriangulationNet
 from mvn.models.rototrans import RotoTransNet, Cam2camNet
 from mvn.models.loss import KeypointsMSELoss, KeypointsMSESmoothLoss, KeypointsMAELoss
+from mvn.models.canonpose import CanonPose
 
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
@@ -204,7 +205,10 @@ def build_env(config, device):
             verbose=True
         )  # https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss-plateau/art-20044615
     elif config.pipeline.model == 'canonpose':
-        model = None  # todo
+        model = CanonPose(
+            inner_size=config.canonpose.model.inner_size,
+            n_joints=config.canonpose.data.n_joints
+        )
         if config.canonpose.model.init_weights:
             load_checkpoint(model, config.ours.model.checkpoint)
         else:
@@ -217,7 +221,11 @@ def build_env(config, device):
                 'lr': config.canonpose.opt.lr
             }
         ]
-        opt = optim.Adam(params, lr=config.learning_rate, weight_decay=1e-5)
+        opt = optim.Adam(
+            params,
+            lr=config.canonpose.opt.lr,
+            weight_decay=config.canonpose.opt.weight_decay
+        )
         scheduler = optim.lr_scheduler.MultiStepLR(
             opt, milestones=[30, 60, 90], gamma=0.1
         )

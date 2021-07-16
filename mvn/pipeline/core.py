@@ -58,7 +58,7 @@ def iter_batch(batch, iter_i, model, model_type, opt, scheduler, config, dataloa
             results = None
     elif config.pipeline.model == 'canonpose':
         results = canonpose_iter(
-            epoch, indices, cameras, iter_i, model, cam2cam_model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
+            epoch, indices, cameras, iter_i, model, opt, scheduler, images_batch, keypoints_3d_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir
         )
 
     if config.debug.write_imgs:  # DC, PD, MP only if necessary: breaks num_workers

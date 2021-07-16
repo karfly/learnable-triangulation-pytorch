@@ -6,7 +6,7 @@ vis_n_elements: 10
 image_shape: [384, 384]
 
 pipeline:
-  model: "ours"
+  model: "canonpose"
 # todo canonpose
 
 debug:
@@ -20,6 +20,7 @@ debug:
   show_minimon: true
   show_live: true
 
+# todo move to 'classic' section
 opt:
   criterion: "MSESmooth"
   mse_smooth_threshold: 400
@@ -141,11 +142,39 @@ ours:
 # not finetuned yet ...
 
 canonpose:
+  cams:
+    use_extra_cams: 0
+
+  data:
+    pelvis_in_origin: true
+    using_noise: false
+    n_joints: 17
+
+  preprocess:
+    normalize_kps: "fro"
+
+  postprocess:
+    try2align: true
+    try2scale: true
+    force_pelvis_in_origin: true
+
   model:
-    init_weights
+    init_weights: false
+    inner_size: 1024
+
+  loss:
+    rep: 1.0
+    view: 1.0
+    camera: 0.1
 
   opt:
-    lr: 0.001
+    lr: 0.0001
+    weight_decay: 0.00001
+
+    n_epochs: 100
+    batch_size: 8
+# todo 32 with canonpose
+    val_batch_size: 16
 
 model:
   name: "alg"

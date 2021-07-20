@@ -35,20 +35,27 @@ class CanonPose(nn.Module):
         self.pose3d = nn.Linear(inner_size, 3 * n_joints)
         self.enc_rot = nn.Linear(inner_size, 3)
 
-    def forward(self, p2d, conf):
-        x = torch.cat((p2d, conf.unsqueeze(-1)), axis=-1)
-
-        x = self.upscale(x)
-        x = nn.LeakyReLU()(self.res_common(x))
-
-        # pose path
+    def _forward_pose(self, x):
         xp = nn.LeakyReLU()(self.res_pose1(x))
         xp = nn.LeakyReLU()(self.res_pose2(xp))
-        x_pose = self.pose3d(xp)
+        return self.pose3d(xp)
 
-        # camera path
+    def _forward_camera(self, x):
         xc = nn.LeakyReLU()(self.res_cam1(x))
         xc = nn.LeakyReLU()(self.res_cam2(xc))
         xc = self.enc_rot(xc)
+
+        # angles are in axis angle notation -> use Rodrigues formula (Equations 3 and 4) to get the rotation matrix
+
+        print(xc.shape)
+        1/0
+
+    def forward(self, p2d, conf):
+        x = torch.cat((p2d, conf.unsqueeze(-1)), axis=-1)
+        x = self.upscale(x)
+        x = nn.LeakyReLU()(self.res_common(x))
+
+        x_pose = self._forward_pose(x)  # pose path
+        xc = self._forward_camera(x)  # camera path
 
         return x_pose, xc

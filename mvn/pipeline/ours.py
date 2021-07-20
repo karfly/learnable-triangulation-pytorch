@@ -294,7 +294,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         config.ours.preprocess.pelvis_center_kps,
         config.ours.preprocess.normalize_kps,
         PELVIS_I
-    ).to('cuda:0').type(torch.get_default_dtype())  # todo device
+    ).to('cuda:0').type(torch.get_default_dtype())
 
     minimon.enter()
     master_i = 0  # views are randomly sorted => no need for a random master within batch

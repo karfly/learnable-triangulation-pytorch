@@ -38,7 +38,7 @@ def _compute_losses(pred, config):
 
 
 def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_batch, kps_world_gt, keypoints_3d_binary_validity_gt, is_train, config, minimon, experiment_dir):
-    def _forward_kp():  # todo use backbone
+    def _forward_kp():
         return get_kp_gt(
             kps_world_gt,
             cameras,
@@ -84,14 +84,14 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         pelvis_center_kps=True,
         normalization=config.ours.preprocess.normalize_kps,
         pelvis_i=PELVIS_I
-    ).to('cuda:0').type(torch.get_default_dtype())  # todo device
+    ).to('cuda:0').type(torch.get_default_dtype())
 
     minimon.enter()
     kps_world_pred, cam_angles_pred = model(
         keypoints_2d_pred[0], confidences_pred[0]
     )
 
-    # angles are in axis angle notation -> use Rodrigues formula (Equations 3 and 4) to get the rotation matrix
+    
     cam_rotations_pred = torch.rand(4, 3, 3)  # todo rodrigues(cam_angles_pred)
 
     # reproject to original cameras after applying rotation to the canonical poses

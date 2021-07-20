@@ -7,7 +7,6 @@ image_shape: [384, 384]
 
 pipeline:
   model: "canonpose"
-# todo canonpose
 
 debug:
   show_models: true
@@ -19,29 +18,6 @@ debug:
   dump_tensors: false
   show_minimon: true
   show_live: true
-
-# todo move to 'classic' section
-opt:
-  criterion: "MSESmooth"
-  mse_smooth_threshold: 400
-
-  n_objects_per_epoch: 15000
-  n_epochs: 1000
-
-  batch_size: 8
-  val_batch_size: 16
-
-  lr: 0.000001
-  loss_3d: false
-  loss_2d: true
-
-  scale_keypoints_3d: 0.1
-# mm -> cm
-
-  torch_anomaly_detection: false
-# `torch_anomaly_detection: true` just x2s time
-
-  save_every_n_epochs: 5
 
 svd:
   in_cpu: true
@@ -172,30 +148,53 @@ canonpose:
     weight_decay: 0.00001
 
     n_epochs: 100
-    batch_size: 8
-# todo 32 with canonpose
-    val_batch_size: 16
+    batch_size: 32
+    val_batch_size: 32
 
-model:
-  name: "alg"
+classic:
+  model:
+    name: "alg"
 
-  init_weights: false
-  checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/weights.pth"
+    init_weights: false
+    checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/weights.pth"
 
-  use_confidences: true
-  heatmap_multiplier: 100.0
-  heatmap_softmax: true
+    use_confidences: true
+    heatmap_multiplier: 100.0
+    heatmap_softmax: true
 
-  backbone:
-    name: "resnet152"
-    style: "simple"
+    backbone:
+      name: "resnet152"
+      style: "simple"
 
-    init_weights: true
-    checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+      init_weights: true
+      checkpoint: "/projects/p_humanpose/learnable-triangulation/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
 
-    num_joints: 17
-    num_layers: 152
-    num_deconv_filters: 256
+      num_joints: 17
+      num_layers: 152
+      num_deconv_filters: 256
+
+  opt:
+    criterion: "MSESmooth"
+    mse_smooth_threshold: 400
+
+    lr: 0.000001
+    loss_3d: false
+    loss_2d: true
+
+    scale_keypoints_3d: 0.1
+    # mm -> cm
+
+opt:
+  n_objects_per_epoch: 15000
+  n_epochs: 1000
+
+  batch_size: 8
+  val_batch_size: 16
+
+  torch_anomaly_detection: false
+  # `torch_anomaly_detection: true` just x2s time
+
+  save_every_n_epochs: 5
 
 dataset:
   kind: "human36m"

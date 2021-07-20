@@ -17,26 +17,34 @@ from mvn.models.canonpose import CanonPose
 
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
+    resample_same_K = True
+    look_at_pelvis = config.pipeline.model == 'ours' and config.ours.triangulate.master and config.ours.data.look_at_pelvis
+    pelvis_in_origin = config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole'
+    scale2meters = config.ours.preprocess.scale2meters
+    image_shape = config.image_shape if hasattr(config, "image_shape") else (256, 256)
+    scale_bbox = config.dataset.train.scale_bbox,
+    kind = config.kind
+
     if is_train:
         train_dataset = human36m.Human36MMultiViewDataset(
             h36m_root=config.dataset.train.h36m_root,
             pred_results_path=config.dataset.train.pred_results_path if hasattr(config.dataset.train, "pred_results_path") else None,
             train=True,
             test=False,
-            image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
+            image_shape=image_shape,
             labels_path=config.dataset.train.labels_path,
             with_damaged_actions=config.dataset.train.with_damaged_actions,
             retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
             retain_every_n_frames_in_train=config.dataset.train.retain_every_n_frames_in_train,
-            scale_bbox=config.dataset.train.scale_bbox,
-            kind=config.kind,
+            scale_bbox=scale_bbox,
+            kind=kind,
             undistort_images=config.dataset.train.undistort_images,
             ignore_cameras=config.dataset.train.ignore_cameras if hasattr(config.dataset.train, "ignore_cameras") else [],
             crop=config.dataset.train.crop,
-            resample_same_K=config.model.cam2cam_estimation,
-            look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
-            pelvis_in_origin=config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole',
-            scale2meters=config.ours.preprocess.scale2meters,
+            resample_same_K=resample_same_K,
+            look_at_pelvis=look_at_pelvis,
+            pelvis_in_origin=pelvis_in_origin,
+            scale2meters=scale2meters
         )
         print("  training dataset length:", len(train_dataset))
 
@@ -65,20 +73,20 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
         pred_results_path=config.dataset.val.pred_results_path if hasattr(config.dataset.val, "pred_results_path") else None,
         train=False,
         test=True,
-        image_shape=config.image_shape if hasattr(config, "image_shape") else (256, 256),
+        image_shape=image_shape,
         labels_path=config.dataset.val.labels_path,
         with_damaged_actions=config.dataset.val.with_damaged_actions,
         retain_every_n_frames_in_test=config.dataset.val.retain_every_n_frames_in_test,
         retain_every_n_frames_in_train=config.dataset.train.retain_every_n_frames_in_train,
-        scale_bbox=config.dataset.val.scale_bbox,
-        kind=config.kind,
+        scale_bbox=scale_bbox,
+        kind=kind,
         undistort_images=config.dataset.val.undistort_images,
         ignore_cameras=config.dataset.val.ignore_cameras if hasattr(config.dataset.val, "ignore_cameras") else [],
         crop=config.dataset.val.crop,
-        resample_same_K=config.model.cam2cam_estimation,
-        look_at_pelvis=config.model.cam2cam_estimation and config.ours.data.look_at_pelvis,
-        pelvis_in_origin=config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole',
-        scale2meters=config.ours.preprocess.scale2meters,
+        resample_same_K=resample_same_K,
+        look_at_pelvis=look_at_pelvis,
+        pelvis_in_origin=pelvis_in_origin,
+        scale2meters=scale2meters
     )
     print("  validation dataset length:", len(val_dataset))
 

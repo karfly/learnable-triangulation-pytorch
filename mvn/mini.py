@@ -16,22 +16,17 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.debug.show_live = False
 
     config.opt.n_epochs = 2
-    config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
-
     config.opt.batch_size = 6
     config.opt.val_batch_size = 2
+    config.opt.n_iters_per_epoch = config.opt.n_objects_per_epoch // config.opt.batch_size
 
     config.opt.loss_3d = False
     config.opt.loss_2d = not config.opt.loss_3d
 
     config.opt.torch_anomaly_detection = False
 
-    config.model.init_weights = False  # there is no point in loading full module with a shitty GPU
+    config.canonpose.model.init_weights = False  # there is no point in loading full module with a shitty GPU
     # config.model.checkpoint = data_folder + 'weights_alg.pth'  #  + 'weights_vol.pth'
-
-    config.model.triangulate_in_world_space = False
-    config.model.triangulate_in_cam_space = False
-    config.model.cam2cam_estimation = True
 
     # 'ours' model
     config.ours.data.using_gt = True
@@ -53,13 +48,13 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.canonpose.model.inner_size = 16
 
     # pre-trained backbone detector
-    config.model.backbone.init_weights = config.model.init_weights
+    config.classic.model.backbone.init_weights = False
     # config.model.backbone.checkpoint = data_folder + 'pose_resnet_4.5_pixels_human36m.pth'
-    config.model.backbone.num_layers = 18  # very small BB
-    config.model.backbone.num_deconv_filters = 32
+    config.classic.model.backbone.num_layers = 18  # very small BB
+    config.classic.model.backbone.num_deconv_filters = 32
 
     # dataset
-    config.dataset.train.crop = not config.model.cam2cam_estimation  # doing resampling when estimating cam2cam => no crop
+    config.dataset.train.crop = False  # doing resampling when estimating cam2cam => no crop
     config.dataset.train.h36m_root = data_folder + 'processed/'
     config.dataset.train.labels_path = data_folder + 'human36m-multiview-labels-GTbboxes.npy'
     config.dataset.train.num_workers = 0

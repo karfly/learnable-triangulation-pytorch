@@ -98,7 +98,7 @@ def viz_se_smooth():
         return _f
 
     n_points = 100
-    xs = np.linspace(0, 1e3, n_points)
+    xs = np.linspace(0, 2e2, n_points)
 
     threshold = 1e2
 
@@ -107,13 +107,12 @@ def viz_se_smooth():
     for alpha in np.linspace(0.1, 0.3, 2):
         for beta in np.linspace(0.9, 1.5, 3):
             ys = smooth(threshold, alpha, beta)(xs.copy())
-
             axis.plot(
                 xs, ys,
-                label='smoothed (alpha={:.1f}, beta={:.1f}'.format(alpha, beta)
+                label='smoothed (alpha={:.1f}, beta={:.1f})'.format(alpha, beta)
             )
 
-    axis.plot(xs, xs, label='MSE')
+    axis.plot(xs, xs, label='MSE (original)')
 
     axis.vlines(x=threshold, ymin=0, ymax=np.max(
         xs), linestyle=':', label='threshold')
@@ -122,6 +121,10 @@ def viz_se_smooth():
     axis.set_yscale('log')
 
     axis.legend(loc='upper left')
+    axis.set_xlabel('original loss')
+
+    plt.tight_layout()
+    plt.show()
 
 
 def viz_berhu():
@@ -133,11 +136,68 @@ def viz_berhu():
             return out
         return _f
 
-    xs = np.linspace(-2, 2, 1000)
-    ys = berhu(c)(xs)
-    plt.plot(xs, ys)
-    plt.vlines(x=c, ymin=0, ymax=np.max(ys))
+    xs = np.linspace(-5, 5, 1000)
+    _, axis = get_figa(1, 1, heigth=12, width=30)
 
+    for c in np.linspace(0.5, 2.5, 4):
+        ys = berhu(c)(xs)
+        axis.plot(
+            xs, ys,
+            label='berHu (threshold={:.3f})'.format(c)
+        )
+
+    axis.plot(
+        xs, np.square(xs),
+        '--',
+        label='L2',
+    )
+    axis.plot(
+        xs, np.abs(xs),
+        '--',
+        label='L1',
+    )
+
+    axis.set_xlim((xs[0], xs[-1]))
+    axis.legend(loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def viz_huber():
+    def huber(c):
+        def _f(x):
+            out = x.copy()
+            out[np.abs(x) <= c] = np.square(out[np.abs(x) <= c]) * 0.5
+            out[np.abs(x) > c] = c * (np.abs(out[np.abs(x) > c]) - 0.5 * c)
+            return out
+        return _f
+
+    xs = np.linspace(-5, 5, 1000)
+    _, axis = get_figa(1, 1, heigth=12, width=30)
+
+    for c in np.linspace(0.5, 2.5, 4):
+        ys = huber(c)(xs)
+        axis.plot(
+            xs, ys,
+            label='berHu (threshold={:.3f})'.format(c)
+        )
+
+    axis.plot(
+        xs, np.square(xs),
+        '--',
+        label='L2',
+    )
+    axis.plot(
+        xs, np.abs(xs),
+        '--',
+        label='L1',
+    )
+
+    axis.set_xlim((xs[0], xs[-1]))
+    axis.legend(loc='upper left')
+
+    plt.tight_layout()
     plt.show()
 
 
@@ -753,7 +813,11 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    debug_live_training()
+    #debug_live_training()
     #debug_noisy_kps()
     #viz_experiment_samples()
     #viz_2ds()
+
+    #viz_berhu()
+    #viz_huber()
+    #viz_se_smooth()

@@ -103,7 +103,7 @@ def iter_batch(batch, iter_i, model, model_type, opt, scheduler, config, dataloa
 
 def one_epoch(model, opt, scheduler, config, dataloader, device, epoch, minimon, is_train=True, master=False, experiment_dir=None):
     _iter_tag = 'epoch'
-    model_type = config.model.name
+    model_type = 'alg'  # todo vol config.model.name
 
     set_model_state(model, is_train)
 

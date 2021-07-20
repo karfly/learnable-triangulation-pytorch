@@ -54,7 +54,7 @@ class CanonPose(nn.Module):
         return self.rodrigues(xc)
 
     def forward(self, p2d, conf):
-        x = torch.cat((p2d, conf.unsqueeze(-1)), axis=-1)
+        x = torch.cat((p2d, conf), axis=-1)
         x = self.upscale(x)
         x = nn.LeakyReLU()(self.res_common(x))
 

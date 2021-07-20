@@ -265,7 +265,7 @@ def get_centroid(points):
     return points.mean(axis=0)
 
 
-def apply_umeyama(batch_gt, batch_pred, scaling=True):
+def apply_umeyama(batch_gt, batch_pred, rotation=True, scaling=True):
     def _f(gt, pred):
         pred_centered = pred - get_centroid(pred)
         gt_centered = gt - get_centroid(gt)
@@ -287,9 +287,14 @@ def apply_umeyama(batch_gt, batch_pred, scaling=True):
         else:
             c = 1.0
 
+        if rotation:
+            points = rotate_points(pred, R)
+        else:
+            points = pred
+
         # todo t
 
-        return rotate_points(pred, R) * c
+        return points * c
 
     return torch.cat([
         _f(batch_gt[i], batch_pred[i]).unsqueeze(0)

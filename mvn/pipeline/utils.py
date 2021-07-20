@@ -95,4 +95,4 @@ def backprop(opt, total_loss, scheduler, scheduler_metric, tag, params, clip=Non
         )
 
     opt.step()
-    scheduler.step(scheduler_metric)
+    scheduler.step()  # being deprecated where possible

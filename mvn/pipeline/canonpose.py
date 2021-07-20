@@ -49,12 +49,12 @@ def loss_weighted_rep_no_scale(inp, kps_world_pred, cam_rotations_pred, inp_conf
     diff = (inp_poses_scaled - rot_poses_scaled)\
         .abs()\
         .reshape(-1, 2, n_joints).sum(axis=1)
-    conf = (diff * inp_confidences).sum()
+    conf = (diff * inp_confidences.reshape((-1, n_joints))).sum()
     scale = inp_poses_scaled.shape[0] * inp_poses_scaled.shape[1]
     return conf / scale
 
 
-def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, keypoints_2d_pred, config):
+def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, config):
     dev = kps_world_pred.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     loss_weights = config.canonpose.loss
@@ -67,6 +67,7 @@ def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pre
         total_loss += loss_weights.rep * loss_rep
 
     # view and camera consistency are computed in the same loop
+    # "we emphasize that this loss is optional"
     loss_view, loss_camera = torch.tensor(0.0).to(dev), torch.tensor(0.0).to(dev)  # todo https://github.com/bastianwandt/CanonPose/blob/main/train.py#L116
 
     if loss_weights.view > 0:
@@ -107,11 +108,9 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         live_debug_log(_ITER_TAG, message)
 
         minimon.enter()
-
         backprop(
             opt, total_loss, scheduler,
-            total_loss,inp_confidences
-            _ITER_TAG, get_grad_params(model)
+            total_loss, _ITER_TAG, get_grad_params(model)
         )
         minimon.leave('backward pass')
 
@@ -129,12 +128,22 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
 
     minimon.enter()
     kps_world_pred, cam_rotations_pred = model(
-        detections[0], confidences_pred[0]  # todo all batches!
+        detections.reshape(-1, 2 * 17),  # flatten along all batches
+        confidences_pred.unsqueeze(-1).reshape(-1, 17)
     )
+    kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
+    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
 
     minimon.leave('forward')
 
     if is_train:
         _backprop()
+
+    kps_world_pred = apply_umeyama(
+        kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
+        kps_world_pred,
+        rotation=False,  # todo check
+        scaling=True
+    )
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

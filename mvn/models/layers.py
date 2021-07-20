@@ -100,7 +100,6 @@ class RodriguesBlock(nn.Module):
         """ https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation """
 
         # stolen from ceres/rotation.h
-
         _angle_axis = torch.unsqueeze(angle_axis, dim=1)
         theta2 = torch.matmul(_angle_axis, _angle_axis.transpose(1, 2))
         theta2 = torch.squeeze(theta2, dim=1)

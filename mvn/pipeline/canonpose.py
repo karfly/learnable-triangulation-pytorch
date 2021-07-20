@@ -9,19 +9,60 @@ from mvn.pipeline.preprocess import center2pelvis, normalize_keypoints
 from mvn.utils.misc import live_debug_log
 from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_cams_for_dlt
 from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, BerHuLoss, BodyLoss
-from mvn.utils.tred import apply_umeyama
+from mvn.utils.tred import apply_umeyama, rotate_points
 
 _ITER_TAG = 'canonpose'
 PELVIS_I = 6  # H3.6M
 
 
-def _compute_losses(pred, config):
-    dev = pred.device
+def loss_weighted_rep_no_scale(inp, kps_world_pred, cam_rotations_pred, inp_confidences):
+    """ the weighted reprojection loss as defined in Equation 5 """
+
+    n_joints = 17  # infer
+    n_xy_coords = 2 * n_joints
+    n_views = 4  # infer
+
+    def _rotate(kps_world_pred, cam_rotations_pred):
+        # reproject to original cameras after applying rotation to the canonical poses
+        return torch.cat([
+            rotate_points(
+                kps_world_pred[view_i], cam_rotations_pred[view_i]
+            ).unsqueeze(0)
+            for view_i in range(n_views)
+        ])
+
+    def _project(points3d):
+        return points3d[:, :n_xy_coords]  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
+
+    def _flatten(points3d):
+        return points3d.reshape((-1, n_views, n_joints * 3))
+
+    def _scale(flattened_points3d):
+        return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
+
+    inp_poses = _project(_flatten(inp))
+    inp_poses_scaled = _scale(inp_poses)  # normalize by scale
+
+    rot_poses = _project(_flatten(_rotate(kps_world_pred, cam_rotations_pred)))
+    rot_poses_scaled = _scale(rot_poses)  # normalize by scale
+
+    diff = (inp_poses_scaled - rot_poses_scaled)\
+        .abs()\
+        .reshape(-1, 2, n_joints).sum(axis=1)
+    conf = (diff * inp_confidences).sum()
+    scale = inp_poses_scaled.shape[0] * inp_poses_scaled.shape[1]
+    return conf / scale
+
+
+def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, keypoints_2d_pred, config):
+    dev = kps_world_pred.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     loss_weights = config.canonpose.loss
 
     # reprojection loss
-    loss_rep = torch.tensor(0.0).to(dev)  # todo https://github.com/bastianwandt/CanonPose/blob/main/train.py#L109
+    loss_rep = loss_weighted_rep_no_scale(
+        keypoints_2d, kps_world_pred, cam_rotations_pred, confidences
+    )
     if loss_weights.rep > 0:
         total_loss += loss_weights.rep * loss_rep
 
@@ -50,8 +91,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         minimon.enter()
 
         loss_rep, loss_view, loss_camera, total_loss = _compute_losses(
-            keypoints_2d_pred,
-            config
+            detections, confidences_pred, kps_world_pred, cam_rotations_pred, config
         )
 
         minimon.leave('compute loss')
@@ -70,7 +110,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
 
         backprop(
             opt, total_loss, scheduler,
-            total_loss,
+            total_loss,inp_confidences
             _ITER_TAG, get_grad_params(model)
         )
         minimon.leave('backward pass')
@@ -84,24 +124,17 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         pelvis_center_kps=True,
         normalization=config.ours.preprocess.normalize_kps,
         pelvis_i=PELVIS_I
-    ).to('cuda:0').type(torch.get_default_dtype())
+    ).to('cuda').type(torch.get_default_dtype())
+    confidences_pred = confidences_pred.to('cuda').type(torch.get_default_dtype())
 
     minimon.enter()
-    kps_world_pred, cam_angles_pred = model(
-        keypoints_2d_pred[0], confidences_pred[0]
+    kps_world_pred, cam_rotations_pred = model(
+        detections[0], confidences_pred[0]  # todo all batches!
     )
-
-    
-    cam_rotations_pred = torch.rand(4, 3, 3)  # todo rodrigues(cam_angles_pred)
-
-    # reproject to original cameras after applying rotation to the canonical poses
-    rot_poses = cam_rotations_pred.matmul(  # todo use `rotate_points`
-        kps_world_pred.reshape(-1, 3, config.canonpose.data.n_joints)
-    ).reshape(-1, 3 * config.canonpose.data.n_joints)
 
     minimon.leave('forward')
 
     if is_train:
         _backprop()
 
-    return torch.rand(kps_world_gt.shape[0], 17, 3)  # todo kps_world_pred.detach().cpu()  # no need for grad no more
+    return kps_world_pred.detach().cpu()  # no need for grad no more

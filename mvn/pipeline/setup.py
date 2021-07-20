@@ -216,7 +216,7 @@ def build_env(config, device):
         model = CanonPose(
             inner_size=config.canonpose.model.inner_size,
             n_joints=config.canonpose.data.n_joints
-        )
+        ).to(device)
         if config.canonpose.model.init_weights:
             load_checkpoint(model, config.ours.model.checkpoint)
         else:

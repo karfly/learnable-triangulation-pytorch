@@ -37,8 +37,17 @@ def loss_weighted_rep_no_scale(inp, kps_world_pred, cam_rotations_pred, inp_conf
     def _flatten(points3d, dims=3):
         return points3d.reshape((-1, n_views, n_joints * dims))
 
-    def _scale(flattened_points3d):
-        return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
+    def _scale(points, dims=2):
+        # return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
+
+        original_shape = points.shape
+        points = points.reshape((-1, n_joints * dims))
+        return torch.cat([
+            (
+                points[i] / torch.norm(points[i])  # / n_xy_coords
+            ).unsqueeze(0)
+            for i in range(points.shape[0])  # each view, across all batches
+        ]).reshape(original_shape)
 
     inp_poses = _project(_flatten(inp, dims=2))  # formally not a projection (these are the 2D detections)
     inp_poses_scaled = _scale(inp_poses)  # normalize by scale
@@ -81,7 +90,7 @@ def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pre
         __batch_i = np.random.randint(0, batch_size)
 
         print('pred batch {:.0f}'.format(__batch_i))
-        print(kps_world_pred[__batch_i, 0])
+        print(kps_world_pred[__batch_i])
 
     return loss_rep, loss_view, loss_camera, total_loss
 

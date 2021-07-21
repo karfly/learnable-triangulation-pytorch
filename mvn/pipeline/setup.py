@@ -24,6 +24,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
     image_shape = config.image_shape if hasattr(config, "image_shape") else (256, 256)
     scale_bbox = config.dataset.train.scale_bbox,
     kind = config.kind
+    opt = config[config.pipeline.model].opt
 
     if is_train:
         train_dataset = human36m.Human36MMultiViewDataset(
@@ -52,7 +53,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
 
         train_dataloader = DataLoader(
             train_dataset,
-            batch_size=config.opt.batch_size,
+            batch_size=opt.batch_size,
             shuffle=config.dataset.train.shuffle and (train_sampler is None), # debatable
             sampler=train_sampler,
             collate_fn=make_collate_fn(
@@ -92,7 +93,7 @@ def setup_human36m_dataloaders(config, is_train, distributed_train):
 
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=config.opt.val_batch_size if hasattr(config.opt, "val_batch_size") else config.opt.batch_size,
+        batch_size=opt.val_batch_size,
         shuffle=config.dataset.val.shuffle,
         collate_fn=make_collate_fn(
             randomize_n_views=config.dataset.val.randomize_n_views,

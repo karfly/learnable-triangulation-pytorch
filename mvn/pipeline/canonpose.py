@@ -63,7 +63,7 @@ def loss_weighted_rep_no_scale(inp, kps_world_pred, cam_rotations_pred, inp_conf
     return conf / scale
 
 
-def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, config):
+def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, kps_world_gt, config):
     dev = kps_world_pred.device
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     loss_weights = config.canonpose.loss
@@ -86,11 +86,13 @@ def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pre
         total_loss += loss_weights.camera * loss_camera
 
     if config.debug.show_live:
-        batch_size = keypoints_2d.shape[0]
+        batch_size = kps_world_pred.shape[0]
         __batch_i = np.random.randint(0, batch_size)
 
         print('pred batch {:.0f}'.format(__batch_i))
         print(kps_world_pred[__batch_i])
+        print('gt batch {:.0f}'.format(__batch_i))
+        print(kps_world_gt[__batch_i])
 
     return loss_rep, loss_view, loss_camera, total_loss
 
@@ -108,7 +110,12 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         minimon.enter()
 
         loss_rep, loss_view, loss_camera, total_loss = _compute_losses(
-            detections, confidences_pred, kps_world_pred, cam_rotations_pred, config
+            detections,
+            confidences_pred,
+            kps_world_pred,
+            cam_rotations_pred,
+            kps_world_gt,
+            config
         )
 
         minimon.leave('compute loss')

@@ -51,11 +51,14 @@ def do_train(config_path, logdir, config, device, is_distributed, master):
             os.makedirs(checkpoint_dir, exist_ok=True)
 
             if epoch % config.opt.save_every_n_epochs == 0:
-                if config.model.cam2cam_estimation:
-                    torch.save(cam2cam_model.state_dict(), os.path.join(checkpoint_dir, "cam2cam_model.pth"))
+                print('todo save model')
+                if config.pipeline.model in ['canonpose', 'ours']:
+                    f_name = '{}_model.pth'.format(config.pipeline.model)
+                    f_path = os.path.join(checkpoint_dir, f_name)
+                    torch.save(model.state_dict(), f_path)
 
-                    if not config.ours.data.using_gt:  # model was actually trained
-                        torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
+                    # if not config.ours.data.using_gt:  # model was actually trained
+                    #     torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
                 else:  # usual algebraic / vol model
                     torch.save(model.state_dict(), os.path.join(checkpoint_dir, "weights_model.pth"))
 

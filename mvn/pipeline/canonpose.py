@@ -26,21 +26,21 @@ def loss_weighted_rep_no_scale(inp, kps_world_pred, cam_rotations_pred, inp_conf
         # reproject to original cameras after applying rotation to the canonical poses
         return torch.cat([
             rotate_points(
-                kps_world_pred[view_i], cam_rotations_pred[view_i]
+                kps_world_pred[i], cam_rotations_pred[i]
             ).unsqueeze(0)
-            for view_i in range(n_views)
+            for i in range(kps_world_pred.shape[0])
         ])
 
     def _project(points3d):
-        return points3d[:, :n_xy_coords]  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
+        return points3d[..., :n_xy_coords]  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
 
-    def _flatten(points3d):
-        return points3d.reshape((-1, n_views, n_joints * 3))
+    def _flatten(points3d, dims=3):
+        return points3d.reshape((-1, n_views, n_joints * dims))
 
     def _scale(flattened_points3d):
         return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
 
-    inp_poses = _project(_flatten(inp))
+    inp_poses = _project(_flatten(inp, dims=2))  # formally not a projection (these are the 2D detections)
     inp_poses_scaled = _scale(inp_poses)  # normalize by scale
 
     rot_poses = _project(_flatten(_rotate(kps_world_pred, cam_rotations_pred)))
@@ -131,14 +131,14 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         detections.reshape(-1, 2 * 17),  # flatten along all batches
         confidences_pred.unsqueeze(-1).reshape(-1, 17)
     )
-    kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
-    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
 
     minimon.leave('forward')
 
     if is_train:
         _backprop()
 
+    kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
+    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
     kps_world_pred = apply_umeyama(
         kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
         kps_world_pred,

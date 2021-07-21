@@ -76,6 +76,13 @@ def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pre
     if loss_weights.camera > 0:
         total_loss += loss_weights.camera * loss_camera
 
+    if config.debug.show_live:
+        batch_size = keypoints_2d.shape[0]
+        __batch_i = np.random.randint(0, batch_size)
+
+        print('pred batch {:.0f}'.format(__batch_i))
+        print(kps_world_pred[__batch_i, 0])
+
     return loss_rep, loss_view, loss_camera, total_loss
 
 

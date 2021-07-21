@@ -155,6 +155,16 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
 
     kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
     kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
+
+    if config.canonpose.postprocess.force_pelvis_in_origin:
+        kps_world_pred = torch.cat([
+            torch.cat([
+                kps_world_pred[batch_i] -\
+                    kps_world_pred[batch_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+            ]).unsqueeze(0)
+            for batch_i in range(kps_world_pred.shape[0])
+        ])
+
     kps_world_pred = apply_umeyama(
         kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
         kps_world_pred,

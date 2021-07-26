@@ -245,7 +245,7 @@ def get_joints_index(joint_name):
 def is_vip(joint_i):
     vips = map(
         get_joints_index,
-        ['pelvis', 'head']
+        ['pelvis']
     )
 
     return joint_i in vips
@@ -316,16 +316,21 @@ def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
         for point_i in range(n_points):
             if is_vip(point_i):
                 marker, s = 'x', 100
+                axis.scatter(
+                    [ xs[point_i] ], [ ys[point_i] ], [ zs[point_i] ],
+                    marker=marker,
+                    s=s,
+                    color=color,
+                    label=label
+                )
             else:
                 marker, s = 'o', 10
-
-            axis.scatter(
-                [ xs[point_i] ], [ ys[point_i] ], [ zs[point_i] ],
-                marker=marker,
-                s=s,
-                color=colors[point_i],
-                label=label + ' {:.0f}'.format(point_i)
-            )
+                axis.scatter(
+                    [ xs[point_i] ], [ ys[point_i] ], [ zs[point_i] ],
+                    marker=marker,
+                    s=s,
+                    color=colors[point_i]
+                )
 
         print(label, 'centroid ~', keypoints_3d.mean(axis=0))
         print(label, 'pelvis ~', keypoints_3d[get_joints_index('pelvis')])
@@ -737,7 +742,6 @@ def debug_live_training():
         #axis.legend()
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
-
     axis = fig.add_subplot(1, 1, 1, projection='3d')
 
     compare_in_world(
@@ -813,7 +817,7 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    #debug_live_training()
+    debug_live_training()
     #debug_noisy_kps()
     #viz_experiment_samples()
     #viz_2ds()

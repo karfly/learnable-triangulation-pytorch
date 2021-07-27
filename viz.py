@@ -7,13 +7,15 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from mpl_toolkits.mplot3d import Axes3D  # https://stackoverflow.com/a/56222305
 
+from scipy.spatial.transform import Rotation as R
+
 from post.plots import get_figa
 from mvn.mini import get_config
 from mvn.pipeline.setup import setup_dataloaders
 from mvn.utils.multiview import build_intrinsics, Camera
-from mvn.utils.tred import get_cam_location_in_world, apply_umeyama
+from mvn.utils.tred import get_cam_location_in_world, apply_umeyama, rotz, rotation_matrix2axis_angle
 from mvn.pipeline.ours import PELVIS_I
-from mvn.models.loss import KeypointsMSESmoothLoss
+from mvn.models.loss import KeypointsMSESmoothLoss, GeodesicLoss
 
 
 def viz_geodesic():
@@ -41,13 +43,12 @@ def viz_geodesic():
     fig = plt.figure(figsize=plt.figaspect(1.5))
     axis = fig.add_subplot(1, 1, 1, projection='3d')
 
-    colors = plt.get_cmap('jet')(np.linspace(0, 1, rots.shape[0]))
     for aa, dist, color in zip(
         angle_axis.numpy(),
         distances.numpy(),
-        colors):
+        mcolors.TABLEAU_COLORS):
 
-        label = 'rotate by {:.1f} along [{:.1f}, {:.1f}, {:.1f}] => distance {:.1f}'.format(
+        label = 'rotate by {:.0f}° along [{:.1f}, {:.1f}, {:.1f}]: geodesic distance {:.2f}'.format(
             np.degrees(aa[-1]), aa[0], aa[1], aa[2], dist
         )
         axis.plot(
@@ -55,7 +56,7 @@ def viz_geodesic():
             [0, aa[1]],
             [0, aa[2]],  # ... to vec
             label=label,
-            color=color,
+            color=color
         )
 
     # show axis
@@ -64,23 +65,27 @@ def viz_geodesic():
         1, 0, 0,
         normalize=True,
         color='black',
+        linestyle='--'
     )
     axis.quiver(
         0, 0, 0,
         0, 1, 0,
         normalize=True,
         color='black',
+        linestyle='--'
     )
     axis.quiver(
         0, 0, 0,
         0, 0, 1,
         normalize=True,
         color='black',
+        linestyle='--'
     )
 
-    axis.set_xlim3d(-2.0, 2.0)
-    axis.set_ylim3d(-2.0, 2.0)
-    axis.set_zlim3d(-2.0, 2.0)
+    coord_lim = 1.0
+    axis.set_xlim3d(-coord_lim, coord_lim)
+    axis.set_ylim3d(-coord_lim, coord_lim)
+    axis.set_zlim3d(-coord_lim, coord_lim)
     axis.legend(loc='lower left')
     plt.tight_layout()
     plt.show()
@@ -817,11 +822,11 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    debug_live_training()
+    #debug_live_training()
     #debug_noisy_kps()
     #viz_experiment_samples()
     #viz_2ds()
-
+    viz_geodesic()
     #viz_berhu()
     #viz_huber()
     #viz_se_smooth()

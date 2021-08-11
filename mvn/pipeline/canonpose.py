@@ -179,14 +179,8 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
             confidences_pred.unsqueeze(-1).view(-1, n_joints)
         )
 
-    minimon.leave('forward')
-
-    if is_train:
-        _backprop()
-
-    kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
-
     if config.canonpose.postprocess.force_pelvis_in_origin:
+        kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
         kps_world_pred = torch.cat([
             torch.cat([
                 (
@@ -197,8 +191,15 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
             ]).unsqueeze(0)
             for batch_i in range(kps_world_gt.shape[0])
         ])
+        kps_world_pred = kps_world_pred.view((-1, n_joints, 3))
+
+    minimon.leave('forward')
+
+    if is_train:
+        _backprop()
 
     # need to .. it's unsupervised in the wild => canonical pose has no notion of scale
+    kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
     kps_world_pred = torch.cat([
         apply_umeyama(
             kps_world_gt[batch_i].repeat(n_cameras, 1, 1).to(kps_world_pred.device).type(torch.get_default_dtype()),

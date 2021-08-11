@@ -48,7 +48,7 @@ def get_config(config_path, data_folder='/home/stefano/Scuola/tud/_classes/4/the
     config.canonpose.model.inner_size = 16
     config.canonpose.opt.batch_size = 3
     config.canonpose.opt.val_batch_size = 3
-    config.canonpose.data.using_gt = True
+    config.canonpose.data.using_gt = False
 
     # pre-trained backbone detector
     config.classic.model.backbone.init_weights = False

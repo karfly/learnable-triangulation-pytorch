@@ -7,7 +7,7 @@ from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.pipeline.preprocess import normalize_keypoints
 from mvn.utils.misc import live_debug_log
-from mvn.utils.tred import apply_umeyama
+from mvn.utils.tred import apply_umeyama, rotate_points
 
 _ITER_TAG = 'canonpose'
 PELVIS_I = 6  # H3.6M
@@ -17,42 +17,28 @@ def _project_poses(points3d, n_joints=17):
     """ formally not a projection (these are the 2D detections) """
 
     dim_projection = 2  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
-    n_xy_coords = dim_projection * n_joints
-    return points3d[..., :n_xy_coords]
-
-
-def _rotate_points(points, R):
-    return torch.mm(
-        points,
-        R.type(points.dtype)
-    )
+    #rotate_anticlockwise_half = (torch.eye(2) * -1).to(points3d.device)
+    return points3d[..., 1:].reshape(-1, n_joints * dim_projection)
 
 
 def _rotate_poses(kps_world_pred, cam_rotations_pred):
     # reproject to original cameras after applying rotation to the canonical poses
     return torch.cat([
-        _rotate_points(
-            kps_world_pred[i], cam_rotations_pred[i]
-        ).unsqueeze(0)
+        rotate_points(kps_world_pred[i], cam_rotations_pred[i]).unsqueeze(0)
         for i in range(kps_world_pred.shape[0])
-    ])
+    ]).view(-1, 17, 3)  # todo batched
 
 
 def _flatten_poses(points3d, dims=3, n_views=4, n_joints=17):
-    return points3d.reshape((-1, n_views, n_joints * dims))
+    return points3d.view((-1, n_views, n_joints * dims))
 
 
 def _scale_poses(points, dims=2, n_joints=17):
     # return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
 
-    original_shape = points.shape
-    points = points.reshape((-1, n_joints * dims))
-    return torch.cat([
-        (
-            points[i] / torch.norm(points[i])  # / n_xy_coords
-        ).unsqueeze(0)
-        for i in range(points.shape[0])  # each view, across all batches
-    ]).reshape(original_shape)
+    points = points.view((-1, n_joints * dims))
+    scale = torch.sqrt(points.square().sum(axis=1, keepdim=True) / (17*2))
+    return points / scale
 
 
 def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
@@ -60,13 +46,12 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
 
     n_joints = 17  # infer
 
-    inp_poses = inp.reshape((-1, n_views, n_joints * 2))
-    inp_poses_scaled = _scale_poses(inp_poses)  # normalize by scale
-    rot_poses_scaled = _scale_poses(rot_poses)
+    inp_poses_scaled = _scale_poses(inp.view((-1, n_views, n_joints * 2)))
+    rot_poses_scaled = _scale_poses(rot_poses)  # normalize by scale
 
     diff = (inp_poses_scaled - rot_poses_scaled).abs()\
-        .reshape(-1, 2, n_joints).sum(axis=1)
-    conf = (diff * inp_confidences.reshape((-1, n_joints))).sum()
+        .view(-1, 2, n_joints).sum(axis=1)
+    conf = (diff * inp_confidences.view((-1, n_joints))).sum()
     scale = inp_poses_scaled.shape[0] * inp_poses_scaled.shape[1]
     return conf / scale
 
@@ -78,11 +63,11 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
     loss_weights = config.canonpose.loss
 
     # reprojection loss: from canonical space -> camera view using rotations
-    rot_poses = _project_poses(
-        _flatten_poses(_rotate_poses(kps_can_pred, cam_rotations_pred))
-    )
+    rot_poses = _rotate_poses(kps_can_pred, cam_rotations_pred)
     loss_rep = loss_weighted_rep_no_scale(
-        keypoints_2d, rot_poses, confidences
+        keypoints_2d,
+        _project_poses(rot_poses).view(-1, n_cameras, 17*2),
+        confidences
     )
     if loss_weights.rep > 0:
         total_loss += loss_weights.rep * loss_rep
@@ -104,9 +89,7 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
         )
         loss_view += loss_weighted_rep_no_scale(
             keypoints_2d.view(-1, n_cameras, 17, 2)[:, coi],
-            _project_poses(
-                _flatten_poses(kps_pred_rotated.view(-1, 17, 3), n_views=3)
-            ),
+            _project_poses(kps_pred_rotated),
             confidences.view(-1, n_cameras, 17)[:, coi],
             n_views=3
         )
@@ -174,16 +157,28 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
 
     minimon.enter()
     kps_world_pred, cam_rotations_pred = model(
-        detections.reshape(-1, 2 * 17),  # flatten along all batches
-        confidences_pred.unsqueeze(-1).reshape(-1, 17)
+        detections.view(-1, 2 * 17),  # flatten along all batches
+        confidences_pred.unsqueeze(-1).view(-1, 17)
     )
+
+    # kps_world_pred = torch.cat([
+    #     kps_world_gt[batch_i].unsqueeze(0).repeat(4, 1, 1).unsqueeze(0)
+    #     for batch_i in range(kps_world_gt.shape[0])
+    # ]).view(-1, 17, 3).type(torch.get_default_dtype())
+    # cam_rotations_pred = torch.cat([
+    #     torch.cat([
+    #         torch.tensor(cameras[view_i][batch_i].R).unsqueeze(0)
+    #         for view_i in range(4)
+    #     ]).unsqueeze(0)
+    #     for batch_i in range(kps_world_gt.shape[0])
+    # ]).to(kps_world_pred.device).type(torch.get_default_dtype()).view(-1, 3, 3)
 
     minimon.leave('forward')
 
     if is_train:
         _backprop()
 
-    kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
+    kps_world_pred = kps_world_pred.view((-1, 4, 17, 3))
     # kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
     # do not mean! they have different scales!!! need to score them separately!!!
     kps_world_pred = kps_world_pred[:, 0]

@@ -282,16 +282,21 @@ def draw_kps_in_2d(axis, keypoints_2d, label, marker='o', color='blue'):
         for point_i in range(n_points):
             if is_vip(point_i):
                 marker, s = 'x', 100
+                axis.scatter(
+                    [ xs[point_i] ], [ ys[point_i] ],
+                    marker=marker,
+                    s=s,
+                    color=color,
+                    label=label + ' {:.0f}'.format(point_i)
+                )
             else:
                 marker, s = 'o', 10
-            axis.scatter(
-                [ xs[point_i] ], [ ys[point_i] ],
-                marker=marker,
-                s=s,
-                color=colors[point_i],
-                label=label + ' {:.0f}'.format(point_i)
-            )
-
+                axis.scatter(
+                    [ xs[point_i] ], [ ys[point_i] ],
+                    marker=marker,
+                    s=s,
+                    color=colors[point_i]
+                )
 
 def draw_kps_in_3d(axis, keypoints_3d, label=None, marker='o', color='blue'):
     for joint_pair in get_joints_connections():
@@ -478,41 +483,41 @@ def viz_experiment_samples():
 
 def viz_2ds():
     keypoints_2d = torch.tensor([
-        [[ 4.2062e+00,  6.7325e+00],
-        [ 2.0345e+00, -3.5230e+00],
-        [-2.8494e+00, -1.8568e-01],
-        [ 2.7873e+00,  1.8163e-01],
-        [ 6.5186e+00, -3.7257e+00],
-        [ 9.0576e+00,  6.2431e+00],
-        [ 6.6884e-17,  2.2233e-16],
-        [-1.7581e-01, -4.0769e+00],
-        [ 4.0783e-01, -9.4050e+00],
-        [ 6.0908e-01, -1.1891e+01],
-        [-6.9443e+00, -6.1852e-01],
-        [-6.2157e+00, -5.2997e+00],
-        [-2.5951e+00, -9.4108e+00],
-        [ 3.1765e+00, -9.2050e+00],
-        [ 4.3549e+00, -6.6090e+00],
-        [ 5.2991e+00, -1.7056e+00],
-        [ 4.6859e-01, -9.4208e+00]],
+        [[-0.7149, -0.6313],
+        [-0.2398, -1.7478],
+        [ 0.6226, -0.1213],
+        [-0.6332,  0.1234],
+        [-1.1338, -1.6693],
+        [-1.6096, -0.5651],
+        [ 0.0000,  0.0000],
+        [ 0.0952, -0.3707],
+        [ 0.0594, -1.2940],
+        [ 0.0813, -2.0184],
+        [ 1.5861,  0.5403],
+        [ 1.5833, -0.0540],
+        [ 0.7864, -1.2376],
+        [-0.6403, -1.1892],
+        [-1.1282,  0.0094],
+        [-1.4676,  1.0504],
+        [ 0.0660, -1.5641]],
 
-        [[ 4.1949e+00,  6.0977e+00],
-        [ 1.7903e+00, -3.1798e+00],
-        [-2.7495e+00, -4.9575e-02],
-        [ 2.7858e+00,  4.6203e-02],
-        [ 5.8071e+00, -3.6465e+00],
-        [ 8.2556e+00,  5.7024e+00],
-        [ 3.1506e-15,  2.6259e-14],
-        [-3.3759e-01, -4.1778e+00],
-        [ 4.0149e-01, -9.8858e+00],
-        [ 6.8256e-01, -1.2303e+01],
-        [-7.5806e+00, -1.3962e-01],
-        [-7.1787e+00, -5.0212e+00],
-        [-2.8316e+00, -9.5914e+00],
-        [ 3.4574e+00, -1.0041e+01],
-        [ 5.0321e+00, -7.6827e+00],
-        [ 5.8696e+00, -2.1291e+00],
-        [ 4.4599e-01, -9.6818e+00]],
+        [[-0.2858,  2.0554],
+        [-1.1855,  0.9569],
+        [-0.0697,  0.1572],
+        [ 0.0697, -0.1572],
+        [-1.1385,  0.6649],
+        [-0.2571,  1.7649],
+        [ 0.0000,  0.0000],
+        [-0.3167, -0.6920],
+        [-0.9649, -1.2679],
+        [-1.4332, -1.1839],
+        [ 0.3208, -0.4679],
+        [-0.1497, -1.1632],
+        [-0.9260, -1.2249],
+        [-0.9058, -1.4335],
+        [-0.1885, -1.9754],
+        [ 0.5128, -1.5907],
+        [-1.1272, -0.9426]],
     ])
 
     _, axis = get_figa(1, 1, heigth=10, width=5)
@@ -520,13 +525,16 @@ def viz_2ds():
 
     for view_i, color in zip(range(keypoints_2d.shape[0]), colors):
         kps = keypoints_2d[view_i]
+        if view_i == 0:
+            kps = (torch.eye(2) * -1).matmul(kps.view(2, 17)).view(17, 2)
+
         norm = torch.norm(kps, p='fro') * 1e2
 
         label = 'view #{:0d} norm={:.2f}'.format(view_i, norm)
         draw_kps_in_2d(axis, kps.cpu().numpy(), label=label, color=color)
 
-    axis.set_ylim(axis.get_ylim()[::-1])  # invert
-    # axis.legend(loc='lower right')
+    #axis.set_ylim(axis.get_ylim()[::-1])  # invert
+    axis.legend(loc='lower right')
     
     plt.tight_layout()
     plt.show()
@@ -747,14 +755,13 @@ def debug_live_training():
         #axis.legend()
 
     fig = plt.figure(figsize=plt.figaspect(1.5))
-    axis = fig.add_subplot(1, 1, 1, projection='3d')
-
-    compare_in_world(
-        try2align=True,
-        scaling=True,
-        force_pelvis_in_origin=True,
-        show_metrics=True
-    )(axis, gt, pred)
+    # axis = fig.add_subplot(1, 1, 1, projection='3d')
+    # compare_in_world(
+    #     try2align=True,
+    #     scaling=True,
+    #     force_pelvis_in_origin=True,
+    #     show_metrics=True
+    # )(axis, gt, pred)
 
     # _compare_in_camspace(
     #     try2align=True,
@@ -763,8 +770,8 @@ def debug_live_training():
     #     from_master=0
     # )(axis, 1, cam_gt, cam_pred, gt, pred)
 
-    #axis = fig.add_subplot(1, 1, 1)
-    #_compare_in_proj(axis, cam_i=0, norm=False)
+    axis = fig.add_subplot(1, 1, 1)
+    _compare_in_proj(axis, cam_i=0, norm=False)
 
     # axis.legend(loc='lower left')
     plt.tight_layout()
@@ -822,10 +829,10 @@ def debug_noisy_kps():
 
 
 if __name__ == '__main__':
-    debug_live_training()
+    #debug_live_training()
     #debug_noisy_kps()
     #viz_experiment_samples()
-    #viz_2ds()
+    viz_2ds()
     #viz_geodesic()
     #viz_berhu()
     #viz_huber()

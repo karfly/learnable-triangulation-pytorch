@@ -43,7 +43,7 @@ class CanonPose(nn.Module):
     def _forward_pose(self, x):
         xp = nn.LeakyReLU()(self.res_pose1(x))
         xp = nn.LeakyReLU()(self.res_pose2(xp))
-        return self.pose3d(xp).reshape(-1, self.n_joints, 3)
+        return self.pose3d(xp).view(-1, self.n_joints, 3)
 
     def _forward_camera(self, x):
         xc = nn.LeakyReLU()(self.res_cam1(x))

@@ -18,8 +18,9 @@ PELVIS_I = 6  # H3.6M
 def _project_poses(points3d, n_joints=17):
     """ formally not a projection (these are the 2D detections) """
 
-    n_xy_coords = 2 * n_joints
-    return points3d[..., :n_xy_coords]  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
+    dim_projection = 2  # only the u,v coordinates are used and depth is ignored (this is a simple weak perspective projection)
+    n_xy_coords = dim_projection * n_joints
+    return points3d[..., :n_xy_coords]
 
 
 def _rotate_poses(kps_world_pred, cam_rotations_pred):
@@ -54,9 +55,7 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
 
     n_joints = 17  # infer
 
-    inp_poses = _project_poses(
-        _flatten_poses(inp, dims=2, n_views=n_views)
-    )
+    inp_poses = inp.reshape((-1, n_views, n_joints * 2))
     inp_poses_scaled = _scale_poses(inp_poses)  # normalize by scale
     rot_poses_scaled = _scale_poses(rot_poses)
 
@@ -67,15 +66,15 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
     return conf / scale
 
 
-def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pred, config):
-    dev = kps_world_pred.device
+def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred, config):
+    dev = kps_can_pred.device
     n_cameras = keypoints_2d.shape[1]
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     loss_weights = config.canonpose.loss
 
-    # reprojection loss
+    # reprojection loss: from canonical space -> camera view using rotations
     rot_poses = _project_poses(
-        _flatten_poses(_rotate_poses(kps_world_pred, cam_rotations_pred))
+        _flatten_poses(_rotate_poses(kps_can_pred, cam_rotations_pred))
     )
     loss_rep = loss_weighted_rep_no_scale(
         keypoints_2d, rot_poses, confidences
@@ -90,19 +89,18 @@ def _compute_losses(keypoints_2d, confidences, kps_world_pred, cam_rotations_pre
 
         # R of all other cameras
         rotations = cam_rotations_pred.view(-1, n_cameras, 3, 3)[:, coi]
-        kps_pred = kps_world_pred.view(-1, n_cameras, 17, 3)[:, c_cnt: c_cnt+1]\
+        kps_pred = kps_can_pred.view(-1, n_cameras, 17, 3)[:, c_cnt: c_cnt+1]\
             .repeat(1, n_cameras - 1, 1, 1)  # pose predicted in this camera
 
-        # rotate pose to other cameras
+        # rotate pose to other cameras: from canonical space -> other cameras
         kps_pred_rotated = _rotate_poses(
             kps_pred.view(-1, 17, 3),
             rotations.view(-1, 3, 3)
-        ).view(-1, 17, 3)
-
+        )
         loss_view += loss_weighted_rep_no_scale(
             keypoints_2d.view(-1, n_cameras, 17, 2)[:, coi],
             _project_poses(
-                _flatten_poses(kps_pred_rotated, n_views=3)
+                _flatten_poses(kps_pred_rotated.view(-1, 17, 3), n_views=3)
             ),
             confidences.view(-1, n_cameras, 17)[:, coi],
             n_views=3
@@ -181,7 +179,9 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         _backprop()
 
     kps_world_pred = kps_world_pred.reshape((-1, 4, 17, 3))
-    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
+    # kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
+    # do not mean! they have different scales!!! need to score them separately!!!
+    kps_world_pred = kps_world_pred[:, 0]
 
     if config.debug.show_live:
         batch_size = kps_world_gt.shape[0]

@@ -5,11 +5,9 @@ import torch
 
 from mvn.models.utils import get_grad_params
 from mvn.pipeline.utils import get_kp_gt, backprop
-from mvn.pipeline.preprocess import center2pelvis, normalize_keypoints
+from mvn.pipeline.preprocess import normalize_keypoints
 from mvn.utils.misc import live_debug_log
-from mvn.utils.multiview import triangulate_batch_of_points_in_cam_space,homogeneous_to_euclidean, euclidean_to_homogeneous, prepare_cams_for_dlt
-from mvn.models.loss import GeodesicLoss, MSESmoothLoss, KeypointsMSESmoothLoss, ProjectionLoss, ScaleIndependentProjectionLoss, BerHuLoss, BodyLoss
-from mvn.utils.tred import apply_umeyama, rotate_points
+from mvn.utils.tred import apply_umeyama
 
 _ITER_TAG = 'canonpose'
 PELVIS_I = 6  # H3.6M
@@ -23,10 +21,17 @@ def _project_poses(points3d, n_joints=17):
     return points3d[..., :n_xy_coords]
 
 
+def _rotate_points(points, R):
+    return torch.mm(
+        points,
+        R.type(points.dtype)
+    )
+
+
 def _rotate_poses(kps_world_pred, cam_rotations_pred):
     # reproject to original cameras after applying rotation to the canonical poses
     return torch.cat([
-        rotate_points(
+        _rotate_points(
             kps_world_pred[i], cam_rotations_pred[i]
         ).unsqueeze(0)
         for i in range(kps_world_pred.shape[0])

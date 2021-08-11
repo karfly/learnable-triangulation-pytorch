@@ -141,14 +141,14 @@ canonpose:
   loss:
     rep: 1.0
     view: 1.0
-    camera: 0.1
+    camera: 0.0
 
   opt:
     lr: 0.0001
-    weight_decay: 0.00001
+    weight_decay: 0.0
 
     n_epochs: 100
-    batch_size: 32
+    batch_size: 8
     val_batch_size: 32
 
 classic:

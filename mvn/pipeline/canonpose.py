@@ -67,7 +67,9 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
     loss_weights = config.canonpose.loss
 
     # reprojection loss: from canonical space -> camera view using rotations
-    rot_poses = _rotate_poses(kps_can_pred, cam_rotations_pred)
+    rot_poses = cam_rotations_pred.view(-1, 3, 3).matmul(
+        kps_can_pred.view(-1, 3, 17)
+    ).view(-1, 17, 3)  # rotate pose to other cameras: from canonical space -> other cameras
     loss_rep = loss_weighted_rep_no_scale(
         keypoints_2d,
         _project_poses(rot_poses).view(-1, n_cameras, 17*2),

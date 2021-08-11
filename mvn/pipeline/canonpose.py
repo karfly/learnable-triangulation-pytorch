@@ -183,16 +183,6 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
     # do not mean! they have different scales!!! need to score them separately!!!
     kps_world_pred = kps_world_pred[:, 0]
 
-    if config.debug.show_live:
-        batch_size = kps_world_gt.shape[0]
-
-        __batch_i = np.random.randint(0, batch_size)
-
-        print('pred batch {:.0f}'.format(__batch_i))
-        print(kps_world_pred[__batch_i])
-        print('gt batch {:.0f}'.format(__batch_i))
-        print(kps_world_gt[__batch_i])
-
     if config.canonpose.postprocess.force_pelvis_in_origin:
         kps_world_pred = torch.cat([
             torch.cat([
@@ -208,5 +198,15 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         rotation=False,  # todo check
         scaling=True
     )
+
+    if config.debug.show_live:
+        batch_size = kps_world_gt.shape[0]
+
+        __batch_i = np.random.randint(0, batch_size)
+
+        print('pred batch {:.0f}'.format(__batch_i))
+        print(kps_world_pred[__batch_i])
+        print('gt batch {:.0f}'.format(__batch_i))
+        print(kps_world_gt[__batch_i])
 
     return kps_world_pred.detach().cpu()  # no need for grad no more

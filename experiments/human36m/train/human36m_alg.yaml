@@ -125,6 +125,7 @@ canonpose:
     pelvis_in_origin: true
     using_noise: false
     n_joints: 17
+    using_gt: false
 
   preprocess:
     normalize_kps: "fro"

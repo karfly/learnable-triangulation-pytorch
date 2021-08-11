@@ -49,6 +49,10 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
     inp_poses_scaled = _scale_poses(inp.view((-1, n_views, n_joints * 2)))
     rot_poses_scaled = _scale_poses(rot_poses)  # normalize by scale
 
+    #print(inp_poses_scaled[0].view(17, 2))
+    #print(rot_poses_scaled[0].view(17, 2))
+    #1/0
+
     diff = (inp_poses_scaled - rot_poses_scaled).abs()\
         .view(-1, 2, n_joints).sum(axis=1)
     conf = (diff * inp_confidences.view((-1, n_joints))).sum()
@@ -80,16 +84,14 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
         # R of all other cameras
         rotations = cam_rotations_pred.view(-1, n_cameras, 3, 3)[:, coi]
         kps_pred = kps_can_pred.view(-1, n_cameras, 17, 3)[:, c_cnt: c_cnt+1]\
-            .repeat(1, n_cameras - 1, 1, 1)  # pose predicted in this camera
+            .repeat(1, n_cameras - 1, 1, 1)  # pose predicted in this camera = canonical pose in this camera
 
-        # rotate pose to other cameras: from canonical space -> other cameras
-        kps_pred_rotated = _rotate_poses(
-            kps_pred.view(-1, 17, 3),
-            rotations.view(-1, 3, 3)
-        )
+        kps_pred_rotated = rotations.matmul(
+            kps_pred.view(-1, n_cameras - 1, 3, 17)
+        )  # rotate pose to other cameras: from canonical space -> other cameras
         loss_view += loss_weighted_rep_no_scale(
             keypoints_2d.view(-1, n_cameras, 17, 2)[:, coi],
-            _project_poses(kps_pred_rotated),
+            _project_poses(kps_pred_rotated.view(-1, n_cameras - 1, 17, 3)),
             confidences.view(-1, n_cameras, 17)[:, coi],
             n_views=3
         )
@@ -153,51 +155,58 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         normalization=config.ours.preprocess.normalize_kps,
         pelvis_i=PELVIS_I
     ).to('cuda').type(torch.get_default_dtype())
+    n_cameras = detections.shape[1]
+    n_joints = detections.shape[2]
     confidences_pred = confidences_pred.to('cuda').type(torch.get_default_dtype())
 
     minimon.enter()
-    kps_world_pred, cam_rotations_pred = model(
-        detections.view(-1, 2 * 17),  # flatten along all batches
-        confidences_pred.unsqueeze(-1).view(-1, 17)
-    )
+    if config.canonpose.data.using_gt:
+        kps_world_pred = torch.cat([
+            kps_world_gt[batch_i].unsqueeze(0).repeat(n_cameras, 1, 1).unsqueeze(0)
+            for batch_i in range(kps_world_gt.shape[0])
+        ]).view(-1, n_joints, 3).type(torch.get_default_dtype())
 
-    # kps_world_pred = torch.cat([
-    #     kps_world_gt[batch_i].unsqueeze(0).repeat(4, 1, 1).unsqueeze(0)
-    #     for batch_i in range(kps_world_gt.shape[0])
-    # ]).view(-1, 17, 3).type(torch.get_default_dtype())
-    # cam_rotations_pred = torch.cat([
-    #     torch.cat([
-    #         torch.tensor(cameras[view_i][batch_i].R).unsqueeze(0)
-    #         for view_i in range(4)
-    #     ]).unsqueeze(0)
-    #     for batch_i in range(kps_world_gt.shape[0])
-    # ]).to(kps_world_pred.device).type(torch.get_default_dtype()).view(-1, 3, 3)
+        cam_rotations_pred = torch.cat([
+            torch.cat([
+                torch.tensor(cameras[view_i][batch_i].R).unsqueeze(0)
+                for view_i in range(n_cameras)
+            ]).unsqueeze(0)
+            for batch_i in range(kps_world_gt.shape[0])
+        ]).to(kps_world_pred.device).type(torch.get_default_dtype()).view(-1, 3, 3)
+    else:
+        kps_world_pred, cam_rotations_pred = model(
+            detections.view(-1, 2 * n_joints),  # flatten along all batches
+            confidences_pred.unsqueeze(-1).view(-1, n_joints)
+        )
 
     minimon.leave('forward')
 
     if is_train:
         _backprop()
 
-    kps_world_pred = kps_world_pred.view((-1, 4, 17, 3))
-    # kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
-    # do not mean! they have different scales!!! need to score them separately!!!
-    kps_world_pred = kps_world_pred[:, 0]
+    kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
 
     if config.canonpose.postprocess.force_pelvis_in_origin:
         kps_world_pred = torch.cat([
             torch.cat([
-                kps_world_pred[batch_i] -\
-                    kps_world_pred[batch_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+                (
+                    kps_world_pred[batch_i, view_i] -\
+                    kps_world_pred[batch_i, view_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+                ).unsqueeze(0)
+                for view_i in range(n_cameras)
             ]).unsqueeze(0)
-            for batch_i in range(kps_world_pred.shape[0])
+            for batch_i in range(kps_world_gt.shape[0])
         ])
 
-    kps_world_pred = apply_umeyama(
-        kps_world_gt.to(kps_world_pred.device).type(torch.get_default_dtype()),
-        kps_world_pred,
-        rotation=False,  # todo check
-        scaling=True
-    )
+    # need to .. it's unsupervised in the wild => canonical pose has no notion of scale
+    kps_world_pred = torch.cat([
+        apply_umeyama(
+            kps_world_gt[batch_i].repeat(n_cameras, 1, 1).to(kps_world_pred.device).type(torch.get_default_dtype()),
+            kps_world_pred[batch_i]
+        ).unsqueeze(0)
+        for batch_i in range(kps_world_gt.shape[0])
+    ])
+    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
 
     if config.debug.show_live:
         batch_size = kps_world_gt.shape[0]

@@ -21,11 +21,11 @@ def _project_poses(points3d, n_joints=17):
     return points3d[..., 1:].reshape(-1, n_joints * dim_projection)
 
 
-def _rotate_poses(kps_world_pred, cam_rotations_pred):
+def _rotate_poses(kps_can_pred, cam_rotations_pred):
     # reproject to original cameras after applying rotation to the canonical poses
     return torch.cat([
-        rotate_points(kps_world_pred[i], cam_rotations_pred[i]).unsqueeze(0)
-        for i in range(kps_world_pred.shape[0])
+        rotate_points(kps_can_pred[i], cam_rotations_pred[i]).unsqueeze(0)
+        for i in range(kps_can_pred.shape[0])
     ]).view(-1, 17, 3)  # todo batched
 
 
@@ -156,7 +156,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         loss_rep, loss_view, loss_camera, total_loss = _compute_losses(
             detections,
             confidences_pred,
-            kps_world_pred, cam_rotations_pred,
+            kps_can_pred, cam_rotations_pred,
             kps_world_gt, cameras,
             config
         )
@@ -176,7 +176,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         minimon.enter()
         backprop(
             opt, total_loss, scheduler,
-            total_loss, _ITER_TAG, get_grad_params(model)
+            total_loss, _ITER_TAG, get_grad_params(model), clip=False
         )
         minimon.leave('backward pass')
 
@@ -196,10 +196,13 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
 
     minimon.enter()
     if config.canonpose.data.using_gt:
-        kps_world_pred = torch.cat([
-            kps_world_gt[batch_i].unsqueeze(0).repeat(n_cameras, 1, 1).unsqueeze(0)
+        kps_can_pred = torch.cat([
+            torch.cat([
+                cameras[cam_i][batch_i].world2cam()(kps_world_gt[batch_i].cpu()).unsqueeze(0)
+                for cam_i in range(n_cameras)
+            ]).unsqueeze(0)
             for batch_i in range(kps_world_gt.shape[0])
-        ]).view(-1, n_joints, 3).type(torch.get_default_dtype())
+        ]).type(torch.get_default_dtype())
 
         cam_rotations_pred = torch.cat([
             torch.cat([
@@ -207,26 +210,26 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
                 for view_i in range(n_cameras)
             ]).unsqueeze(0)
             for batch_i in range(kps_world_gt.shape[0])
-        ]).to(kps_world_pred.device).type(torch.get_default_dtype()).view(-1, 3, 3)
+        ]).to(kps_can_pred.device).type(torch.get_default_dtype()).view(-1, 3, 3)
     else:
-        kps_world_pred, cam_rotations_pred = model(
+        kps_can_pred, cam_rotations_pred = model(
             detections.view(-1, 2 * n_joints),  # flatten along all batches
             confidences_pred.unsqueeze(-1).view(-1, n_joints)
         )
 
     if config.canonpose.postprocess.force_pelvis_in_origin:
-        kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
-        kps_world_pred = torch.cat([
+        kps_can_pred = kps_can_pred.view((-1, n_cameras, n_joints, 3))
+        kps_can_pred = torch.cat([
             torch.cat([
                 (
-                    kps_world_pred[batch_i, view_i] -\
-                    kps_world_pred[batch_i, view_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+                    kps_can_pred[batch_i, view_i] -\
+                    kps_can_pred[batch_i, view_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
                 ).unsqueeze(0)
                 for view_i in range(n_cameras)
             ]).unsqueeze(0)
             for batch_i in range(kps_world_gt.shape[0])
         ])
-        kps_world_pred = kps_world_pred.view((-1, n_joints, 3))
+        kps_can_pred = kps_can_pred.view((-1, n_joints, 3))
 
     minimon.leave('forward')
 
@@ -234,15 +237,15 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         _backprop()
 
     # need to .. it's unsupervised in the wild => canonical pose has no notion of scale
-    kps_world_pred = kps_world_pred.view((-1, n_cameras, n_joints, 3))
-    kps_world_pred = torch.cat([
+    kps_can_pred = kps_can_pred.view((-1, n_cameras, n_joints, 3))
+    kps_can_pred = torch.cat([
         apply_umeyama(
-            kps_world_gt[batch_i].repeat(n_cameras, 1, 1).to(kps_world_pred.device).type(torch.get_default_dtype()),
-            kps_world_pred[batch_i]
+            kps_world_gt[batch_i].repeat(n_cameras, 1, 1).to(kps_can_pred.device).type(torch.get_default_dtype()),
+            kps_can_pred[batch_i]
         ).unsqueeze(0)
         for batch_i in range(kps_world_gt.shape[0])
     ])
-    kps_world_pred = torch.mean(kps_world_pred, axis=1)  # across 1 batch
+    kps_can_pred = torch.mean(kps_can_pred, axis=1)  # across 1 batch
 
     if config.debug.show_live:
         batch_size = kps_world_gt.shape[0]
@@ -250,8 +253,8 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         __batch_i = np.random.randint(0, batch_size)
 
         print('pred batch {:.0f}'.format(__batch_i))
-        print(kps_world_pred[__batch_i])
+        print(kps_can_pred[__batch_i])
         print('gt batch {:.0f}'.format(__batch_i))
         print(kps_world_gt[__batch_i])
 
-    return kps_world_pred.detach().cpu()  # no need for grad no more
+    return kps_can_pred.detach().cpu()  # no need for grad no more

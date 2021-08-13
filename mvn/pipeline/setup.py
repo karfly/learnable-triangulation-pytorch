@@ -218,6 +218,7 @@ def build_env(config, device):
             inner_size=config.canonpose.model.inner_size,
             n_joints=config.canonpose.data.n_joints
         ).to(device)
+
         if config.canonpose.model.init_weights:
             load_checkpoint(model, config.ours.model.checkpoint)
         else:
@@ -230,10 +231,10 @@ def build_env(config, device):
                 'lr': config.canonpose.opt.lr
             }
         ]
-        opt = optim.Adam(
+        opt = optim.Adam(  # from https://github.com/bastianwandt/CanonPose/blob/main/train.py#L62
             params,
             lr=config.canonpose.opt.lr,
-            weight_decay=config.canonpose.opt.weight_decay
+            weight_decay=1e-5
         )
         scheduler = optim.lr_scheduler.MultiStepLR(
             opt, milestones=[30, 60, 90], gamma=0.1

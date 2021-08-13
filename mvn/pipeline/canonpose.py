@@ -73,16 +73,15 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
                 for view_i in range(n_cameras)
             ]).unsqueeze(0)
             for batch_i in range(kps_world_gt.shape[0])
-        ])
+        ]).view(-1, 17, 3)
         
         # ... and apply 3D loss there
         loss_in_cam = KeypointsMSESmoothLoss(threshold=1.0)(
-            kps_can_pred.view(-1, n_cameras, 17, 3) * config.canonpose.opt.scale_keypoints_3d,
+            kps_can_pred * config.canonpose.opt.scale_keypoints_3d,
             kps_cam_gt.to(dev) * config.canonpose.opt.scale_keypoints_3d
         )
         total_loss = loss_in_cam
     else:  # usual branch
-
         # reprojection loss: from canonical space -> camera view using rotations
         rot_poses = cam_rotations_pred.view(-1, 3, 3).matmul(
             kps_can_pred.view(-1, 3, 17)

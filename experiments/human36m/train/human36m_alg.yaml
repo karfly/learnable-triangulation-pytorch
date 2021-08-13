@@ -149,8 +149,8 @@ canonpose:
     lr: 0.0001
 
     n_epochs: 100
-    batch_size: 8
-    val_batch_size: 8
+    batch_size: 32
+    val_batch_size: 32
 
     scale_keypoints_3d: 0.001
     # mm -> m
@@ -220,7 +220,7 @@ dataset:
     max_n_views: 31
     num_workers: 1
 
-    retain_every_n_frames_in_train: 10000
+    retain_every_n_frames_in_train: 64
 # `10` => ~ 11872, `50` => ~ 2375, `100` => ~ 1188, `150` => ~ 792, `4000` => ~ 30, `10000` => ~ 12, `15000` => ~ 8
 
   val:

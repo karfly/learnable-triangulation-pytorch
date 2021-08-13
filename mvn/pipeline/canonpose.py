@@ -1,9 +1,9 @@
-import os
 import numpy as np
 
 import torch
 
 from mvn.models.utils import get_grad_params
+from mvn.models.loss import KeypointsMSESmoothLoss
 from mvn.pipeline.utils import get_kp_gt, backprop
 from mvn.pipeline.preprocess import normalize_keypoints
 from mvn.utils.misc import live_debug_log
@@ -60,50 +60,83 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
     return conf / scale
 
 
-def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred, config):
+def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred, kps_world_gt, cameras, config):
     dev = kps_can_pred.device
     n_cameras = keypoints_2d.shape[1]
     total_loss = torch.tensor(0.0).to(dev)  # real loss, the one grad is applied to
     loss_weights = config.canonpose.loss
 
-    # reprojection loss: from canonical space -> camera view using rotations
-    rot_poses = cam_rotations_pred.view(-1, 3, 3).matmul(
-        kps_can_pred.view(-1, 3, 17)
-    ).view(-1, 17, 3)  # rotate pose to other cameras: from canonical space -> other cameras
-    loss_rep = loss_weighted_rep_no_scale(
-        keypoints_2d,
-        _project_poses(rot_poses).view(-1, n_cameras, 17*2),
-        confidences
-    )
-    if loss_weights.rep > 0:
-        total_loss += loss_weights.rep * loss_rep
+    if config.canonpose.data.supervise_in_cam:  # debug only (call 12.08.2021)
+        loss_rep, loss_view, loss_camera = torch.tensor(0.0).to(dev), torch.tensor(0.0).to(dev), torch.tensor(0.0).to(dev)
 
-    loss_view = torch.tensor(0.0).to(dev)
-    for c_cnt in range(n_cameras):
-        ac = np.array(range(n_cameras))  # get all cameras and active cameras
-        coi = np.delete(ac, c_cnt)
+        # project gt world -> each view space ...
+        kps_cam_gt = torch.cat([
+            torch.cat([
+                cameras[cam_i][batch_i].world2cam()(kps_world_gt[batch_i].cpu())\
+                    .unsqueeze(0)
+                for cam_i in range(n_cameras)
+            ]).unsqueeze(0)
+            for batch_i in range(kps_world_gt.shape[0])
+        ])
 
-        # R of all other cameras
-        rotations = cam_rotations_pred.view(-1, n_cameras, 3, 3)[:, coi]
-        kps_pred = kps_can_pred.view(-1, n_cameras, 17, 3)[:, c_cnt: c_cnt+1]\
-            .repeat(1, n_cameras - 1, 1, 1)  # pose predicted in this camera = canonical pose in this camera
-
-        kps_pred_rotated = rotations.matmul(
-            kps_pred.view(-1, n_cameras - 1, 3, 17)
-        )  # rotate pose to other cameras: from canonical space -> other cameras
-        loss_view += loss_weighted_rep_no_scale(
-            keypoints_2d.view(-1, n_cameras, 17, 2)[:, coi],
-            _project_poses(kps_pred_rotated.view(-1, n_cameras - 1, 17, 3)),
-            confidences.view(-1, n_cameras, 17)[:, coi],
-            n_views=3
+        # move pelvis to origin
+        kps_cam_gt = torch.cat([
+            torch.cat([
+                (
+                    kps_cam_gt[batch_i, view_i] -\
+                    kps_cam_gt[batch_i, view_i, PELVIS_I].unsqueeze(0).repeat(17, 1)
+                ).unsqueeze(0)
+                for view_i in range(n_cameras)
+            ]).unsqueeze(0)
+            for batch_i in range(kps_world_gt.shape[0])
+        ])
+        
+        # ... and apply 3D loss there
+        loss_in_cam = KeypointsMSESmoothLoss(threshold=0.2*0.2)(
+            kps_can_pred.view(-1, n_cameras, 17, 3) * config.canonpose.opt.scale_keypoints_3d,
+            kps_cam_gt.to(dev) * config.canonpose.opt.scale_keypoints_3d
         )
+        total_loss = loss_in_cam
+    else:  # usual branch
 
-    if loss_weights.view > 0:
-        total_loss += loss_weights.view * loss_view
+        # reprojection loss: from canonical space -> camera view using rotations
+        rot_poses = cam_rotations_pred.view(-1, 3, 3).matmul(
+            kps_can_pred.view(-1, 3, 17)
+        ).view(-1, 17, 3)  # rotate pose to other cameras: from canonical space -> other cameras
+        loss_rep = loss_weighted_rep_no_scale(
+            keypoints_2d,
+            _project_poses(rot_poses).view(-1, n_cameras, 17*2),
+            confidences
+        )
+        if loss_weights.rep > 0:
+            total_loss += loss_weights.rep * loss_rep
 
-    loss_camera = torch.tensor(0.0).to(dev)  # "optional"
-    if loss_weights.camera > 0:
-        total_loss += loss_weights.camera * loss_camera
+        loss_view = torch.tensor(0.0).to(dev)
+        for c_cnt in range(n_cameras):
+            ac = np.array(range(n_cameras))  # get all cameras and active cameras
+            coi = np.delete(ac, c_cnt)
+
+            # R of all other cameras
+            rotations = cam_rotations_pred.view(-1, n_cameras, 3, 3)[:, coi]
+            kps_pred = kps_can_pred.view(-1, n_cameras, 17, 3)[:, c_cnt: c_cnt+1]\
+                .repeat(1, n_cameras - 1, 1, 1)  # pose predicted in this camera = canonical pose in this camera
+
+            kps_pred_rotated = rotations.matmul(
+                kps_pred.view(-1, n_cameras - 1, 3, 17)
+            )  # rotate pose to other cameras: from canonical space -> other cameras
+            loss_view += loss_weighted_rep_no_scale(
+                keypoints_2d.view(-1, n_cameras, 17, 2)[:, coi],
+                _project_poses(kps_pred_rotated.view(-1, n_cameras - 1, 17, 3)),
+                confidences.view(-1, n_cameras, 17)[:, coi],
+                n_views=3
+            )
+
+        if loss_weights.view > 0:
+            total_loss += loss_weights.view * loss_view
+
+        loss_camera = torch.tensor(0.0).to(dev)  # "optional"
+        if loss_weights.camera > 0:
+            total_loss += loss_weights.camera * loss_camera
 
     return loss_rep, loss_view, loss_camera, total_loss
 
@@ -123,8 +156,8 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
         loss_rep, loss_view, loss_camera, total_loss = _compute_losses(
             detections,
             confidences_pred,
-            kps_world_pred,
-            cam_rotations_pred,
+            kps_world_pred, cam_rotations_pred,
+            kps_world_gt, cameras,
             config
         )
 

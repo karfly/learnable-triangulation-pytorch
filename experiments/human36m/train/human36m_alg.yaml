@@ -126,6 +126,7 @@ canonpose:
     using_noise: false
     n_joints: 17
     using_gt: false
+    supervise_in_cam: true
 
   preprocess:
     normalize_kps: "fro"
@@ -151,6 +152,9 @@ canonpose:
     n_epochs: 100
     batch_size: 8
     val_batch_size: 8
+
+    scale_keypoints_3d: 0.001
+    # mm -> m
 
 classic:
   model:

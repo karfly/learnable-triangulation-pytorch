@@ -21,18 +21,6 @@ def _project_poses(points3d, n_joints=17):
     return points3d[..., 1:].reshape(-1, n_joints * dim_projection)
 
 
-def _rotate_poses(kps_can_pred, cam_rotations_pred):
-    # reproject to original cameras after applying rotation to the canonical poses
-    return torch.cat([
-        rotate_points(kps_can_pred[i], cam_rotations_pred[i]).unsqueeze(0)
-        for i in range(kps_can_pred.shape[0])
-    ]).view(-1, 17, 3)  # todo batched
-
-
-def _flatten_poses(points3d, dims=3, n_views=4, n_joints=17):
-    return points3d.view((-1, n_views, n_joints * dims))
-
-
 def _scale_poses(points, dims=2, n_joints=17):
     # return flattened_points3d / torch.sqrt(flattened_points3d.square().sum(axis=1, keepdim=True) / n_xy_coords)
 
@@ -48,10 +36,6 @@ def loss_weighted_rep_no_scale(inp, rot_poses, inp_confidences, n_views=4):
 
     inp_poses_scaled = _scale_poses(inp.view((-1, n_views, n_joints * 2)))
     rot_poses_scaled = _scale_poses(rot_poses)  # normalize by scale
-
-    #print(inp_poses_scaled[0].view(17, 2))
-    #print(rot_poses_scaled[0].view(17, 2))
-    #1/0
 
     diff = (inp_poses_scaled - rot_poses_scaled).abs()\
         .view(-1, 2, n_joints).sum(axis=1)
@@ -92,7 +76,7 @@ def _compute_losses(keypoints_2d, confidences, kps_can_pred, cam_rotations_pred,
         ])
         
         # ... and apply 3D loss there
-        loss_in_cam = KeypointsMSESmoothLoss(threshold=0.2*0.2)(
+        loss_in_cam = KeypointsMSESmoothLoss(threshold=1.0)(
             kps_can_pred.view(-1, n_cameras, 17, 3) * config.canonpose.opt.scale_keypoints_3d,
             kps_cam_gt.to(dev) * config.canonpose.opt.scale_keypoints_3d
         )
@@ -247,7 +231,7 @@ def batch_iter(epoch_i, indices, cameras, iter_i, model, opt, scheduler, images_
     ])
     kps_can_pred = torch.mean(kps_can_pred, axis=1)  # across 1 batch
 
-    if config.debug.show_live:
+    if config.debug.show_live and iter_i == 0:
         batch_size = kps_world_gt.shape[0]
 
         __batch_i = np.random.randint(0, batch_size)

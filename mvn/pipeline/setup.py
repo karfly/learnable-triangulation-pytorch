@@ -18,9 +18,9 @@ from mvn.models.canonpose import CanonPose
 
 def setup_human36m_dataloaders(config, is_train, distributed_train):
     resample_same_K = True
-    look_at_pelvis = config.pipeline.model == 'ours' and config.ours.data.look_at_pelvis
+    look_at_pelvis = (config.pipeline.model == 'ours' and config.ours.data.look_at_pelvis) or (config.pipeline.model == 'canonpose')
     pelvis_in_origin = (config.pipeline.model == 'ours' and config.ours.data.pelvis_in_origin and config.ours.cams.project == 'pinhole') or config.pipeline.model == 'canonpose'
-    scale2meters = config.ours.preprocess.scale2meters
+    scale2meters = config.pipeline.model == 'ours' and config.ours.preprocess.scale2meters
     image_shape = config.image_shape if hasattr(config, "image_shape") else (256, 256)
     scale_bbox = config.dataset.train.scale_bbox,
     kind = config.kind

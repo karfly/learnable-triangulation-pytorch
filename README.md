@@ -5,7 +5,7 @@ This repository is an official PyTorch implementation of the paper ["Learnable T
 
 If you find a bug, have a question or know to improve the code - please open an issue!
 
-:arrow_forward: [ICCV 2019 talk](https://conftube.com/video/zem03fZWLrQ?tocitem=100)
+:arrow_forward: [ICCV 2019 talk](https://youtu.be/zem03fZWLrQ?t=3477)
 
 <p align="center">
   <a href="http://www.youtube.com/watch?v=z3f3aPSuhqg">
@@ -14,13 +14,13 @@ If you find a bug, have a question or know to improve the code - please open an 
 </p>
 
 # How to use
-This project doesn't have any special or difficult-to-install dependencies. All installation can be down with:
+This project doesn't have any special or difficult-to-install dependencies. All installation can be done with:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Data
-*Note:* only [Human3.6M](http://vision.imar.ro/human3.6m/description.php) dataset training/evaluation is available right now. [CMU Panoptic](http://domedb.perception.cs.cmu.edu/) dataset will be added soon.
+Sorry, only [Human3.6M](http://vision.imar.ro/human3.6m/description.php) dataset training/evaluation is available right now. We cannot add [CMU Panoptic](http://domedb.perception.cs.cmu.edu/), sorry for that.
 
 #### Human3.6M
 1. Download and preprocess the dataset by following the instructions in [mvn/datasets/human36m_preprocessing/README.md](https://github.com/karfly/learnable-triangulation-pytorch/blob/master/mvn/datasets/human36m_preprocessing/README.md).

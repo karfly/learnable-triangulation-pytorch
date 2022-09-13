@@ -37,7 +37,7 @@ Here is how we do it (brace yourselves):
     cd $THIS_REPOSITORY/data/human36m/extra/una-dinosauria-data
     ```
     
-    Download `h36m.zip` from [Google Drive](https://drive.google.com/file/d/1PIqzOfdIYUVJudV5f22JpbAqDCTNMU8E/view?usp=sharing) and uzip it to current directory:
+    Download `h36m.zip` from [Google Drive](https://disk.yandex.ru/d/3gPRFzLSFpS27Q) and uzip it to current directory:
     ```bash
     unzip h36m.zip
     cd -
